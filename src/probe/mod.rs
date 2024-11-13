@@ -5,7 +5,7 @@ mod probe;
 
 pub use library::Library;
 pub use mapper::Mapper;
-pub use maps::MapSequenceToAlias;
+pub use maps::{MapIndexToAlias, MapSequenceToIndex};
 pub use probe::{Probe, ProbeAlias};
 
 pub type Sequence = Vec<u8>;

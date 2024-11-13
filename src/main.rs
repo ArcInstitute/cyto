@@ -18,12 +18,11 @@ fn main() -> Result<()> {
 
     for pair in PairedReader::new(filepath_r1, filepath_r2)? {
         let bus = pair.as_bus(barcode_size, umi_size);
-        let guide = guide_mapper.map(&bus.seq, offset);
+        let guide_index = guide_mapper.map(&bus.seq, offset);
         let probe = probe_mapper.map(&bus.seq, offset);
-        match (guide, probe) {
-            (Some(guide), Some(probe)) => {
-                println!("Guide: {:?}", guide);
-                println!("Probe: {:?}", probe);
+        match (guide_index, probe) {
+            (Some(g_idx), Some(p_idx)) => {
+                println!("Guide: {g_idx} :: Probe {p_idx}");
             }
             _ => {}
         }

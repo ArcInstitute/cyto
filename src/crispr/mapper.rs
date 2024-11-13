@@ -37,7 +37,7 @@ impl Mapper {
     ///     b. If not found, return None
     /// 3. Map the guide index to the guide name.
     /// 4. Return the guide name.
-    pub fn map(&self, sequence: &[u8], offset: usize) -> Option<&Name> {
+    pub fn map(&self, sequence: &[u8], offset: usize) -> Option<usize> {
         let (anchor_size, sequence_map) = self.map_anchor(sequence, offset)?;
         self.map_sequence(sequence, sequence_map, offset, anchor_size)
     }
@@ -60,14 +60,16 @@ impl Mapper {
         sequence_map: &MapSequenceToIndex,
         offset: usize,
         anchor_size: usize,
-    ) -> Option<&Name> {
+    ) -> Option<usize> {
         let lpos = offset + anchor_size;
         let rpos = lpos + self.anchor_to_sequence.sequence_size;
         let sequence = &sequence[lpos..rpos];
-        if let Some(index) = sequence_map.get(sequence) {
-            return self.index_to_name.get(*index);
-        }
-        None
+        sequence_map.get(sequence).copied()
+    }
+
+    /// Retrieves the guide name from the guide index.
+    pub fn get_name(&self, index: usize) -> Option<&Name> {
+        self.index_to_name.get(index)
     }
 
     /// Convenience method for listing all anchors (useful for debugging).
