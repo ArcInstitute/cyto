@@ -28,8 +28,8 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
             _ => {}
         }
     }
-
-    write_probe_matrices(&args.output, &probe_mapper, &counter)
+    let counts = counter.dedup_umi();
+    write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
@@ -42,8 +42,8 @@ fn bus(args: ArgsFlex) -> Result<()> {
             counter.increment(&bus, flex_index);
         }
     }
-
-    write_bus_matrix(&args.output, &counter)
+    let counts = counter.dedup_umi();
+    write_bus_matrix(&args.output, &counts)
 }
 
 pub fn run(args: ArgsFlex) -> Result<()> {

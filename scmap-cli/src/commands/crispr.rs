@@ -1,10 +1,12 @@
-use crate::cli::ArgsCrispr;
+use crate::{
+    cli::ArgsCrispr,
+    io::{write_bus_matrix, write_probe_matrices},
+};
 use anyhow::Result;
 use scmap::{
-    crispr::Library as CrisprLibrary, io::write_sparse_mtx, probe::Library as ProbeLibrary,
-    BusCounter, PairedReader, ProbeBusCounter,
+    crispr::Library as CrisprLibrary, probe::Library as ProbeLibrary, BusCounter, PairedReader,
+    ProbeBusCounter,
 };
-use std::{fs::File, io::BufWriter};
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let guide_mapper =
@@ -25,21 +27,8 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         }
     }
 
-    #[cfg(feature = "benchmarking")]
-    {
-        if args.output.skip_output {
-            return Ok(());
-        }
-    }
-
-    for p_idx in counter.iter_probes() {
-        let probe_alias = probe_mapper.get_alias(*p_idx).unwrap().name_str()?;
-        let output_path = format!("{}.{}.mtx", &args.output.prefix, probe_alias);
-        let mut output_handle = File::create(output_path).map(BufWriter::new)?;
-        let bus_counter = counter.get_probe_counter(*p_idx).unwrap();
-        write_sparse_mtx(&mut output_handle, bus_counter, args.output.with_header)?;
-    }
-    Ok(())
+    let counts = counter.dedup_umi();
+    write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
 pub fn bus(args: ArgsCrispr) -> Result<()> {
@@ -54,16 +43,8 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         }
     }
 
-    #[cfg(feature = "benchmarking")]
-    {
-        if args.output.skip_output {
-            return Ok(());
-        }
-    }
-
-    let output_path = format!("{}.mtx", &args.output.prefix);
-    let mut output_handle = File::create(output_path).map(BufWriter::new)?;
-    write_sparse_mtx(&mut output_handle, &counter, args.output.with_header)
+    let counts = counter.dedup_umi();
+    write_bus_matrix(&args.output, &counts)
 }
 
 pub fn run(args: ArgsCrispr) -> Result<()> {

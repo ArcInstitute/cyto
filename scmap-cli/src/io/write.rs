@@ -4,7 +4,10 @@ use std::{
 };
 
 use anyhow::Result;
-use scmap::{io::write_sparse_mtx, probe::Mapper as ProbeMapper, BusCounter, ProbeBusCounter};
+use scmap::{
+    io::write_sparse_mtx, probe::Mapper as ProbeMapper, BarcodeIndexCounter,
+    ProbeBarcodeIndexCounter,
+};
 
 use crate::cli::ArgsOutput;
 
@@ -29,7 +32,7 @@ fn open_file_handle(output_path: &str) -> Result<Box<dyn Write>> {
 pub fn write_probe_matrices(
     args: &ArgsOutput,
     mapper: &ProbeMapper,
-    counter: &ProbeBusCounter,
+    counter: &ProbeBarcodeIndexCounter,
 ) -> Result<()> {
     if skip_if_needed(args) {
         return Ok(());
@@ -44,17 +47,17 @@ pub fn write_probe_matrices(
         let output_path = format!("{}.{}.mtx", args.prefix, probe_alias);
 
         // Get the bus counter for the probe
-        let bus_counter = counter.get_probe_counter(*p_idx).unwrap();
+        let counts = counter.get_probe_counter(*p_idx).unwrap();
 
         // Write the BUS matrix to the output path
-        _write_bus_matrix(&output_path, bus_counter, args.with_header)?;
+        _write_bus_matrix(&output_path, counts, args.with_header)?;
     }
 
     Ok(())
 }
 
 /// Writes a single BUS matrix to a file
-pub fn write_bus_matrix(args: &ArgsOutput, counter: &BusCounter) -> Result<()> {
+pub fn write_bus_matrix(args: &ArgsOutput, counter: &BarcodeIndexCounter) -> Result<()> {
     // Only skip the matrix writing under certain compilation conditions and flags
     //
     // Ignored in production builds
@@ -74,7 +77,11 @@ pub fn write_bus_matrix(args: &ArgsOutput, counter: &BusCounter) -> Result<()> {
 /// This function is used to write a single BUS matrix to a file
 /// This function is fully parameterized and used by upstream convenience functions
 /// which handle the arguments and parameterization
-fn _write_bus_matrix(output_path: &str, counter: &BusCounter, with_header: bool) -> Result<()> {
+fn _write_bus_matrix(
+    output_path: &str,
+    counter: &BarcodeIndexCounter,
+    with_header: bool,
+) -> Result<()> {
     let mut output_handle = open_file_handle(&output_path)?;
     write_sparse_mtx(&mut output_handle, counter, with_header)
 }
