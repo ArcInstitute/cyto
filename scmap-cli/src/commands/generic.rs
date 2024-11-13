@@ -1,22 +1,25 @@
-use scmap::{mappers::MapperOffset, Counter, Mapper, PairedReader};
+use scmap::{
+    mappers::MapperOffset, BarcodeIndexCounter, BusCounter, Counter, Mapper, PairedReader,
+};
 
-pub fn map_pairs<M, C>(
+pub fn map_pairs<M>(
     reader: PairedReader,
-    counter: &mut C,
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
     barcode_size: usize,
     umi_size: usize,
-) where
+) -> BarcodeIndexCounter
+where
     M: Mapper,
-    C: Counter,
 {
+    let mut counter = BusCounter::default();
     for pair in reader {
         let bus = pair.as_bus(barcode_size, umi_size);
         if let Some(index) = target_mapper.map(&bus.seq, target_offset) {
             counter.increment(&bus, index);
         }
     }
+    counter.dedup_umi()
 }
 
 pub fn map_probed_pairs<Mt, Mp, C>(

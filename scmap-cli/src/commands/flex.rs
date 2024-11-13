@@ -6,7 +6,7 @@ use anyhow::Result;
 use scmap::{
     libraries::{FlexLibrary, ProbeLibrary},
     mappers::MapperOffset,
-    BusCounter, PairedReader, ProbeBusCounter,
+    PairedReader, ProbeBusCounter,
 };
 
 use super::{map_pairs, map_probed_pairs};
@@ -38,16 +38,13 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 fn bus(args: ArgsFlex) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
-    let mut counter = BusCounter::default();
-    map_pairs(
+    let counts = map_pairs(
         reader,
-        &mut counter,
         &target_mapper,
         None,
         args.geometry.barcode,
         args.geometry.umi,
     );
-    let counts = counter.dedup_umi();
     write_bus_matrix(&args.output, &counts)
 }
 
