@@ -1,14 +1,14 @@
+use super::maps::probe::{MapIndexToAlias, MapSequenceToIndex};
+use crate::{libraries::ProbeLibrary, metadata::ProbeAlias};
 use anyhow::Result;
 
-use super::{Library, MapIndexToAlias, MapSequenceToIndex, ProbeAlias};
-
 #[derive(Debug)]
-pub struct Mapper {
+pub struct ProbeMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_alias: MapIndexToAlias,
 }
-impl Mapper {
-    pub fn new(probe_library: Library) -> Result<Self> {
+impl ProbeMapper {
+    pub fn new(probe_library: ProbeLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();
         probe_library

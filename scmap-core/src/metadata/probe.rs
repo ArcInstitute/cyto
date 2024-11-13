@@ -1,4 +1,4 @@
-use super::{Alias, AliasNuc, Sequence};
+use crate::aliases::{Alias, AliasNuc, Sequence};
 use crate::io::utils::string_to_bytes;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

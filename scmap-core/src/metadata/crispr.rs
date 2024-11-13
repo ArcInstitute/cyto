@@ -1,4 +1,4 @@
-use super::{Anchor, Name, Sequence};
+use crate::aliases::{Anchor, Name, Sequence};
 use crate::io::utils::string_to_bytes;
 use serde::{Deserialize, Serialize};
 

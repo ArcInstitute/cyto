@@ -1,4 +1,4 @@
-use crate::RefNuc;
+use crate::aliases::RefNuc;
 
 pub struct Bus<'a> {
     pub barcode: RefNuc<'a>,

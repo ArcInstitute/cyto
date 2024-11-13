@@ -1,22 +1,6 @@
-use super::{Alias, AliasNuc, ProbeAlias, Sequence};
+use crate::aliases::{Name, Sequence};
 use anyhow::{bail, Result};
 use hashbrown::HashMap;
-
-#[derive(Default, Debug)]
-pub struct MapIndexToAlias {
-    map: HashMap<usize, ProbeAlias>,
-}
-impl MapIndexToAlias {
-    /// Insert an index-alias pairing into the map
-    pub fn insert(&mut self, index: usize, alias_nuc: AliasNuc, alias: Alias) {
-        self.map.insert(index, ProbeAlias::new(alias_nuc, alias));
-    }
-
-    /// Get an alias by index
-    pub fn get(&self, index: usize) -> Option<&ProbeAlias> {
-        self.map.get(&index)
-    }
-}
 
 #[derive(Default, Debug)]
 pub struct MapSequenceToIndex {
@@ -48,5 +32,21 @@ impl MapSequenceToIndex {
     /// Get a probe alias from the map given a sequence
     pub fn get(&self, sequence: &[u8]) -> Option<usize> {
         self.map.get(sequence).copied()
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct MapIndexToName {
+    map: HashMap<usize, Name>,
+}
+impl MapIndexToName {
+    /// Insert an index-alias pairing into the map
+    pub fn insert(&mut self, index: usize, name: Name) {
+        self.map.insert(index, name);
+    }
+
+    /// Get an alias by index
+    pub fn get(&self, index: usize) -> Option<&Name> {
+        self.map.get(&index)
     }
 }

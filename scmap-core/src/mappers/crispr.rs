@@ -1,13 +1,14 @@
-use super::{Library, MapAnchorToSequence, MapIndexToName, MapSequenceToIndex, Name};
+use super::maps::crispr::{MapAnchorToSequence, MapIndexToName, MapSequenceToIndex};
+use crate::{aliases::Name, libraries::CrisprLibrary};
 use anyhow::Result;
 
 #[derive(Debug)]
-pub struct Mapper {
+pub struct CrisprMapper {
     anchor_to_sequence: MapAnchorToSequence,
     index_to_name: MapIndexToName,
 }
-impl Mapper {
-    pub fn new(guide_library: Library) -> Result<Self> {
+impl CrisprMapper {
+    pub fn new(guide_library: CrisprLibrary) -> Result<Self> {
         let mut anchor_to_sequence = MapAnchorToSequence::default();
         let mut index_to_name = MapIndexToName::default();
 

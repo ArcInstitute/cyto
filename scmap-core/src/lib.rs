@@ -1,11 +1,10 @@
+pub mod aliases;
 mod counters;
-pub mod crispr;
-pub mod flex;
 mod geometry;
 pub mod io;
-pub mod probe;
-
-pub type RefNuc<'a> = &'a [u8];
+pub mod libraries;
+pub mod mappers;
+pub mod metadata;
 
 pub use counters::{BarcodeIndexCounter, BusCounter, ProbeBarcodeIndexCounter, ProbeBusCounter};
 pub use geometry::Bus;

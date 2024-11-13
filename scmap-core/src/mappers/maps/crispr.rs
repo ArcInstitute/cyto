@@ -1,4 +1,4 @@
-use super::{Anchor, Name, Sequence};
+use crate::aliases::{Anchor, Name, Sequence};
 use anyhow::{bail, Result};
 use hashbrown::{HashMap, HashSet};
 

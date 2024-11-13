@@ -1,13 +1,14 @@
-use super::{Library, MapIndexToName, MapSequenceToIndex, Name};
+use super::maps::flex::{MapIndexToName, MapSequenceToIndex};
+use crate::{aliases::Name, libraries::FlexLibrary};
 use anyhow::Result;
 
 #[derive(Debug)]
-pub struct Mapper {
+pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_name: MapIndexToName,
 }
-impl Mapper {
-    pub fn new(flex_library: Library) -> Result<Self> {
+impl FlexMapper {
+    pub fn new(flex_library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_name = MapIndexToName::default();
 

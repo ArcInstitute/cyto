@@ -1,36 +1,36 @@
-use std::path::PathBuf;
-
-use super::{Guide, Mapper};
 use anyhow::Result;
 use csv::ReaderBuilder;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+use crate::{mappers::ProbeMapper, metadata::Probe};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Library {
-    guides: Vec<Guide>,
+pub struct ProbeLibrary {
+    probes: Vec<Probe>,
 }
-impl Library {
+impl ProbeLibrary {
     pub fn from_tsv(path: PathBuf) -> Result<Self> {
         let mut reader = ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b'\t')
             .from_path(path)?;
 
-        let guides = reader
+        let probes = reader
             .deserialize()
             .map(|result| result.map_err(Into::into))
-            .collect::<Result<Vec<Guide>>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
-        Ok(Self { guides })
+        Ok(Self { probes })
     }
-    pub fn into_mapper(self) -> Result<Mapper> {
-        Mapper::new(self)
+    pub fn into_mapper(self) -> Result<ProbeMapper> {
+        ProbeMapper::new(self)
     }
 }
-impl Iterator for Library {
-    type Item = Guide;
+impl Iterator for ProbeLibrary {
+    type Item = Probe;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.guides.pop()
+        self.probes.pop()
     }
 }
