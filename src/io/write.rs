@@ -6,18 +6,24 @@ use anyhow::Result;
 pub struct BusCounterWriter<'a> {
     inner: &'a BusCounter,
     num_indices: usize,
+    with_header: bool,
 }
 impl<'a> BusCounterWriter<'a> {
-    pub fn new(inner: &'a BusCounter) -> Self {
+    pub fn new(inner: &'a BusCounter, with_header: bool) -> Self {
         let num_indices = inner.max_index();
-        Self { inner, num_indices }
+        Self {
+            inner,
+            num_indices,
+            with_header,
+        }
     }
 
     /// Writes a sparse MTX file to the given writer
     pub fn write_sparse<W: Write>(&self, writer: &mut W) -> Result<()> {
-        self.write_sparse_header(writer)?;
-        self.write_rows_sparse(writer)?;
-        Ok(())
+        if self.with_header {
+            self.write_sparse_header(writer)?;
+        }
+        self.write_rows_sparse(writer)
     }
 
     fn write_sparse_header<W: Write>(&self, writer: &mut W) -> Result<()> {
@@ -50,9 +56,10 @@ impl<'a> BusCounterWriter<'a> {
     /// Barcodes are written in rows, and indices are written in columns.
     /// Each cell contains the abundance of the barcode-index pair.
     pub fn write_matrix<W: Write>(&self, writer: &mut W) -> Result<()> {
-        self.write_header(writer)?;
-        self.write_rows(writer)?;
-        Ok(())
+        if self.with_header {
+            self.write_header(writer)?;
+        }
+        self.write_rows(writer)
     }
 
     fn write_header<W: Write>(&self, writer: &mut W) -> Result<()> {

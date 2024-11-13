@@ -9,6 +9,7 @@ fn main() -> Result<()> {
     let barcode_size = 16;
     let umi_size = 12;
     let offset = 26;
+    let write_header = true;
 
     let filepath_r1 = "./data/sample1_R1.fastq.gz";
     let filepath_r2 = "./data/sample1_R2.fastq.gz";
@@ -32,9 +33,8 @@ fn main() -> Result<()> {
         }
     }
 
-    let bus_counter_writer = BusCounterWriter::new(&bus_counter);
     let handle = stdout();
-    // bus_counter_writer.write_matrix(&mut handle.lock())?;
+    let bus_counter_writer = BusCounterWriter::new(&bus_counter, write_header);
     bus_counter_writer.write_sparse(&mut handle.lock())?;
 
     Ok(())
