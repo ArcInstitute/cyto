@@ -5,7 +5,8 @@ use crate::{
 use anyhow::Result;
 use scmap::{
     libraries::{FlexLibrary, ProbeLibrary},
-    BusCounter, PairedReader, ProbeBusCounter,
+    mappers::{Mapper, MapperOffset},
+    BusCounter, Counter, PairedReader, ProbeBusCounter,
 };
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
@@ -15,12 +16,12 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     let mut counter = ProbeBusCounter::default();
 
     // The expected start position of the probe sequence in the bus sequence
-    let probe_offset = flex_mapper.get_sequence_size() + args.flex.spacer;
+    let probe_offset = MapperOffset::RightOf(flex_mapper.get_sequence_size() + args.flex.spacer);
 
     for pair in PairedReader::new(&args.input.r1, &args.input.r2)? {
         let bus = pair.as_bus(args.geometry.barcode, args.geometry.umi);
-        let flex_index = flex_mapper.map(&bus.seq);
-        let probe = probe_mapper.map_right(&bus.seq, probe_offset);
+        let flex_index = flex_mapper.map(&bus.seq, None);
+        let probe = probe_mapper.map(&bus.seq, Some(probe_offset));
         match (flex_index, probe) {
             (Some(f_idx), Some(p_idx)) => {
                 counter.increment(p_idx, &bus, f_idx);
@@ -38,7 +39,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
 
     for pair in PairedReader::new(&args.input.r1, &args.input.r2)? {
         let bus = pair.as_bus(args.geometry.barcode, args.geometry.umi);
-        if let Some(flex_index) = flex_mapper.map(&bus.seq) {
+        if let Some(flex_index) = flex_mapper.map(&bus.seq, None) {
             counter.increment(&bus, flex_index);
         }
     }
