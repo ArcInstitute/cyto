@@ -351,7 +351,7 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 
 [[package]]
 name = "scmap"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "csv",
@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "scmap-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
