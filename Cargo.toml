@@ -5,3 +5,6 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1.0.93"
 serde = { version = "1.0.214", features = ["derive"] }
+
+[profile.release]
+debug = true
