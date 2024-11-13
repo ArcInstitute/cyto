@@ -1,0 +1,11 @@
+[package]
+name = "scmap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.93"
+bon = "2.3.0"
+fxread = "0.2.14"
+niffler = "2.6.0"
+seq_io = "0.3.2"
