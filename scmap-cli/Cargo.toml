@@ -1,0 +1,14 @@
+[package]
+name = "scmap-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.20", features = ["derive"] }
+scmap = { path = "../scmap-core" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+
+[[bin]]
+name = "scmap"
+path = "src/main.rs"

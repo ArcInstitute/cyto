@@ -1,0 +1,12 @@
+[package]
+name = "scmap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+csv = "1.3.0"
+fxread = "0.2.14"
+hashbrown = "0.15.1"
+niffler = "2.6.0"
+anyhow = { workspace = true }
+serde = { workspace = true }
