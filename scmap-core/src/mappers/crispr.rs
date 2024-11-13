@@ -6,7 +6,7 @@ use super::{
 use crate::{aliases::Name, libraries::CrisprLibrary};
 use anyhow::Result;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CrisprMapper {
     anchor_to_sequence: MapAnchorToSequence,
     index_to_name: MapIndexToName,

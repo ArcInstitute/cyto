@@ -5,7 +5,7 @@ use super::{
 use crate::{libraries::ProbeLibrary, metadata::ProbeAlias};
 use anyhow::Result;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProbeMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_alias: MapIndexToAlias,

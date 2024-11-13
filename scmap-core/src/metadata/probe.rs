@@ -13,7 +13,7 @@ pub struct Probe {
     pub alias: Alias,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProbeAlias {
     pub nucleotides: AliasNuc,
     pub name: Alias,

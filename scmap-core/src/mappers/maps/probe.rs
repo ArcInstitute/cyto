@@ -5,7 +5,7 @@ use crate::{
 use anyhow::{bail, Result};
 use hashbrown::HashMap;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MapIndexToAlias {
     map: HashMap<usize, ProbeAlias>,
 }
@@ -21,7 +21,7 @@ impl MapIndexToAlias {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MapSequenceToIndex {
     map: HashMap<Sequence, usize>,
     pub sequence_size: usize,

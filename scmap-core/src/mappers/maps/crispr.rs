@@ -2,7 +2,7 @@ use crate::aliases::{Anchor, Name, Sequence};
 use anyhow::{bail, Result};
 use hashbrown::{HashMap, HashSet};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MapIndexToName {
     map: HashMap<usize, Name>,
 }
@@ -17,7 +17,7 @@ impl MapIndexToName {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MapSequenceToIndex {
     map: HashMap<Sequence, usize>,
 }
@@ -33,7 +33,7 @@ impl MapSequenceToIndex {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MapAnchorToSequence {
     map: HashMap<Anchor, MapSequenceToIndex>,
     pub anchor_sizes: HashSet<usize>,

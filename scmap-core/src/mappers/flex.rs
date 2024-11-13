@@ -5,7 +5,7 @@ use super::{
 use crate::{aliases::Name, libraries::FlexLibrary};
 use anyhow::Result;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_name: MapIndexToName,

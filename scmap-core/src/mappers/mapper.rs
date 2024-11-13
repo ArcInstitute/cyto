@@ -16,7 +16,7 @@ impl From<MapperOffset> for usize {
     }
 }
 
-pub trait Mapper {
+pub trait Mapper: Clone {
     fn map(&self, seq: &[u8], offset: Option<MapperOffset>) -> Option<usize>;
 }
 
