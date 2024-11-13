@@ -1,5 +1,6 @@
 use super::{Alias, AliasNuc, Sequence};
 use crate::io::utils::string_to_bytes;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,5 +21,11 @@ pub struct ProbeAlias {
 impl ProbeAlias {
     pub fn new(nucleotides: AliasNuc, name: Alias) -> Self {
         Self { nucleotides, name }
+    }
+    pub fn name_str(&self) -> Result<&str, std::str::Utf8Error> {
+        std::str::from_utf8(&self.name)
+    }
+    pub fn nucleotides_str(&self) -> Result<&str, std::str::Utf8Error> {
+        std::str::from_utf8(&self.nucleotides)
     }
 }

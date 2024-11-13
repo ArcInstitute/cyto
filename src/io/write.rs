@@ -1,7 +1,15 @@
-use std::io::Write;
-
 use crate::BusCounter;
 use anyhow::Result;
+use std::io::Write;
+
+pub fn write_sparse_mtx<W: Write>(
+    writer: &mut W,
+    bus_counter: &BusCounter,
+    with_header: bool,
+) -> Result<()> {
+    let bcw = BusCounterWriter::new(bus_counter, with_header);
+    bcw.write_sparse(writer)
+}
 
 pub struct BusCounterWriter<'a> {
     inner: &'a BusCounter,

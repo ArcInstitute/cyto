@@ -3,4 +3,4 @@ pub mod utils;
 mod write;
 
 pub use paired::PairedReader;
-pub use write::BusCounterWriter;
+pub use write::write_sparse_mtx;
