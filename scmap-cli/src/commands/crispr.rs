@@ -7,7 +7,7 @@ use anyhow::Result;
 use scmap::{
     libraries::{CrisprLibrary, ProbeLibrary},
     mappers::MapperOffset,
-    PairedReader, ProbeBusCounter,
+    PairedReader,
 };
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
@@ -16,13 +16,11 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
     let probe_mapper =
         ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?.into_mapper()?;
-    let mut counter = ProbeBusCounter::default();
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
-    map_probed_pairs(
+    let counts = map_probed_pairs(
         reader,
-        &mut counter,
         &target_mapper,
         &probe_mapper,
         Some(target_offset),
@@ -31,7 +29,6 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.umi,
     );
 
-    let counts = counter.dedup_umi();
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
