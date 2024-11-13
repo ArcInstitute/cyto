@@ -4,8 +4,8 @@ use crate::{
 };
 use anyhow::Result;
 use scmap::{
-    flex::Library as FlexLibrary, probe::Library as ProbeLibrary, BusCounter, PairedReader,
-    ProbeBusCounter,
+    libraries::{FlexLibrary, ProbeLibrary},
+    BusCounter, PairedReader, ProbeBusCounter,
 };
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {

@@ -4,8 +4,8 @@ use crate::{
 };
 use anyhow::Result;
 use scmap::{
-    crispr::Library as CrisprLibrary, probe::Library as ProbeLibrary, BusCounter, PairedReader,
-    ProbeBusCounter,
+    libraries::{CrisprLibrary, ProbeLibrary},
+    BusCounter, PairedReader, ProbeBusCounter,
 };
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {

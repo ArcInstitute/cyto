@@ -1,15 +1,12 @@
+use crate::cli::ArgsOutput;
+use anyhow::Result;
+use scmap::{
+    io::write_sparse_mtx, mappers::ProbeMapper, BarcodeIndexCounter, ProbeBarcodeIndexCounter,
+};
 use std::{
     fs::File,
     io::{BufWriter, Write},
 };
-
-use anyhow::Result;
-use scmap::{
-    io::write_sparse_mtx, probe::Mapper as ProbeMapper, BarcodeIndexCounter,
-    ProbeBarcodeIndexCounter,
-};
-
-use crate::cli::ArgsOutput;
 
 /// Checks compilation flags and arguments to determine if the output writing should be skipped
 fn skip_if_needed(_args: &ArgsOutput) -> bool {
