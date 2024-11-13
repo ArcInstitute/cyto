@@ -1,14 +1,17 @@
+use super::{BarcodeIndexCounter, BarcodeSet, Index, TrackedIndexCounter, UmiSet};
 use crate::Bus;
-use hashbrown::{HashMap, HashSet};
 
-type Barcode = Vec<u8>;
-type Umi = Vec<u8>;
-type Index = usize;
-
-type UmiSet = HashSet<Umi>;
-type IndexSet = HashMap<Index, UmiSet>;
-type BarcodeSet = HashMap<Barcode, IndexSet>;
-
+/// `BusCounter` is a data structure that manages the counts of UMIs for each barcode and index
+///
+/// It handles UMI deduplication and keeps track of the maximum index seen to determine the number of columns in the output matrix
+///
+/// Internally it can be thought of as a sparse 3 dimensional matrix where the dimensions are:
+/// 1. Barcode
+/// 2. Index
+/// 3. UMI
+/// 4. Count (the value of each coordinate is the number of times that combination of barcode, index, and UMI was seen)
+///
+/// UMI deduplication is done by returning the maximum index for each Barcode-Umi pair.
 #[derive(Default, Debug)]
 pub struct BusCounter {
     map: BarcodeSet,
@@ -17,34 +20,36 @@ pub struct BusCounter {
 impl BusCounter {
     /// Increments the counter for the given Bus and index
     pub fn increment(&mut self, bus: &Bus, index: Index) {
-        self.ensure_barcode_exists(bus.barcode);
-        self.ensure_index_exists(bus.barcode, index);
-        self.add_umi(bus.barcode, index, bus.umi);
+        self.increment_index(bus.barcode, bus.umi, index);
         self.update_max_index(index);
     }
 
-    /// Ensures that the barcode exists in the map
+    /// Ensures that the barcode exists in the map by inserting it if it does not
     fn ensure_barcode_exists(&mut self, barcode: &[u8]) {
         if !self.map.contains_key(barcode) {
-            self.map.insert(barcode.to_vec(), HashMap::new());
+            self.map.insert(barcode.to_vec(), UmiSet::default());
         }
     }
 
-    /// Ensures that the index exists for the given barcode
-    fn ensure_index_exists(&mut self, barcode: &[u8], index: Index) {
-        let index_set = self.map.get_mut(barcode).unwrap();
-        if !index_set.contains_key(&index) {
-            index_set.insert(index, HashSet::new());
+    /// Ensures that the UMI exists for the given barcode by inserting it if it does not
+    fn ensure_umi_exists(&mut self, barcode: &[u8], umi: &[u8]) {
+        let umi_set = self.map.get_mut(barcode).unwrap();
+        if !umi_set.contains_key(umi) {
+            umi_set.insert(umi.to_vec(), TrackedIndexCounter::default());
         }
     }
 
-    /// Adds a UMI to the set for the given barcode and index
-    fn add_umi(&mut self, barcode: &[u8], index: Index, umi: &[u8]) {
-        let index_set = self.map.get_mut(barcode).unwrap();
-        let umi_set = index_set.get_mut(&index).unwrap();
-        if !umi_set.contains(umi) {
-            umi_set.insert(umi.to_vec());
-        }
+    /// Increments the `Index` count for the given `Barcode` and `Umi`
+    fn increment_index(&mut self, barcode: &[u8], umi: &[u8], index: Index) {
+        // Handles path initialization and validation within the tree
+        self.ensure_barcode_exists(barcode);
+        self.ensure_umi_exists(barcode, umi);
+
+        // Selects the necessary node within the tree
+        let umi_set = self.map.get_mut(barcode).unwrap();
+        let index_counts = umi_set.get_mut(umi).unwrap();
+        index_counts.increment(index);
+        // umi_set.increment(umi, index);
     }
 
     /// Updates the maximum index seen so far
@@ -53,15 +58,9 @@ impl BusCounter {
         self.max_index = self.max_index.max(index);
     }
 
-    /// Gets the number of UMIs for a given barcode and index
-    /// Returns Some(0) if the index does not exist
-    /// Returns None if the barcode does not exist
-    pub fn get_index_abundance(&self, barcode: &[u8], index: Index) -> Option<usize> {
-        if let Some(index_set) = self.map.get(barcode) {
-            index_set.get(&index).map(|set| set.len()).or(Some(0))
-        } else {
-            None
-        }
+    /// Returns the UMI set for a given barcode
+    pub fn get_umi_set(&self, barcode: &[u8]) -> Option<&UmiSet> {
+        self.map.get(barcode)
     }
 
     /// Gets the number of barcodes in the map
@@ -76,5 +75,9 @@ impl BusCounter {
 
     pub fn max_index(&self) -> Index {
         self.max_index
+    }
+
+    pub fn dedup_umi(&self) -> BarcodeIndexCounter {
+        BarcodeIndexCounter::from_counter(&self)
     }
 }

@@ -2,7 +2,7 @@ use hashbrown::HashMap;
 
 use crate::Bus;
 
-use super::BusCounter;
+use super::{BarcodeIndexCounter, BusCounter};
 
 #[derive(Default, Debug)]
 pub struct ProbeBusCounter {
@@ -25,6 +25,32 @@ impl ProbeBusCounter {
     }
 
     pub fn get_probe_counter(&self, p_idx: usize) -> Option<&BusCounter> {
+        self.map.get(&p_idx)
+    }
+
+    pub fn dedup_umi(&self) -> ProbeBarcodeIndexCounter {
+        ProbeBarcodeIndexCounter::from_probe_bus_counter(&self)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct ProbeBarcodeIndexCounter {
+    map: HashMap<usize, BarcodeIndexCounter>,
+}
+impl ProbeBarcodeIndexCounter {
+    pub fn from_probe_bus_counter(probe_bus_counter: &ProbeBusCounter) -> Self {
+        let mut map = HashMap::new();
+        for (p_idx, bus_counter) in &probe_bus_counter.map {
+            map.insert(*p_idx, BarcodeIndexCounter::from_counter(bus_counter));
+        }
+        Self { map }
+    }
+
+    pub fn iter_probes(&self) -> impl Iterator<Item = &usize> {
+        self.map.keys()
+    }
+
+    pub fn get_probe_counter(&self, p_idx: usize) -> Option<&BarcodeIndexCounter> {
         self.map.get(&p_idx)
     }
 }

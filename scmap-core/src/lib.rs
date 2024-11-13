@@ -7,6 +7,6 @@ pub mod probe;
 
 pub type RefNuc<'a> = &'a [u8];
 
-pub use counters::{BusCounter, ProbeBusCounter};
+pub use counters::{BarcodeIndexCounter, BusCounter, ProbeBarcodeIndexCounter, ProbeBusCounter};
 pub use geometry::Bus;
 pub use io::PairedReader;
