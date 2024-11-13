@@ -59,35 +59,35 @@ impl<'a> BusCounterWriter<'a> {
         Ok(())
     }
 
-    /// Writes a 2D matrix to a writer.
-    ///
-    /// Barcodes are written in rows, and indices are written in columns.
-    /// Each cell contains the abundance of the barcode-index pair.
-    pub fn write_matrix<W: Write>(&self, writer: &mut W) -> Result<()> {
-        if self.with_header {
-            self.write_header(writer)?;
-        }
-        self.write_rows(writer)
-    }
+    // /// Writes a 2D matrix to a writer.
+    // ///
+    // /// Barcodes are written in rows, and indices are written in columns.
+    // /// Each cell contains the abundance of the barcode-index pair.
+    // pub fn write_matrix<W: Write>(&self, writer: &mut W) -> Result<()> {
+    //     if self.with_header {
+    //         self.write_header(writer)?;
+    //     }
+    //     self.write_rows(writer)
+    // }
 
-    fn write_header<W: Write>(&self, writer: &mut W) -> Result<()> {
-        write!(writer, "barcode")?;
-        for index in 0..self.num_indices {
-            write!(writer, "\t{}", index)?;
-        }
-        writeln!(writer)?;
-        Ok(())
-    }
+    // fn write_header<W: Write>(&self, writer: &mut W) -> Result<()> {
+    //     write!(writer, "barcode")?;
+    //     for index in 0..self.num_indices {
+    //         write!(writer, "\t{}", index)?;
+    //     }
+    //     writeln!(writer)?;
+    //     Ok(())
+    // }
 
-    fn write_rows<W: Write>(&self, writer: &mut W) -> Result<()> {
-        for barcode in self.inner.iter_barcodes() {
-            write!(writer, "{}", std::str::from_utf8(barcode)?)?;
-            for index in 0..self.num_indices {
-                let abundance = self.inner.get_index_abundance(barcode, index).unwrap_or(0);
-                write!(writer, "\t{}", abundance)?;
-            }
-            writeln!(writer)?;
-        }
-        Ok(())
-    }
+    // fn write_rows<W: Write>(&self, writer: &mut W) -> Result<()> {
+    //     for barcode in self.inner.iter_barcodes() {
+    //         write!(writer, "{}", std::str::from_utf8(barcode)?)?;
+    //         for index in 0..self.num_indices {
+    //             let abundance = self.inner.get_index_abundance(barcode, index).unwrap_or(0);
+    //             write!(writer, "\t{}", abundance)?;
+    //         }
+    //         writeln!(writer)?;
+    //     }
+    //     Ok(())
+    // }
 }
