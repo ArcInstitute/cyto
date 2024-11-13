@@ -25,6 +25,13 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         }
     }
 
+    #[cfg(feature = "benchmarking")]
+    {
+        if args.output.skip_output {
+            return Ok(());
+        }
+    }
+
     for p_idx in counter.iter_probes() {
         let probe_alias = probe_mapper.get_alias(*p_idx).unwrap().name_str()?;
         let output_path = format!("{}.{}.mtx", &args.output.prefix, probe_alias);
@@ -44,6 +51,13 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         let bus = pair.as_bus(args.geometry.barcode, args.geometry.umi);
         if let Some(guide_index) = guide_mapper.map(&bus.seq, args.crispr.offset) {
             counter.increment(&bus, guide_index);
+        }
+    }
+
+    #[cfg(feature = "benchmarking")]
+    {
+        if args.output.skip_output {
+            return Ok(());
         }
     }
 

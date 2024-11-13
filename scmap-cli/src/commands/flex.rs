@@ -1,10 +1,12 @@
-use crate::cli::ArgsFlex;
+use crate::{
+    cli::ArgsFlex,
+    io::{write_bus_matrix, write_probe_matrices},
+};
 use anyhow::Result;
 use scmap::{
-    flex::Library as FlexLibrary, io::write_sparse_mtx, probe::Library as ProbeLibrary, BusCounter,
-    PairedReader, ProbeBusCounter,
+    flex::Library as FlexLibrary, probe::Library as ProbeLibrary, BusCounter, PairedReader,
+    ProbeBusCounter,
 };
-use std::{fs::File, io::BufWriter};
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let flex_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
@@ -27,15 +29,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         }
     }
 
-    for p_idx in counter.iter_probes() {
-        let probe_alias = probe_mapper.get_alias(*p_idx).unwrap().name_str()?;
-        let output_path = format!("{}.{}.mtx", &args.output.prefix, probe_alias);
-        let mut output_handle = File::create(output_path).map(BufWriter::new)?;
-        let bus_counter = counter.get_probe_counter(*p_idx).unwrap();
-        write_sparse_mtx(&mut output_handle, bus_counter, args.output.with_header)?;
-    }
-
-    Ok(())
+    write_probe_matrices(&args.output, &probe_mapper, &counter)
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
@@ -49,9 +43,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         }
     }
 
-    let output_path = format!("{}.mtx", &args.output.prefix);
-    let mut output_handle = File::create(output_path).map(BufWriter::new)?;
-    write_sparse_mtx(&mut output_handle, &counter, args.output.with_header)
+    write_bus_matrix(&args.output, &counter)
 }
 
 pub fn run(args: ArgsFlex) -> Result<()> {
