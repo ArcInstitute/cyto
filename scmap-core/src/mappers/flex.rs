@@ -1,4 +1,7 @@
-use super::maps::flex::{MapIndexToName, MapSequenceToIndex};
+use super::{
+    maps::flex::{MapIndexToName, MapSequenceToIndex},
+    Mapper, MapperOffset,
+};
 use crate::{aliases::Name, libraries::FlexLibrary};
 use anyhow::Result;
 
@@ -28,16 +31,18 @@ impl FlexMapper {
         })
     }
 
-    pub fn map(&self, sequence: &[u8]) -> Option<usize> {
-        let flex_sequence = &sequence[..self.sequence_to_index.sequence_size];
-        self.sequence_to_index.get(flex_sequence)
-    }
-
     pub fn get_name(&self, index: usize) -> Option<&Name> {
         self.index_to_name.get(index)
     }
 
     pub fn get_sequence_size(&self) -> usize {
         self.sequence_to_index.sequence_size
+    }
+}
+
+impl Mapper for FlexMapper {
+    fn map(&self, seq: &[u8], _offset: Option<MapperOffset>) -> Option<usize> {
+        let flex_sequence = &seq[..self.sequence_to_index.sequence_size];
+        self.sequence_to_index.get(flex_sequence)
     }
 }

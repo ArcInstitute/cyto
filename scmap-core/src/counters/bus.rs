@@ -1,4 +1,4 @@
-use super::{BarcodeIndexCounter, BarcodeSet, Index, TrackedIndexCounter, UmiSet};
+use super::{BarcodeIndexCounter, BarcodeSet, Counter, Index, TrackedIndexCounter, UmiSet};
 use crate::Bus;
 
 /// `BusCounter` is a data structure that manages the counts of UMIs for each barcode and index
@@ -18,12 +18,6 @@ pub struct BusCounter {
     max_index: Index,
 }
 impl BusCounter {
-    /// Increments the counter for the given Bus and index
-    pub fn increment(&mut self, bus: &Bus, index: Index) {
-        self.increment_index(bus.barcode, bus.umi, index);
-        self.update_max_index(index);
-    }
-
     /// Ensures that the barcode exists in the map by inserting it if it does not
     fn ensure_barcode_exists(&mut self, barcode: &[u8]) {
         if !self.map.contains_key(barcode) {
@@ -79,5 +73,12 @@ impl BusCounter {
 
     pub fn dedup_umi(&self) -> BarcodeIndexCounter {
         BarcodeIndexCounter::from_counter(&self)
+    }
+}
+
+impl Counter for BusCounter {
+    fn increment(&mut self, bus: &Bus, index: Index) {
+        self.increment_index(bus.barcode, bus.umi, index);
+        self.update_max_index(index);
     }
 }

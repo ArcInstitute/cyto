@@ -1,8 +1,6 @@
-use hashbrown::HashMap;
-
+use super::{BarcodeIndexCounter, BusCounter, Counter};
 use crate::Bus;
-
-use super::{BarcodeIndexCounter, BusCounter};
+use hashbrown::HashMap;
 
 #[derive(Default, Debug)]
 pub struct ProbeBusCounter {
@@ -30,6 +28,12 @@ impl ProbeBusCounter {
 
     pub fn dedup_umi(&self) -> ProbeBarcodeIndexCounter {
         ProbeBarcodeIndexCounter::from_probe_bus_counter(&self)
+    }
+}
+
+impl Counter for ProbeBusCounter {
+    fn increment_probe(&mut self, p_idx: usize, bus: &Bus, g_idx: usize) {
+        self.increment(p_idx, bus, g_idx);
     }
 }
 
