@@ -3,6 +3,8 @@ use scmap::{
     ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
 
+use crate::progress::ProgressBar;
+
 pub fn map_pairs<M>(
     reader: PairedReader,
     target_mapper: &M,
@@ -14,12 +16,15 @@ where
     M: Mapper,
 {
     let mut counter = BusCounter::default();
+    let mut pbar = ProgressBar::default();
     for pair in reader {
         let bus = pair.as_bus(barcode_size, umi_size);
         if let Some(index) = target_mapper.map(&bus.seq, target_offset) {
             counter.increment(&bus, index);
         }
+        pbar.tick();
     }
+    pbar.finish();
     counter.dedup_umi()
 }
 
@@ -37,6 +42,7 @@ where
     Mp: Mapper,
 {
     let mut counter = ProbeBusCounter::default();
+    let mut pbar = ProgressBar::default();
     for pair in reader {
         let bus = pair.as_bus(barcode_size, umi_size);
         let target_index = target_mapper.map(&bus.seq, target_offset);
@@ -47,6 +53,8 @@ where
             }
             _ => {}
         }
+        pbar.tick();
     }
+    pbar.finish();
     counter.dedup_umi()
 }
