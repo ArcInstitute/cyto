@@ -26,9 +26,18 @@ impl Mapper {
         })
     }
 
-    pub fn map(&self, sequence: &[u8], offset: usize) -> Option<usize> {
+    /// Maps the sequence to the left of the offset to an index.
+    pub fn map_left(&self, sequence: &[u8], offset: usize) -> Option<usize> {
         let rpos = offset;
         let lpos = rpos - self.sequence_to_index.sequence_size;
+        let subsequence = &sequence[lpos..rpos];
+        self.sequence_to_index.get(subsequence)
+    }
+
+    /// Maps the sequence to the right of the offset to an index.
+    pub fn map_right(&self, sequence: &[u8], offset: usize) -> Option<usize> {
+        let lpos = offset;
+        let rpos = lpos + self.sequence_to_index.sequence_size;
         let subsequence = &sequence[lpos..rpos];
         self.sequence_to_index.get(subsequence)
     }

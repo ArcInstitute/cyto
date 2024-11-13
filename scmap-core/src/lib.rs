@@ -1,5 +1,6 @@
 mod counters;
 pub mod crispr;
+pub mod flex;
 mod geometry;
 pub mod io;
 pub mod probe;
