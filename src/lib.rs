@@ -1,9 +1,11 @@
+mod counters;
 pub mod crispr;
 mod geometry;
-mod io;
+pub mod io;
 pub mod probe;
 
 pub type RefNuc<'a> = &'a [u8];
 
+pub use counters::BusCounter;
 pub use geometry::Bus;
-pub use io::PairedReader;
+pub use io::{BusCounterWriter, PairedReader};
