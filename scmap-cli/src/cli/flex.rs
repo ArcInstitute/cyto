@@ -1,4 +1,4 @@
-use super::{Geometry, Output, PairedInput, ProbeOptions};
+use super::{ArgsOutput, Geometry, PairedInput, ProbeOptions};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -16,7 +16,7 @@ pub struct ArgsFlex {
     pub probe: ProbeOptions,
 
     #[clap(flatten)]
-    pub output: Output,
+    pub output: ArgsOutput,
 }
 
 #[derive(Parser)]

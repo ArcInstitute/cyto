@@ -13,5 +13,5 @@ pub use crispr::ArgsCrispr;
 pub use flex::ArgsFlex;
 use geometry::Geometry;
 use input::PairedInput;
-use output::Output;
+pub use output::ArgsOutput;
 use probe::ProbeOptions;

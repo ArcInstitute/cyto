@@ -9,6 +9,9 @@ scmap = { path = "../scmap-core" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 
+[features]
+benchmarking = []
+
 [[bin]]
 name = "scmap"
 path = "src/main.rs"
