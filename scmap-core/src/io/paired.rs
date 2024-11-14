@@ -46,8 +46,7 @@ impl PairedReader {
                     let pair = PairedRecord::new(r1, r2);
                     Some(Ok(pair))
                 }
-                (Err(e), _) => Some(Err(e.into())),
-                (_, Err(e)) => Some(Err(e.into())),
+                (Err(e), _) | (_, Err(e)) => Some(Err(e.into())),
             },
             (Some(_), None) => Some(Err(anyhow::anyhow!("Unexpected end of R2 file"))),
             (None, Some(_)) => Some(Err(anyhow::anyhow!("Unexpected end of R1 file"))),
