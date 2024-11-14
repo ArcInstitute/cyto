@@ -1,3 +1,4 @@
+pub mod bus;
 pub mod crispr;
 pub mod flex;
 mod generic;

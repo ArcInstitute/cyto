@@ -10,6 +10,7 @@ use cli::{Cli, Commands};
 fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
+        Commands::Bus(args) => commands::bus::run(args),
         Commands::Crispr(args) => commands::crispr::run(args),
         Commands::Flex(args) => commands::flex::run(args),
     }

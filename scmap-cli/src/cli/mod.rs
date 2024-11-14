@@ -1,3 +1,4 @@
+mod bus;
 mod cli;
 mod commands;
 mod crispr;
@@ -7,6 +8,7 @@ mod input;
 mod output;
 mod probe;
 
+pub use bus::ArgsBus;
 pub use cli::Cli;
 pub use commands::Commands;
 pub use crispr::ArgsCrispr;

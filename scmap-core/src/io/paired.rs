@@ -1,8 +1,7 @@
-use std::io::Read;
-
 use anyhow::Result;
 use seq_io::fastq::{Reader, Record, RefRecord};
-// use fxread::{initialize_reader, FastxRead, Record};
+use std::io::{Read, Write};
+
 use crate::Bus;
 
 pub struct PairedRecord<'a> {
@@ -53,5 +52,26 @@ impl PairedReader {
             (None, Some(_)) => Some(Err(anyhow::anyhow!("Unexpected end of R1 file"))),
             (None, None) => None,
         }
+    }
+
+    pub fn write_to<W: Write>(&mut self, writer: W) -> Result<()> {
+        let mut wtr = csv::WriterBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(false)
+            .from_writer(writer);
+
+        while let Some(pair) = self.next() {
+            let pair = pair?;
+            let bus = pair.as_bus(16, 10);
+            let record = (
+                std::str::from_utf8(bus.barcode)?,
+                std::str::from_utf8(bus.umi)?,
+                std::str::from_utf8(bus.seq)?,
+            );
+            wtr.serialize(record)?;
+        }
+        wtr.flush()?;
+
+        Ok(())
     }
 }
