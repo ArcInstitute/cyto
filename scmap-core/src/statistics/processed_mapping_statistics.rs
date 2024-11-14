@@ -14,7 +14,7 @@ fn fraction(numerator: usize, denominator: usize) -> f64 {
 }
 
 #[derive(Debug, Default, Serialize, Clone, Copy)]
-pub struct ProcessedStatistics {
+pub struct ProcessedMappingStatistics {
     pub total_reads: usize,
     pub mapped_reads: usize,
     pub unmapped_reads: usize,
@@ -22,9 +22,9 @@ pub struct ProcessedStatistics {
     pub fraction_unmapped: f64,
     pub mapping_errors: ProcessedMappingErrorStatistics,
 }
-impl From<MappingStatistics> for ProcessedStatistics {
+impl From<MappingStatistics> for ProcessedMappingStatistics {
     fn from(ms: MappingStatistics) -> Self {
-        ProcessedStatistics {
+        ProcessedMappingStatistics {
             total_reads: ms.total_reads,
             mapped_reads: ms.mapped_reads,
             unmapped_reads: ms.unmapped_reads,
@@ -37,12 +37,12 @@ impl From<MappingStatistics> for ProcessedStatistics {
         }
     }
 }
-impl From<&MappingStatistics> for ProcessedStatistics {
+impl From<&MappingStatistics> for ProcessedMappingStatistics {
     fn from(ms: &MappingStatistics) -> Self {
         (*ms).into()
     }
 }
-impl ProcessedStatistics {
+impl ProcessedMappingStatistics {
     pub fn save_json<W: Write>(&self, writer: W) -> Result<()> {
         Ok(serde_json::to_writer_pretty(writer, self)?)
     }

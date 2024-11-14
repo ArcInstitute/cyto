@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::Serialize;
 use std::io::Write;
 
-use super::ProcessedStatistics;
+use super::ProcessedMappingStatistics;
 use crate::mappers::MappingError;
 
 #[derive(Debug, Default, Serialize, Clone, Copy)]
@@ -28,11 +28,11 @@ impl MappingStatistics {
         self.mapping_errors.increment(why1);
         self.mapping_errors.increment(why2);
     }
-    pub fn processed(&self) -> ProcessedStatistics {
+    pub fn process(&self) -> ProcessedMappingStatistics {
         self.into()
     }
     pub fn save_json<W: Write>(&self, writer: W) -> Result<()> {
-        self.processed().save_json(writer)
+        self.process().save_json(writer)
     }
 }
 

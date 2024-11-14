@@ -1,6 +1,6 @@
 mod library;
 mod mapping_statistics;
-mod processed_statistics;
+mod processed_mapping_statistics;
 mod statistics;
 
 pub use library::{
@@ -8,5 +8,5 @@ pub use library::{
     ProbeLibraryStatistics,
 };
 pub use mapping_statistics::MappingStatistics;
-pub use processed_statistics::ProcessedStatistics;
+pub use processed_mapping_statistics::ProcessedMappingStatistics;
 pub use statistics::Statistics;
