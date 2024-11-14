@@ -41,9 +41,10 @@ impl BarcodeIndexCounter {
                 }
             }
 
+            // Iterates over the index counts and creates a BarcodeIndex for each
             for (index, abundance) in &index_counts {
                 inner.push(BarcodeIndex {
-                    barcode: barcode.to_vec(),
+                    barcode: barcode.to_vec(), // TODO: This is a clone - could be optimized
                     index: *index,
                     abundance: *abundance,
                 });
