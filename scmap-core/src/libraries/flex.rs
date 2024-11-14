@@ -30,10 +30,10 @@ impl FlexLibrary {
         self.collection.len()
     }
 }
-impl Iterator for FlexLibrary {
+impl IntoIterator for FlexLibrary {
     type Item = Flex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.collection.pop()
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.collection.into_iter()
     }
 }

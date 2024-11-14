@@ -27,10 +27,10 @@ impl ProbeLibrary {
         ProbeMapper::new(self)
     }
 }
-impl Iterator for ProbeLibrary {
+impl IntoIterator for ProbeLibrary {
     type Item = Probe;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.probes.pop()
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.probes.into_iter()
     }
 }
