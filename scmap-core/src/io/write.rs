@@ -14,47 +14,24 @@ pub fn write_sparse_mtx<W: Write>(
 
 pub struct BarcodeIndexWriter<'a> {
     inner: &'a BarcodeIndexCounter,
-    num_indices: usize,
     with_header: bool,
 }
 impl<'a> BarcodeIndexWriter<'a> {
     pub fn new(inner: &'a BarcodeIndexCounter, with_header: bool) -> Self {
-        let num_indices = inner.max_index();
-        Self {
-            inner,
-            num_indices,
-            with_header,
-        }
+        Self { inner, with_header }
     }
 
     pub fn write_sparse<W: Write>(&self, writer: &mut W) -> Result<()> {
-        if self.with_header {
-            Self::write_sparse_header(writer)?;
-        }
-        self.write_rows_sparse(writer)
-    }
+        let mut writer = csv::WriterBuilder::default()
+            .delimiter(b'\t')
+            .has_headers(self.with_header)
+            .from_writer(writer);
 
-    fn write_sparse_header<W: Write>(writer: &mut W) -> Result<()> {
-        writeln!(writer, "barcode\tindex\tabundance")?;
-        Ok(())
-    }
+        self.inner
+            .iter_records()
+            .try_for_each(|record| -> Result<(), csv::Error> { writer.serialize(record) })?;
 
-    fn write_rows_sparse<W: Write>(&self, writer: &mut W) -> Result<()> {
-        for barcode in self.inner.iter_barcodes() {
-            for index in 0..self.num_indices {
-                if let Some(abundance) = self.inner.get_index_abundance(barcode, index) {
-                    if abundance > 0 {
-                        writeln!(
-                            writer,
-                            "{}\t{}\t{}",
-                            std::str::from_utf8(barcode)?,
-                            index,
-                            abundance
-                        )?;
-                    }
-                }
-            }
-        }
+        writer.flush()?;
         Ok(())
     }
 }
