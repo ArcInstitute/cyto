@@ -13,8 +13,7 @@ pub enum MapperOffset {
 impl From<MapperOffset> for usize {
     fn from(offset: MapperOffset) -> usize {
         match offset {
-            MapperOffset::LeftOf(offset) => offset,
-            MapperOffset::RightOf(offset) => offset,
+            MapperOffset::LeftOf(offset) | MapperOffset::RightOf(offset) => offset,
         }
     }
 }
