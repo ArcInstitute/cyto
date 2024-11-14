@@ -36,7 +36,8 @@ impl PairedReader {
         })
     }
 
-    pub fn next<'a>(&'a mut self) -> Option<Result<PairedRecord<'a>>> {
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Option<Result<PairedRecord>> {
         let r1 = self.r1_reader.next();
         let r2 = self.r2_reader.next();
 
