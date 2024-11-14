@@ -98,6 +98,6 @@ fn _write_bus_matrix(
     counter: &BarcodeIndexCounter,
     with_header: bool,
 ) -> Result<()> {
-    let mut output_handle = open_file_handle(&output_path)?;
+    let mut output_handle = open_file_handle(output_path)?;
     write_sparse_mtx(&mut output_handle, counter, with_header)
 }

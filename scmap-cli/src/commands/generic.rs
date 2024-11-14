@@ -24,7 +24,7 @@ where
     while let Some(pair) = reader.next() {
         let pair = pair?;
         let bus = pair.as_bus(geometry.barcode, geometry.umi);
-        match target_mapper.map(&bus.seq, target_offset) {
+        match target_mapper.map(bus.seq, target_offset) {
             Ok(index) => {
                 counter.increment(&bus, index);
                 map_stats.increment_mapped();
@@ -60,8 +60,8 @@ where
     while let Some(pair) = reader.next() {
         let pair = pair?;
         let bus = pair.as_bus(geometry.barcode, geometry.umi);
-        let target_index = target_mapper.map(&bus.seq, target_offset);
-        let probe_index = probe_mapper.map(&bus.seq, probe_offset);
+        let target_index = target_mapper.map(bus.seq, target_offset);
+        let probe_index = probe_mapper.map(bus.seq, probe_offset);
         match (target_index, probe_index) {
             (Ok(t_idx), Ok(p_idx)) => {
                 counter.increment_probe(p_idx, &bus, t_idx);
