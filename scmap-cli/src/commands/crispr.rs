@@ -25,8 +25,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         &probe_mapper,
         Some(target_offset),
         Some(probe_offset),
-        args.geometry.barcode,
-        args.geometry.umi,
+        args.geometry.into(),
     )?;
 
     write_mapping_statistics(&args.output, statistics)?;
@@ -43,8 +42,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         reader,
         &target_mapper,
         Some(target_offset),
-        args.geometry.barcode,
-        args.geometry.umi,
+        args.geometry.into(),
     )?;
 
     write_mapping_statistics(&args.output, statistics)?;

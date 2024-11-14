@@ -9,6 +9,6 @@ pub mod metadata;
 pub use counters::{
     BarcodeIndexCounter, BusCounter, Counter, ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
-pub use geometry::Bus;
+pub use geometry::{Bus, GeometryR1};
 pub use io::PairedReader;
 pub use mappers::{Mapper, MappingStatistics};

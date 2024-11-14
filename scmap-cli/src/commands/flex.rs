@@ -26,8 +26,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         &probe_mapper,
         None,
         Some(probe_offset),
-        args.geometry.barcode,
-        args.geometry.umi,
+        args.geometry.into(),
     )?;
     write_mapping_statistics(&args.output, statistics)?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
@@ -36,13 +35,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 fn bus(args: ArgsFlex) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
-    let (counts, statistics) = map_pairs(
-        reader,
-        &target_mapper,
-        None,
-        args.geometry.barcode,
-        args.geometry.umi,
-    )?;
+    let (counts, statistics) = map_pairs(reader, &target_mapper, None, args.geometry.into())?;
     write_mapping_statistics(&args.output, statistics)?;
     write_bus_matrix(&args.output, &counts)
 }

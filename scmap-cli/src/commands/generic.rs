@@ -1,7 +1,7 @@
 use anyhow::Result;
 use scmap::{
-    mappers::MapperOffset, BarcodeIndexCounter, BusCounter, Counter, Mapper, MappingStatistics,
-    PairedReader, ProbeBarcodeIndexCounter, ProbeBusCounter,
+    mappers::MapperOffset, BarcodeIndexCounter, BusCounter, Counter, GeometryR1, Mapper,
+    MappingStatistics, PairedReader, ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
 
 use crate::progress::ProgressBar;
@@ -10,8 +10,7 @@ pub fn map_pairs<M>(
     mut reader: PairedReader,
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
-    barcode_size: usize,
-    umi_size: usize,
+    geometry: GeometryR1,
 ) -> Result<(BarcodeIndexCounter, MappingStatistics)>
 where
     M: Mapper,
@@ -21,7 +20,7 @@ where
     let mut pbar = ProgressBar::default();
     while let Some(pair) = reader.next() {
         let pair = pair?;
-        let bus = pair.as_bus(barcode_size, umi_size);
+        let bus = pair.as_bus(geometry.barcode, geometry.umi);
         match target_mapper.map(&bus.seq, target_offset) {
             Ok(index) => {
                 counter.increment(&bus, index);
@@ -41,8 +40,7 @@ pub fn map_probed_pairs<Mt, Mp>(
     probe_mapper: &Mp,
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
-    barcode_size: usize,
-    umi_size: usize,
+    geometry: GeometryR1,
 ) -> Result<(ProbeBarcodeIndexCounter, MappingStatistics)>
 where
     Mt: Mapper,
@@ -53,7 +51,7 @@ where
     let mut pbar = ProgressBar::default();
     while let Some(pair) = reader.next() {
         let pair = pair?;
-        let bus = pair.as_bus(barcode_size, umi_size);
+        let bus = pair.as_bus(geometry.barcode, geometry.umi);
         let target_index = target_mapper.map(&bus.seq, target_offset);
         let probe_index = probe_mapper.map(&bus.seq, probe_offset);
         match (target_index, probe_index) {
