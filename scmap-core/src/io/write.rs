@@ -29,12 +29,12 @@ impl<'a> BarcodeIndexWriter<'a> {
 
     pub fn write_sparse<W: Write>(&self, writer: &mut W) -> Result<()> {
         if self.with_header {
-            self.write_sparse_header(writer)?;
+            Self::write_sparse_header(writer)?;
         }
         self.write_rows_sparse(writer)
     }
 
-    fn write_sparse_header<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_sparse_header<W: Write>(writer: &mut W) -> Result<()> {
         writeln!(writer, "barcode\tindex\tabundance")?;
         Ok(())
     }
