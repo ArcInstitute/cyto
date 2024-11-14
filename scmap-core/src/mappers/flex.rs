@@ -1,9 +1,13 @@
+use anyhow::Result;
+
 use super::{
     maps::flex::{MapIndexToName, MapSequenceToIndex},
     Mapper, MapperOffset,
 };
-use crate::{aliases::Name, libraries::FlexLibrary};
-use anyhow::Result;
+use crate::{
+    aliases::{Name, SeqRef},
+    libraries::FlexLibrary,
+};
 
 #[derive(Debug, Clone)]
 pub struct FlexMapper {
@@ -41,7 +45,7 @@ impl FlexMapper {
 }
 
 impl Mapper for FlexMapper {
-    fn map(&self, seq: &[u8], _offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, seq: SeqRef, _offset: Option<MapperOffset>) -> Option<usize> {
         let flex_sequence = &seq[..self.sequence_to_index.sequence_size];
         self.sequence_to_index.get(flex_sequence)
     }

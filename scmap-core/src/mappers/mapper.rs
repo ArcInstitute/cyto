@@ -1,3 +1,5 @@
+use crate::aliases::SeqRef;
+
 /// Describes the offset to provide to the underlying `Mapper` implementation.
 ///
 /// Each `Mapper` implementation should be able to handle the offset in a way that makes sense for
@@ -17,11 +19,11 @@ impl From<MapperOffset> for usize {
 }
 
 pub trait Mapper: Clone {
-    fn map(&self, seq: &[u8], offset: Option<MapperOffset>) -> Option<usize>;
+    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Option<usize>;
 }
 
 impl<M: Mapper> Mapper for &M {
-    fn map(&self, seq: &[u8], offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Option<usize> {
         (*self).map(seq, offset)
     }
 }

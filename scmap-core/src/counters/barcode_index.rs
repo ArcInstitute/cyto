@@ -1,6 +1,7 @@
 use hashbrown::HashMap;
 
 use super::{Barcode, BusCounter, Index, IndexCounts};
+use crate::aliases::SeqRef;
 
 /// A data structure that stores the counts of each index for each barcode
 /// after accounting for UMI deduplication
@@ -54,7 +55,7 @@ impl BarcodeIndexCounter {
         self.map.keys()
     }
 
-    pub fn get_index_abundance(&self, barcode: &[u8], index: Index) -> Option<usize> {
+    pub fn get_index_abundance(&self, barcode: SeqRef, index: Index) -> Option<usize> {
         if let Some(indices) = self.map.get(barcode) {
             if let Some(abundance) = indices.get(&index) {
                 Some(*abundance)

@@ -1,10 +1,14 @@
+use anyhow::Result;
+
 use super::{
     mapper::MapperOffset,
     maps::crispr::{MapAnchorToSequence, MapIndexToName, MapSequenceToIndex},
     Mapper,
 };
-use crate::{aliases::Name, libraries::CrisprLibrary};
-use anyhow::Result;
+use crate::{
+    aliases::{Name, SeqRef},
+    libraries::CrisprLibrary,
+};
 
 #[derive(Debug, Clone)]
 pub struct CrisprMapper {
@@ -32,7 +36,7 @@ impl CrisprMapper {
         })
     }
     /// Maps an input sequence to a potential set of guides through an anchor sequence.
-    fn map_anchor(&self, sequence: &[u8], offset: usize) -> Option<(usize, &MapSequenceToIndex)> {
+    fn map_anchor(&self, sequence: SeqRef, offset: usize) -> Option<(usize, &MapSequenceToIndex)> {
         for anchor_size in self.anchor_to_sequence.anchor_sizes.iter() {
             let anchor = &sequence[offset..offset + anchor_size];
             if let Some(sequence_map) = self.anchor_to_sequence.get_sequence_map(anchor) {
@@ -45,7 +49,7 @@ impl CrisprMapper {
     /// Maps an input sequence to a guide name through a sequence.
     fn map_sequence(
         &self,
-        sequence: &[u8],
+        sequence: SeqRef,
         sequence_map: &MapSequenceToIndex,
         offset: usize,
         anchor_size: usize,
@@ -78,7 +82,7 @@ impl Mapper for CrisprMapper {
     ///     b. If not found, return None
     /// 3. Map the guide index to the guide name.
     /// 4. Return the guide name.
-    fn map(&self, sequence: &[u8], offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Option<usize> {
         assert!(offset.is_some(), "CrisprMapper requires an offset");
         let offset = offset.unwrap();
         let (anchor_size, sequence_map) = self.map_anchor(sequence, offset.into())?;

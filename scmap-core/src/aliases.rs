@@ -1,4 +1,4 @@
-pub type RefNuc<'a> = &'a [u8];
+pub type SeqRef<'a> = &'a [u8];
 
 pub type Anchor = Vec<u8>;
 pub type Name = Vec<u8>;

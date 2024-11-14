@@ -1,6 +1,7 @@
-use crate::aliases::{Anchor, Name, Sequence};
 use anyhow::{bail, Result};
 use hashbrown::{HashMap, HashSet};
+
+use crate::aliases::{Anchor, Name, SeqRef, Sequence};
 
 #[derive(Default, Debug, Clone)]
 pub struct MapIndexToName {
@@ -28,7 +29,7 @@ impl MapSequenceToIndex {
     }
 
     /// Get a sequence from the map
-    pub fn get(&self, sequence: &[u8]) -> Option<&usize> {
+    pub fn get(&self, sequence: SeqRef) -> Option<&usize> {
         self.map.get(sequence)
     }
 }
@@ -97,7 +98,7 @@ impl MapAnchorToSequence {
     }
 
     /// Get the sequence map for a given anchor
-    pub fn get_sequence_map(&self, anchor: &[u8]) -> Option<&MapSequenceToIndex> {
+    pub fn get_sequence_map(&self, anchor: SeqRef) -> Option<&MapSequenceToIndex> {
         self.map.get(anchor)
     }
 }

@@ -1,9 +1,10 @@
-use crate::{
-    aliases::{Alias, AliasNuc, Sequence},
-    metadata::ProbeAlias,
-};
 use anyhow::{bail, Result};
 use hashbrown::HashMap;
+
+use crate::{
+    aliases::{Alias, AliasNuc, SeqRef, Sequence},
+    metadata::ProbeAlias,
+};
 
 #[derive(Default, Debug, Clone)]
 pub struct MapIndexToAlias {
@@ -49,7 +50,7 @@ impl MapSequenceToIndex {
     }
 
     /// Get a probe alias from the map given a sequence
-    pub fn get(&self, sequence: &[u8]) -> Option<usize> {
+    pub fn get(&self, sequence: SeqRef) -> Option<usize> {
         self.map.get(sequence).copied()
     }
 }

@@ -1,9 +1,10 @@
+use anyhow::Result;
+
 use super::{
     maps::probe::{MapIndexToAlias, MapSequenceToIndex},
     Mapper, MapperOffset,
 };
-use crate::{libraries::ProbeLibrary, metadata::ProbeAlias};
-use anyhow::Result;
+use crate::{aliases::SeqRef, libraries::ProbeLibrary, metadata::ProbeAlias};
 
 #[derive(Debug, Clone)]
 pub struct ProbeMapper {
@@ -30,7 +31,7 @@ impl ProbeMapper {
     }
 
     /// Maps the sequence to the left of the offset to an index.
-    fn map_left(&self, sequence: &[u8], offset: usize) -> Option<usize> {
+    fn map_left(&self, sequence: SeqRef, offset: usize) -> Option<usize> {
         let rpos = offset;
         let lpos = rpos - self.sequence_to_index.sequence_size;
         let subsequence = &sequence[lpos..rpos];
@@ -38,7 +39,7 @@ impl ProbeMapper {
     }
 
     /// Maps the sequence to the right of the offset to an index.
-    fn map_right(&self, sequence: &[u8], offset: usize) -> Option<usize> {
+    fn map_right(&self, sequence: SeqRef, offset: usize) -> Option<usize> {
         let lpos = offset;
         let rpos = lpos + self.sequence_to_index.sequence_size;
         let subsequence = &sequence[lpos..rpos];
@@ -51,7 +52,7 @@ impl ProbeMapper {
 }
 
 impl Mapper for ProbeMapper {
-    fn map(&self, sequence: &[u8], offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Option<usize> {
         match offset {
             Some(MapperOffset::LeftOf(offset)) => self.map_left(sequence, offset),
             Some(MapperOffset::RightOf(offset)) => self.map_right(sequence, offset),
