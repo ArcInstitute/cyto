@@ -21,11 +21,6 @@ impl MapIndexToAlias {
         self.map.get(&index)
     }
 
-    /// Get the length of the map
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
     /// The number of unique aliases in the map
     pub fn num_unique_aliases(&self) -> usize {
         self.map
