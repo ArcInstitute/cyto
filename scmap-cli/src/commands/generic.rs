@@ -67,8 +67,7 @@ where
                 counter.increment_probe(p_idx, &bus, t_idx);
                 map_stats.increment_mapped();
             }
-            (Err(why), Ok(_)) => map_stats.increment_unmapped(why),
-            (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
+            (Err(why), Ok(_)) | (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
             (Err(why1), Err(why2)) => map_stats.increment_unmapped_multi_reason(why1, why2),
         }
         pbar.tick();
