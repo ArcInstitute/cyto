@@ -16,6 +16,10 @@ impl MapIndexToName {
     pub fn get(&self, index: usize) -> Option<&Name> {
         self.map.get(&index)
     }
+    /// Get the length of the map
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -27,7 +31,6 @@ impl MapSequenceToIndex {
     pub fn insert(&mut self, sequence: Sequence, index: usize) {
         self.map.insert(sequence, index);
     }
-
     /// Get a sequence from the map
     pub fn get(&self, sequence: SeqRef) -> Option<&usize> {
         self.map.get(sequence)
@@ -100,5 +103,16 @@ impl MapAnchorToSequence {
     /// Get the sequence map for a given anchor
     pub fn get_sequence_map(&self, anchor: SeqRef) -> Option<&MapSequenceToIndex> {
         self.map.get(anchor)
+    }
+
+    /// Get the length of the map
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    /// Get the anchor sizes
+    #[must_use]
+    pub fn export_anchor_sizes(&self) -> Vec<usize> {
+        self.anchor_sizes.iter().copied().collect()
     }
 }

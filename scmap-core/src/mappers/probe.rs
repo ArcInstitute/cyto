@@ -4,7 +4,12 @@ use super::{
     maps::probe::{MapIndexToAlias, MapSequenceToIndex},
     Mapper, MapperOffset, MappingError,
 };
-use crate::{aliases::SeqRef, libraries::ProbeLibrary, metadata::ProbeAlias};
+use crate::{
+    aliases::SeqRef,
+    libraries::ProbeLibrary,
+    metadata::ProbeAlias,
+    statistics::{Library, ProbeLibraryStatistics},
+};
 
 #[derive(Debug, Clone)]
 pub struct ProbeMapper {
@@ -66,5 +71,13 @@ impl Mapper for ProbeMapper {
             Some(MapperOffset::RightOf(offset)) => self.map_right(sequence, offset),
             None => panic!("ProbeMapper requires an offset to map the sequence."),
         }
+    }
+    fn library_statistics(&self) -> Library {
+        let statistics = ProbeLibraryStatistics {
+            num_probes: self.sequence_to_index.len(),
+            num_aliases: self.index_to_alias.len(),
+            probe_size: self.sequence_to_index.sequence_size,
+        };
+        Library::Probe(statistics)
     }
 }

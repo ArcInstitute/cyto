@@ -20,6 +20,11 @@ impl MapIndexToAlias {
     pub fn get(&self, index: usize) -> Option<&ProbeAlias> {
         self.map.get(&index)
     }
+
+    /// Get the length of the map
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -52,5 +57,10 @@ impl MapSequenceToIndex {
     /// Get a probe alias from the map given a sequence
     pub fn get(&self, sequence: SeqRef) -> Option<usize> {
         self.map.get(sequence).copied()
+    }
+
+    /// Get the length of the map
+    pub fn len(&self) -> usize {
+        self.map.len()
     }
 }

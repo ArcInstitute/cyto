@@ -7,6 +7,7 @@ use super::{
 use crate::{
     aliases::{Name, SeqRef},
     libraries::FlexLibrary,
+    statistics::{FlexLibraryStatistics, Library},
 };
 
 #[derive(Debug, Clone)]
@@ -52,5 +53,12 @@ impl Mapper for FlexMapper {
         } else {
             Err(MappingError::MissingFlexSequence)
         }
+    }
+    fn library_statistics(&self) -> Library {
+        let statistics = FlexLibraryStatistics {
+            num_flex_sequences: self.sequence_to_index.len(),
+            flex_sequence_size: self.sequence_to_index.sequence_size,
+        };
+        Library::Flex(statistics)
     }
 }

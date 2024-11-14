@@ -1,5 +1,5 @@
 use super::MappingError;
-use crate::aliases::SeqRef;
+use crate::{aliases::SeqRef, statistics::Library};
 
 /// Describes the offset to provide to the underlying `Mapper` implementation.
 ///
@@ -21,10 +21,15 @@ impl From<MapperOffset> for usize {
 
 pub trait Mapper: Clone {
     fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError>;
+
+    fn library_statistics(&self) -> Library;
 }
 
 impl<M: Mapper> Mapper for &M {
     fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
         (*self).map(seq, offset)
+    }
+    fn library_statistics(&self) -> Library {
+        (*self).library_statistics()
     }
 }

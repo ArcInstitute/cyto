@@ -34,6 +34,11 @@ impl MapSequenceToIndex {
     pub fn get(&self, sequence: SeqRef) -> Option<usize> {
         self.map.get(sequence).copied()
     }
+
+    /// Get the length of the map
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
 
 #[derive(Default, Debug, Clone)]

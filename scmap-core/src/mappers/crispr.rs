@@ -8,6 +8,7 @@ use super::{
 use crate::{
     aliases::{Name, SeqRef},
     libraries::CrisprLibrary,
+    statistics::{CrisprLibraryStatistics, Library},
 };
 
 #[derive(Debug, Clone)]
@@ -95,5 +96,15 @@ impl Mapper for CrisprMapper {
         let offset = offset.unwrap();
         let (anchor_size, sequence_map) = self.map_anchor(sequence, offset.into())?;
         self.map_sequence(sequence, sequence_map, offset.into(), anchor_size)
+    }
+
+    fn library_statistics(&self) -> Library {
+        let statistics = CrisprLibraryStatistics {
+            num_anchors: self.anchor_to_sequence.len(),
+            anchor_sizes: self.anchor_to_sequence.export_anchor_sizes(),
+            num_protospacers: self.index_to_name.len(),
+            protospacer_size: self.anchor_to_sequence.sequence_size,
+        };
+        Library::Crispr(statistics)
     }
 }
