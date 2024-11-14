@@ -72,7 +72,7 @@ impl BusCounter {
     }
 
     pub fn dedup_umi(&self) -> BarcodeIndexCounter {
-        BarcodeIndexCounter::from_counter(&self)
+        BarcodeIndexCounter::from_counter(self)
     }
 }
 

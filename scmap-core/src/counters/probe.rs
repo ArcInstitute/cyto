@@ -27,7 +27,7 @@ impl ProbeBusCounter {
     }
 
     pub fn dedup_umi(&self) -> ProbeBarcodeIndexCounter {
-        ProbeBarcodeIndexCounter::from_probe_bus_counter(&self)
+        ProbeBarcodeIndexCounter::from_probe_bus_counter(self)
     }
 }
 
