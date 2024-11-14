@@ -24,6 +24,6 @@ pub struct ArgsFlex {
 pub struct FlexOptions {
     #[clap(short = 'c', long = "flex")]
     pub flex_filepath: String,
-    #[clap(short = 's', long, default_value = "16")]
+    #[clap(short = 's', long, default_value = "18")]
     pub spacer: usize,
 }
