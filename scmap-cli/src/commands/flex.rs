@@ -1,6 +1,6 @@
 use crate::{
     cli::ArgsFlex,
-    io::{write_bus_matrix, write_probe_matrices},
+    io::{write_bus_matrix, write_mapping_statistics, write_probe_matrices},
 };
 use anyhow::Result;
 use scmap::{
@@ -20,7 +20,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
 
-    let counts = map_probed_pairs(
+    let (counts, statistics) = map_probed_pairs(
         reader,
         &target_mapper,
         &probe_mapper,
@@ -29,19 +29,21 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         args.geometry.barcode,
         args.geometry.umi,
     )?;
+    write_mapping_statistics(&args.output, statistics)?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
-    let counts = map_pairs(
+    let (counts, statistics) = map_pairs(
         reader,
         &target_mapper,
         None,
         args.geometry.barcode,
         args.geometry.umi,
     )?;
+    write_mapping_statistics(&args.output, statistics)?;
     write_bus_matrix(&args.output, &counts)
 }
 

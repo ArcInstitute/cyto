@@ -1,5 +1,5 @@
 /// An enum describing the possible errors that can occur when mapping a sequence to a target feature.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MappingError {
     // The anchor sequence is missing - used in `CrisprMapper`.
     MissingAnchor,

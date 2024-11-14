@@ -11,4 +11,4 @@ pub use counters::{
 };
 pub use geometry::Bus;
 pub use io::PairedReader;
-pub use mappers::Mapper;
+pub use mappers::{Mapper, MappingStatistics};
