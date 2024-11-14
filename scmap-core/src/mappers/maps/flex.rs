@@ -14,7 +14,7 @@ impl MapSequenceToIndex {
             self.sequence_size = sequence.len();
             Ok(())
         } else {
-            let sequence_str = std::str::from_utf8(&sequence)?;
+            let sequence_str = std::str::from_utf8(sequence)?;
             let expected_size = self.sequence_size;
             let observed_size = sequence.len();
             bail!(

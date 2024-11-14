@@ -55,7 +55,7 @@ impl MapAnchorToSequence {
             self.sequence_size = sequence.len();
             Ok(())
         } else {
-            let sequence_str = std::str::from_utf8(&sequence)?;
+            let sequence_str = std::str::from_utf8(sequence)?;
             let expected_size = self.sequence_size;
             let observed_size = sequence.len();
             bail!(
@@ -71,10 +71,7 @@ impl MapAnchorToSequence {
 
     /// Update the internal map with a new anchor and sequence
     fn update_internal(&mut self, anchor: Anchor, sequence: Sequence, index: usize) {
-        self.map
-            .entry(anchor)
-            .or_insert_with(MapSequenceToIndex::default)
-            .insert(sequence, index);
+        self.map.entry(anchor).or_default().insert(sequence, index);
     }
 
     /// Insert a new anchor and sequence into the map
