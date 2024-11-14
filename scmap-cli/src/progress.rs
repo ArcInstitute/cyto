@@ -9,7 +9,7 @@ pub struct ProgressBar {
 }
 impl Default for ProgressBar {
     fn default() -> Self {
-        Self::new(1000000)
+        Self::new(1_000_000)
     }
 }
 impl ProgressBar {
