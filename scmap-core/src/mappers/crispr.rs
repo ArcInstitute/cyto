@@ -41,7 +41,7 @@ impl CrisprMapper {
         sequence: SeqRef,
         offset: usize,
     ) -> Result<(usize, &MapSequenceToIndex), MappingError> {
-        for anchor_size in self.anchor_to_sequence.anchor_sizes.iter() {
+        for anchor_size in &self.anchor_to_sequence.anchor_sizes {
             let anchor = &sequence[offset..offset + anchor_size];
             if let Some(sequence_map) = self.anchor_to_sequence.get_sequence_map(anchor) {
                 return Ok((*anchor_size, sequence_map));
