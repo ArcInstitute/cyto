@@ -25,6 +25,15 @@ impl MapIndexToAlias {
     pub fn len(&self) -> usize {
         self.map.len()
     }
+
+    /// The number of unique aliases in the map
+    pub fn num_unique_aliases(&self) -> usize {
+        self.map
+            .values()
+            .map(|alias| &alias.name)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
 }
 
 #[derive(Default, Debug, Clone)]

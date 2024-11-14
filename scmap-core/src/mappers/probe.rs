@@ -75,7 +75,7 @@ impl Mapper for ProbeMapper {
     fn library_statistics(&self) -> Library {
         let statistics = ProbeLibraryStatistics {
             num_probes: self.sequence_to_index.len(),
-            num_aliases: self.index_to_alias.len(),
+            num_aliases: self.index_to_alias.num_unique_aliases(),
             probe_size: self.sequence_to_index.sequence_size,
         };
         Library::Probe(statistics)
