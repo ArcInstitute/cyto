@@ -1,7 +1,7 @@
 use crate::cli::ArgsOutput;
 use anyhow::Result;
 use scmap::{
-    io::write_sparse_mtx, mappers::ProbeMapper, BarcodeIndexCounter, MappingStatistics,
+    io::write_sparse_mtx, mappers::ProbeMapper, statistics::Statistics, BarcodeIndexCounter,
     ProbeBarcodeIndexCounter,
 };
 use std::{
@@ -27,7 +27,7 @@ fn open_file_handle(output_path: &str) -> Result<Box<dyn Write>> {
 }
 
 /// Writes the mapping statistics to a file
-pub fn write_mapping_statistics(args: &ArgsOutput, statistics: MappingStatistics) -> Result<()> {
+pub fn write_statistics(args: &ArgsOutput, statistics: Statistics) -> Result<()> {
     if skip_if_needed(args) {
         return Ok(());
     }
@@ -39,7 +39,9 @@ pub fn write_mapping_statistics(args: &ArgsOutput, statistics: MappingStatistics
     let output_handle = open_file_handle(&output_path)?;
 
     // Write the statistics to the output file
-    statistics.save_json(output_handle)
+    statistics.save_json(output_handle)?;
+
+    Ok(())
 }
 
 /// Writes each probe BUS matrix to a separate file

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use scmap::{
-    mappers::MapperOffset, BarcodeIndexCounter, BusCounter, Counter, GeometryR1, Mapper,
-    MappingStatistics, PairedReader, ProbeBarcodeIndexCounter, ProbeBusCounter,
+    mappers::MapperOffset,
+    statistics::{LibraryCombination, Statistics},
+    BarcodeIndexCounter, BusCounter, Counter, GeometryR1, Mapper, MappingStatistics, PairedReader,
+    ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
 
 use crate::progress::ProgressBar;
@@ -11,12 +13,13 @@ pub fn map_pairs<M>(
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
-) -> Result<(BarcodeIndexCounter, MappingStatistics)>
+) -> Result<(BarcodeIndexCounter, Statistics)>
 where
     M: Mapper,
 {
     let mut counter = BusCounter::default();
-    let mut statistics = MappingStatistics::default();
+    let lib_stats = LibraryCombination::Single(target_mapper.library_statistics());
+    let mut map_stats = MappingStatistics::default();
     let mut pbar = ProgressBar::default();
     while let Some(pair) = reader.next() {
         let pair = pair?;
@@ -24,13 +27,14 @@ where
         match target_mapper.map(&bus.seq, target_offset) {
             Ok(index) => {
                 counter.increment(&bus, index);
-                statistics.increment_mapped();
+                map_stats.increment_mapped();
             }
-            Err(why) => statistics.increment_unmapped(why),
+            Err(why) => map_stats.increment_unmapped(why),
         }
         pbar.tick();
     }
     pbar.finish();
+    let statistics = Statistics::new(lib_stats, map_stats);
     Ok((counter.dedup_umi(), statistics))
 }
 
@@ -41,13 +45,17 @@ pub fn map_probed_pairs<Mt, Mp>(
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
-) -> Result<(ProbeBarcodeIndexCounter, MappingStatistics)>
+) -> Result<(ProbeBarcodeIndexCounter, Statistics)>
 where
     Mt: Mapper,
     Mp: Mapper,
 {
     let mut counter = ProbeBusCounter::default();
-    let mut statistics = MappingStatistics::default();
+    let lib_stats = LibraryCombination::Dual(
+        target_mapper.library_statistics(),
+        probe_mapper.library_statistics(),
+    );
+    let mut map_stats = MappingStatistics::default();
     let mut pbar = ProgressBar::default();
     while let Some(pair) = reader.next() {
         let pair = pair?;
@@ -57,14 +65,15 @@ where
         match (target_index, probe_index) {
             (Ok(t_idx), Ok(p_idx)) => {
                 counter.increment_probe(p_idx, &bus, t_idx);
-                statistics.increment_mapped();
+                map_stats.increment_mapped();
             }
-            (Err(why), Ok(_)) => statistics.increment_unmapped(why),
-            (Ok(_), Err(why)) => statistics.increment_unmapped(why),
-            (Err(why1), Err(why2)) => statistics.increment_unmapped_multi_reason(why1, why2),
+            (Err(why), Ok(_)) => map_stats.increment_unmapped(why),
+            (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
+            (Err(why1), Err(why2)) => map_stats.increment_unmapped_multi_reason(why1, why2),
         }
         pbar.tick();
     }
     pbar.finish();
+    let statistics = Statistics::new(lib_stats, map_stats);
     Ok((counter.dedup_umi(), statistics))
 }

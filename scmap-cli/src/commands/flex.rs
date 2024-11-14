@@ -1,6 +1,6 @@
 use crate::{
     cli::ArgsFlex,
-    io::{write_bus_matrix, write_mapping_statistics, write_probe_matrices},
+    io::{write_bus_matrix, write_probe_matrices, write_statistics},
 };
 use anyhow::Result;
 use scmap::{
@@ -28,7 +28,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         Some(probe_offset),
         args.geometry.into(),
     )?;
-    write_mapping_statistics(&args.output, statistics)?;
+    write_statistics(&args.output, statistics)?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
@@ -36,7 +36,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
     let (counts, statistics) = map_pairs(reader, &target_mapper, None, args.geometry.into())?;
-    write_mapping_statistics(&args.output, statistics)?;
+    write_statistics(&args.output, statistics)?;
     write_bus_matrix(&args.output, &counts)
 }
 
