@@ -1,7 +1,7 @@
 use super::{map_pairs, map_probed_pairs};
 use crate::{
     cli::ArgsCrispr,
-    io::{write_bus_matrix, write_probe_matrices, write_statistics},
+    io::{write_bus_matrix, write_features, write_probe_matrices, write_statistics},
 };
 use anyhow::Result;
 use scmap::{
@@ -29,6 +29,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     )?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
@@ -46,6 +47,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     )?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     write_bus_matrix(&args.output, &counts)
 }
 

@@ -1,8 +1,10 @@
 use crate::cli::ArgsOutput;
 use anyhow::Result;
 use scmap::{
-    io::write_sparse_mtx, mappers::ProbeMapper, statistics::Statistics, BarcodeIndexCounter,
-    ProbeBarcodeIndexCounter,
+    io::{write_sparse_mtx, FeatureWriter},
+    mappers::ProbeMapper,
+    statistics::Statistics,
+    BarcodeIndexCounter, ProbeBarcodeIndexCounter,
 };
 use std::{
     fs::File,
@@ -40,6 +42,26 @@ pub fn write_statistics(args: &ArgsOutput, statistics: &Statistics) -> Result<()
 
     // Write the statistics to the output file
     statistics.save_json(output_handle)?;
+
+    Ok(())
+}
+
+pub fn write_features<'a, F: FeatureWriter<'a>>(
+    args: &ArgsOutput,
+    collection: &'a F,
+) -> Result<()> {
+    if skip_if_needed(args) {
+        return Ok(());
+    }
+
+    // Designate the output path
+    let output_path = format!("{}.features.tsv", args.prefix);
+
+    // Open the output file
+    let output_handle = open_file_handle(&output_path)?;
+
+    // Write the features to the output file
+    collection.write_to(output_handle)?;
 
     Ok(())
 }
