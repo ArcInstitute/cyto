@@ -27,7 +27,7 @@ fn open_file_handle(output_path: &str) -> Result<Box<dyn Write>> {
 }
 
 /// Writes the mapping statistics to a file
-pub fn write_statistics(args: &ArgsOutput, statistics: Statistics) -> Result<()> {
+pub fn write_statistics(args: &ArgsOutput, statistics: &Statistics) -> Result<()> {
     if skip_if_needed(args) {
         return Ok(());
     }

@@ -28,7 +28,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
     )?;
 
-    write_statistics(&args.output, statistics)?;
+    write_statistics(&args.output, &statistics)?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
@@ -45,7 +45,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
     )?;
 
-    write_statistics(&args.output, statistics)?;
+    write_statistics(&args.output, &statistics)?;
     write_bus_matrix(&args.output, &counts)
 }
 
