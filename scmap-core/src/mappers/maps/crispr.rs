@@ -28,8 +28,10 @@ impl MapIndexToName {
     }
 
     /// Get an iterator over the map
-    pub fn iter_records(&self) -> impl Iterator<Item = &Name> {
-        self.map.iter()
+    pub fn iter_records(&self) -> impl Iterator<Item = &str> {
+        self.map
+            .iter()
+            .map(|name| std::str::from_utf8(name).unwrap())
     }
 }
 

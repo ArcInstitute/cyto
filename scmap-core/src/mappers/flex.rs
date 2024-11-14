@@ -64,7 +64,7 @@ impl Mapper for FlexMapper {
 }
 
 impl<'a> FeatureWriter<'a> for FlexMapper {
-    type Record = &'a Name;
+    type Record = &'a str;
     fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
         Box::new(self.index_to_name.iter_records())
     }
