@@ -21,7 +21,7 @@ where
     while let Some(pair) = reader.next() {
         let pair = pair?;
         let bus = pair.as_bus(barcode_size, umi_size);
-        if let Some(index) = target_mapper.map(&bus.seq, target_offset) {
+        if let Ok(index) = target_mapper.map(&bus.seq, target_offset) {
             counter.increment(&bus, index);
         }
         pbar.tick();
@@ -51,7 +51,7 @@ where
         let target_index = target_mapper.map(&bus.seq, target_offset);
         let probe_index = probe_mapper.map(&bus.seq, probe_offset);
         match (target_index, probe_index) {
-            (Some(t_idx), Some(p_idx)) => {
+            (Ok(t_idx), Ok(p_idx)) => {
                 counter.increment_probe(p_idx, &bus, t_idx);
             }
             _ => {}
