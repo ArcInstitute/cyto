@@ -23,12 +23,11 @@ impl ProbeMapper {
         probe_library
             .into_iter()
             .enumerate()
-            .map(|(index, probe)| {
+            .try_for_each(|(index, probe)| -> Result<()> {
                 sequence_to_index.insert(probe.sequence, index)?;
                 index_to_alias.insert(index, probe.alias_nuc, probe.alias);
                 Ok(())
-            })
-            .collect::<Result<()>>()?;
+            })?;
         Ok(Self {
             sequence_to_index,
             index_to_alias,

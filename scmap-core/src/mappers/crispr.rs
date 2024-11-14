@@ -24,12 +24,11 @@ impl CrisprMapper {
         guide_library
             .into_iter()
             .enumerate()
-            .map(|(index, guide)| {
+            .try_for_each(|(index, guide)| -> Result<()> {
                 anchor_to_sequence.insert(guide.anchor, guide.sequence, index)?;
                 index_to_name.insert(index, guide.name);
                 Ok(())
-            })
-            .collect::<Result<()>>()?;
+            })?;
 
         Ok(Self {
             anchor_to_sequence,

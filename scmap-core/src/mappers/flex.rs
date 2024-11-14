@@ -23,12 +23,11 @@ impl FlexMapper {
         flex_library
             .into_iter()
             .enumerate()
-            .map(|(index, flex)| {
+            .try_for_each(|(index, flex)| -> Result<()> {
                 sequence_to_index.insert(flex.sequence, index)?;
                 index_to_name.insert(index, flex.name);
                 Ok(())
-            })
-            .collect::<Result<()>>()?;
+            })?;
 
         Ok(Self {
             sequence_to_index,
