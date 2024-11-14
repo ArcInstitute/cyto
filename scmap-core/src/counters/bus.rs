@@ -64,7 +64,7 @@ impl BusCounter {
 
     /// Iterates over the barcodes in the map
     pub fn iter_barcodes(&self) -> impl Iterator<Item = SeqRef> {
-        self.map.keys().map(|k| k.as_slice())
+        self.map.keys().map(std::vec::Vec::as_slice)
     }
 
     pub fn max_index(&self) -> Index {
