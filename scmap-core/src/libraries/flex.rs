@@ -26,6 +26,9 @@ impl FlexLibrary {
     pub fn into_mapper(self) -> Result<FlexMapper> {
         FlexMapper::new(self)
     }
+    pub fn len(&self) -> usize {
+        self.collection.len()
+    }
 }
 impl Iterator for FlexLibrary {
     type Item = Flex;

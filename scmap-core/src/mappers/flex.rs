@@ -6,6 +6,7 @@ use super::{
 };
 use crate::{
     aliases::{Name, SeqRef},
+    io::FeatureWriter,
     libraries::FlexLibrary,
     statistics::{FlexLibraryStatistics, Library},
 };
@@ -16,11 +17,11 @@ pub struct FlexMapper {
     index_to_name: MapIndexToName,
 }
 impl FlexMapper {
-    pub fn new(flex_library: FlexLibrary) -> Result<Self> {
+    pub fn new(library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::default();
+        let mut index_to_name = MapIndexToName::with_capacity(library.len());
 
-        flex_library
+        library
             .into_iter()
             .enumerate()
             .try_for_each(|(index, flex)| -> Result<()> {
@@ -59,5 +60,12 @@ impl Mapper for FlexMapper {
             flex_sequence_size: self.sequence_to_index.sequence_size,
         };
         Library::Flex(statistics)
+    }
+}
+
+impl<'a> FeatureWriter<'a> for FlexMapper {
+    type Record = &'a Name;
+    fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
+        Box::new(self.index_to_name.iter_records())
     }
 }

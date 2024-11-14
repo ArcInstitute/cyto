@@ -26,6 +26,10 @@ impl CrisprLibrary {
     pub fn into_mapper(self) -> Result<CrisprMapper> {
         CrisprMapper::new(self)
     }
+
+    pub fn len(&self) -> usize {
+        self.guides.len()
+    }
 }
 impl Iterator for CrisprLibrary {
     type Item = Guide;

@@ -41,11 +41,17 @@ impl MapSequenceToIndex {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct MapIndexToName {
-    map: HashMap<usize, Name>,
+    map: Vec<Name>,
 }
 impl MapIndexToName {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            map: Vec::with_capacity(capacity),
+        }
+    }
+
     /// Insert an index-alias pairing into the map
     pub fn insert(&mut self, index: usize, name: Name) {
         self.map.insert(index, name);
@@ -53,6 +59,11 @@ impl MapIndexToName {
 
     /// Get an alias by index
     pub fn get(&self, index: usize) -> Option<&Name> {
-        self.map.get(&index)
+        self.map.as_slice().get(index)
+    }
+
+    /// Get an iterator over the map
+    pub fn iter_records(&self) -> impl Iterator<Item = &Name> {
+        self.map.iter()
     }
 }

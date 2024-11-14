@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     aliases::{Name, SeqRef},
+    io::FeatureWriter,
     libraries::CrisprLibrary,
     statistics::{CrisprLibraryStatistics, Library},
 };
@@ -19,7 +20,7 @@ pub struct CrisprMapper {
 impl CrisprMapper {
     pub fn new(guide_library: CrisprLibrary) -> Result<Self> {
         let mut anchor_to_sequence = MapAnchorToSequence::default();
-        let mut index_to_name = MapIndexToName::default();
+        let mut index_to_name = MapIndexToName::with_capacity(guide_library.len());
 
         guide_library
             .into_iter()
@@ -105,5 +106,12 @@ impl Mapper for CrisprMapper {
             protospacer_size: self.anchor_to_sequence.sequence_size,
         };
         Library::Crispr(statistics)
+    }
+}
+
+impl<'a> FeatureWriter<'a> for CrisprMapper {
+    type Record = &'a Name;
+    fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
+        self.index_to_name.iter_records()
     }
 }

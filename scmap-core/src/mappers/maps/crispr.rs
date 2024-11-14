@@ -3,22 +3,33 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::aliases::{Anchor, Name, SeqRef, Sequence};
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct MapIndexToName {
-    map: HashMap<usize, Name>,
+    map: Vec<Name>,
 }
 impl MapIndexToName {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            map: Vec::with_capacity(capacity),
+        }
+    }
+
     /// Insert a name into the map
     pub fn insert(&mut self, index: usize, name: Name) {
         self.map.insert(index, name);
     }
     /// Get a name from the map
     pub fn get(&self, index: usize) -> Option<&Name> {
-        self.map.get(&index)
+        self.map.as_slice().get(index)
     }
     /// Get the length of the map
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    /// Get an iterator over the map
+    pub fn iter_records(&self) -> impl Iterator<Item = &Name> {
+        self.map.iter()
     }
 }
 
