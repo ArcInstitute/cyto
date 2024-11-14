@@ -11,4 +11,9 @@ lto = true
 debug = true
 
 [workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
 module_inception = "allow"
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+cast_precision_loss = "allow"
+struct_field_names = "allow"
