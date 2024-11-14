@@ -1,3 +1,4 @@
+use super::MappingError;
 use crate::aliases::SeqRef;
 
 /// Describes the offset to provide to the underlying `Mapper` implementation.
@@ -19,11 +20,11 @@ impl From<MapperOffset> for usize {
 }
 
 pub trait Mapper: Clone {
-    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Option<usize>;
+    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError>;
 }
 
 impl<M: Mapper> Mapper for &M {
-    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
         (*self).map(seq, offset)
     }
 }

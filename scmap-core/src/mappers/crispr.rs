@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::{
     mapper::MapperOffset,
     maps::crispr::{MapAnchorToSequence, MapIndexToName, MapSequenceToIndex},
-    Mapper,
+    Mapper, MappingError,
 };
 use crate::{
     aliases::{Name, SeqRef},
@@ -36,14 +36,18 @@ impl CrisprMapper {
         })
     }
     /// Maps an input sequence to a potential set of guides through an anchor sequence.
-    fn map_anchor(&self, sequence: SeqRef, offset: usize) -> Option<(usize, &MapSequenceToIndex)> {
+    fn map_anchor(
+        &self,
+        sequence: SeqRef,
+        offset: usize,
+    ) -> Result<(usize, &MapSequenceToIndex), MappingError> {
         for anchor_size in self.anchor_to_sequence.anchor_sizes.iter() {
             let anchor = &sequence[offset..offset + anchor_size];
             if let Some(sequence_map) = self.anchor_to_sequence.get_sequence_map(anchor) {
-                return Some((*anchor_size, sequence_map));
+                return Ok((*anchor_size, sequence_map));
             }
         }
-        None
+        Err(MappingError::MissingAnchor)
     }
 
     /// Maps an input sequence to a guide name through a sequence.
@@ -53,11 +57,15 @@ impl CrisprMapper {
         sequence_map: &MapSequenceToIndex,
         offset: usize,
         anchor_size: usize,
-    ) -> Option<usize> {
+    ) -> Result<usize, MappingError> {
         let lpos = offset + anchor_size;
         let rpos = lpos + self.anchor_to_sequence.sequence_size;
         let sequence = &sequence[lpos..rpos];
-        sequence_map.get(sequence).copied()
+        if let Some(index) = sequence_map.get(sequence) {
+            Ok(*index)
+        } else {
+            Err(MappingError::MissingProtospacer)
+        }
     }
 
     /// Retrieves the guide name from the guide index.
@@ -82,7 +90,7 @@ impl Mapper for CrisprMapper {
     ///     b. If not found, return None
     /// 3. Map the guide index to the guide name.
     /// 4. Return the guide name.
-    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Option<usize> {
+    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "CrisprMapper requires an offset");
         let offset = offset.unwrap();
         let (anchor_size, sequence_map) = self.map_anchor(sequence, offset.into())?;
