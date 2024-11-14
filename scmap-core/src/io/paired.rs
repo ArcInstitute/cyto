@@ -1,38 +1,57 @@
-use anyhow::Result;
-use fxread::{initialize_reader, FastxRead, Record};
+use std::io::Read;
 
+use anyhow::Result;
+use seq_io::fastq::{Reader, Record, RefRecord};
+// use fxread::{initialize_reader, FastxRead, Record};
 use crate::Bus;
 
-pub struct PairedRecord {
-    pub r1: Record,
-    pub r2: Record,
+pub struct PairedRecord<'a> {
+    pub r1: RefRecord<'a>,
+    pub r2: RefRecord<'a>,
 }
-impl PairedRecord {
+impl<'a> PairedRecord<'a> {
+    pub fn new(r1: RefRecord<'a>, r2: RefRecord<'a>) -> Self {
+        Self { r1, r2 }
+    }
     pub fn as_bus(&self, size_barcode: usize, size_umi: usize) -> Bus {
         Bus::new(self.r1.seq(), self.r2.seq(), size_barcode, size_umi)
     }
 }
 
 pub struct PairedReader {
-    reader_r1: Box<dyn FastxRead<Item = Record>>,
-    reader_r2: Box<dyn FastxRead<Item = Record>>,
+    r1_reader: Reader<Box<dyn Read>>,
+    r2_reader: Reader<Box<dyn Read>>,
 }
 impl PairedReader {
-    pub fn new(filepath_r1: &str, filepath_r2: &str) -> Result<Self> {
-        let reader_r1 = initialize_reader(filepath_r1)?;
-        let reader_r2 = initialize_reader(filepath_r2)?;
+    pub fn new(r1_filepath: &str, r2_filepath: &str) -> Result<Self> {
+        let (r1_handle, _) = niffler::from_path(r1_filepath)?;
+        let (r2_handle, _) = niffler::from_path(r2_filepath)?;
+
+        let r1_reader = Reader::new(r1_handle);
+        let r2_reader = Reader::new(r2_handle);
+
         Ok(Self {
-            reader_r1,
-            reader_r2,
+            r1_reader,
+            r2_reader,
         })
     }
-}
-impl Iterator for PairedReader {
-    type Item = PairedRecord;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let r1 = self.reader_r1.next()?;
-        let r2 = self.reader_r2.next()?;
-        Some(PairedRecord { r1, r2 })
+    pub fn next<'a>(&'a mut self) -> Option<Result<PairedRecord<'a>>> {
+        let r1 = self.r1_reader.next();
+        let r2 = self.r2_reader.next();
+
+        match (r1, r2) {
+            (Some(r1), Some(r2)) => match (r1, r2) {
+                (Ok(r1), Ok(r2)) => {
+                    let pair = PairedRecord::new(r1, r2);
+                    Some(Ok(pair))
+                }
+                (Err(e), _) => Some(Err(e.into())),
+                (_, Err(e)) => Some(Err(e.into())),
+            },
+            (Some(_), None) => Some(Err(anyhow::anyhow!("Unexpected end of R2 file"))),
+            (None, Some(_)) => Some(Err(anyhow::anyhow!("Unexpected end of R1 file"))),
+            (None, None) => None,
+        }
     }
 }

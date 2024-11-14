@@ -28,7 +28,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         Some(probe_offset),
         args.geometry.barcode,
         args.geometry.umi,
-    );
+    )?;
     write_probe_matrices(&args.output, &probe_mapper, &counts)
 }
 
@@ -41,7 +41,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         None,
         args.geometry.barcode,
         args.geometry.umi,
-    );
+    )?;
     write_bus_matrix(&args.output, &counts)
 }
 
