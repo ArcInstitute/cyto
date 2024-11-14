@@ -16,3 +16,6 @@ benchmarking = []
 [[bin]]
 name = "scmap"
 path = "src/main.rs"
+
+[lints]
+workspace = true

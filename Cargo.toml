@@ -9,3 +9,6 @@ serde = { version = "1.0.214", features = ["derive"] }
 [profile.release]
 lto = true
 debug = true
+
+[workspace.lints.clippy]
+module_inception = "allow"

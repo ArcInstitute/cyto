@@ -11,3 +11,6 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 seq_io = "0.3.2"
 serde_json = "1.0.132"
+
+[lints]
+workspace = true
