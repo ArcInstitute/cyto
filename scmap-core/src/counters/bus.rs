@@ -43,7 +43,6 @@ impl BusCounter {
         let umi_set = self.map.get_mut(barcode).unwrap();
         let index_counts = umi_set.get_mut(umi).unwrap();
         index_counts.increment(index);
-        // umi_set.increment(umi, index);
     }
 
     /// Updates the maximum index seen so far
