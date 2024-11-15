@@ -20,5 +20,5 @@ fn match_output(filepath: Option<String>) -> Result<Box<dyn Write>> {
 pub fn run(args: ArgsBus) -> Result<()> {
     let mut reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let writer = match_output(args.options.output)?;
-    reader.write_to(writer)
+    reader.write_to(writer, args.geometry.barcode, args.geometry.umi)
 }

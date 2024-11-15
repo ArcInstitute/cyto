@@ -54,7 +54,7 @@ impl PairedReader {
         }
     }
 
-    pub fn write_to<W: Write>(&mut self, writer: W) -> Result<()> {
+    pub fn write_to<W: Write>(&mut self, writer: W, barcode: usize, umi: usize) -> Result<()> {
         let mut wtr = csv::WriterBuilder::new()
             .delimiter(b'\t')
             .has_headers(false)
@@ -62,7 +62,7 @@ impl PairedReader {
 
         while let Some(pair) = self.next() {
             let pair = pair?;
-            let bus = pair.as_bus(16, 10);
+            let bus = pair.as_bus(barcode, umi);
             let record = (
                 std::str::from_utf8(bus.barcode)?,
                 std::str::from_utf8(bus.umi)?,
