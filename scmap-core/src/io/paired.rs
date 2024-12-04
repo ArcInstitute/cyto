@@ -12,7 +12,7 @@ impl<'a> PairedRecord<'a> {
     pub fn new(r1: RefRecord<'a>, r2: RefRecord<'a>) -> Self {
         Self { r1, r2 }
     }
-    pub fn as_bus(&self, size_barcode: usize, size_umi: usize) -> Bus {
+    pub fn as_bus(&self, size_barcode: usize, size_umi: usize) -> Result<Bus> {
         Bus::new(self.r1.seq(), self.r2.seq(), size_barcode, size_umi)
     }
 }
@@ -62,10 +62,12 @@ impl PairedReader {
 
         while let Some(pair) = self.next() {
             let pair = pair?;
-            let bus = pair.as_bus(barcode, umi);
+            let Ok(bus) = pair.as_bus(barcode, umi) else {
+                continue;
+            };
             let record = (
-                std::str::from_utf8(bus.barcode)?,
-                std::str::from_utf8(bus.umi)?,
+                &bus.str_barcode()?,
+                &bus.str_umi()?,
                 std::str::from_utf8(bus.seq)?,
             );
             wtr.serialize(record)?;
