@@ -1,11 +1,9 @@
 use serde::Serialize;
 
 use super::{Barcode, BusCounter, Index, IndexCounts};
-use crate::io::utils::bytes_to_string;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BarcodeIndex {
-    #[serde(serialize_with = "bytes_to_string")]
     barcode: Barcode,
     index: Index,
     abundance: usize,
@@ -24,7 +22,7 @@ impl BarcodeIndexCounter {
 
         for barcode in counter.iter_barcodes() {
             // Pulls the UMI set for the barcode from the counter
-            let umi_set = counter.get_umi_set(barcode).unwrap();
+            let umi_set = counter.get_umi_set(*barcode).unwrap();
 
             // Iterates over the UMIs for that barcode
             let mut index_counts = IndexCounts::default();
@@ -44,7 +42,7 @@ impl BarcodeIndexCounter {
             // Iterates over the index counts and creates a BarcodeIndex for each
             for (index, abundance) in &index_counts {
                 inner.push(BarcodeIndex {
-                    barcode: barcode.to_vec(), // TODO: This is a clone - could be optimized
+                    barcode: *barcode,
                     index: *index,
                     abundance: *abundance,
                 });

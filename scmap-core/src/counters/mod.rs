@@ -11,8 +11,8 @@ use hashbrown::HashMap;
 pub use probe::{ProbeBarcodeIndexCounter, ProbeBusCounter};
 pub use tracked_index::TrackedIndexCounter;
 
-type Barcode = Vec<u8>;
-type Umi = Vec<u8>;
+type Barcode = u64;
+type Umi = u64;
 type Index = usize;
 
 type BarcodeSet = HashMap<Barcode, UmiSet>;

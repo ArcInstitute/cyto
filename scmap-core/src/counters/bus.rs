@@ -1,5 +1,5 @@
 use super::{BarcodeIndexCounter, BarcodeSet, Counter, Index, TrackedIndexCounter, UmiSet};
-use crate::{aliases::SeqRef, Bus};
+use crate::Bus;
 
 /// `BusCounter` is a data structure that manages the counts of UMIs for each barcode and index
 ///
@@ -19,29 +19,29 @@ pub struct BusCounter {
 }
 impl BusCounter {
     /// Ensures that the barcode exists in the map by inserting it if it does not
-    fn ensure_barcode_exists(&mut self, barcode: SeqRef) {
-        if !self.map.contains_key(barcode) {
-            self.map.insert(barcode.to_vec(), UmiSet::default());
+    fn ensure_barcode_exists(&mut self, barcode: u64) {
+        if !self.map.contains_key(&barcode) {
+            self.map.insert(barcode, UmiSet::default());
         }
     }
 
     /// Ensures that the UMI exists for the given barcode by inserting it if it does not
-    fn ensure_umi_exists(&mut self, barcode: SeqRef, umi: SeqRef) {
-        let umi_set = self.map.get_mut(barcode).unwrap();
-        if !umi_set.contains_key(umi) {
-            umi_set.insert(umi.to_vec(), TrackedIndexCounter::default());
+    fn ensure_umi_exists(&mut self, barcode: u64, umi: u64) {
+        let umi_set = self.map.get_mut(&barcode).unwrap();
+        if !umi_set.contains_key(&umi) {
+            umi_set.insert(umi, TrackedIndexCounter::default());
         }
     }
 
     /// Increments the `Index` count for the given `Barcode` and `Umi`
-    fn increment_index(&mut self, barcode: SeqRef, umi: SeqRef, index: Index) {
+    fn increment_index(&mut self, barcode: u64, umi: u64, index: Index) {
         // Handles path initialization and validation within the tree
         self.ensure_barcode_exists(barcode);
         self.ensure_umi_exists(barcode, umi);
 
         // Selects the necessary node within the tree
-        let umi_set = self.map.get_mut(barcode).unwrap();
-        let index_counts = umi_set.get_mut(umi).unwrap();
+        let umi_set = self.map.get_mut(&barcode).unwrap();
+        let index_counts = umi_set.get_mut(&umi).unwrap();
         index_counts.increment(index);
     }
 
@@ -52,8 +52,8 @@ impl BusCounter {
     }
 
     /// Returns the UMI set for a given barcode
-    pub fn get_umi_set(&self, barcode: SeqRef) -> Option<&UmiSet> {
-        self.map.get(barcode)
+    pub fn get_umi_set(&self, barcode: u64) -> Option<&UmiSet> {
+        self.map.get(&barcode)
     }
 
     /// Gets the number of barcodes in the map
@@ -62,8 +62,8 @@ impl BusCounter {
     }
 
     /// Iterates over the barcodes in the map
-    pub fn iter_barcodes(&self) -> impl Iterator<Item = SeqRef> {
-        self.map.keys().map(std::vec::Vec::as_slice)
+    pub fn iter_barcodes(&self) -> impl Iterator<Item = &u64> {
+        self.map.keys()
     }
 
     pub fn max_index(&self) -> Index {
