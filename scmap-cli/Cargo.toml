@@ -8,6 +8,7 @@ clap = { version = "4.5.20", features = ["derive"] }
 scmap = { path = "../scmap-core" }
 anyhow = { workspace = true }
 serde = { workspace = true }
+bitnuc = { workspace = true }
 spinoff = "0.8.0"
 
 [features]

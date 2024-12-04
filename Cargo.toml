@@ -5,6 +5,7 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1.0.93"
 serde = { version = "1.0.214", features = ["derive"] }
+bitnuc = "0.1.0"
 
 [profile.release]
 lto = true
