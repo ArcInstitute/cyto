@@ -2,8 +2,7 @@ use anyhow::Result;
 use scmap::{
     mappers::MapperOffset,
     statistics::{LibraryCombination, Statistics},
-    BarcodeIndexCounter, BusCounter, Counter, GeometryR1, Mapper, MappingStatistics, PairedReader,
-    ProbeBarcodeIndexCounter, ProbeBusCounter,
+    GeometryR1, Mapper, MappingStatistics, PairedReader,
 };
 
 use crate::progress::ProgressBar;
@@ -13,11 +12,10 @@ pub fn map_pairs<M>(
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
-) -> Result<(BarcodeIndexCounter, Statistics)>
+) -> Result<Statistics>
 where
     M: Mapper,
 {
-    let mut counter = BusCounter::default();
     let lib_stats = LibraryCombination::Single(target_mapper.library_statistics());
     let mut map_stats = MappingStatistics::default();
     let mut pbar = ProgressBar::default();
@@ -27,8 +25,7 @@ where
             continue;
         };
         match target_mapper.map(bus.seq, target_offset) {
-            Ok(index) => {
-                counter.increment(&bus, index);
+            Ok(_index) => {
                 map_stats.increment_mapped();
             }
             Err(why) => map_stats.increment_unmapped(why),
@@ -36,8 +33,7 @@ where
         pbar.tick();
     }
     pbar.finish();
-    let statistics = Statistics::new(lib_stats, map_stats);
-    Ok((counter.dedup_umi(), statistics))
+    Ok(Statistics::new(lib_stats, map_stats))
 }
 
 pub fn map_probed_pairs<Mt, Mp>(
@@ -47,12 +43,11 @@ pub fn map_probed_pairs<Mt, Mp>(
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
-) -> Result<(ProbeBarcodeIndexCounter, Statistics)>
+) -> Result<Statistics>
 where
     Mt: Mapper,
     Mp: Mapper,
 {
-    let mut counter = ProbeBusCounter::default();
     let lib_stats = LibraryCombination::Dual(
         target_mapper.library_statistics(),
         probe_mapper.library_statistics(),
@@ -67,8 +62,7 @@ where
         let target_index = target_mapper.map(bus.seq, target_offset);
         let probe_index = probe_mapper.map(bus.seq, probe_offset);
         match (target_index, probe_index) {
-            (Ok(t_idx), Ok(p_idx)) => {
-                counter.increment_probe(p_idx, &bus, t_idx);
+            (Ok(_t_idx), Ok(_p_idx)) => {
                 map_stats.increment_mapped();
             }
             (Err(why), Ok(_)) | (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
@@ -77,6 +71,5 @@ where
         pbar.tick();
     }
     pbar.finish();
-    let statistics = Statistics::new(lib_stats, map_stats);
-    Ok((counter.dedup_umi(), statistics))
+    Ok(Statistics::new(lib_stats, map_stats))
 }

@@ -1,7 +1,7 @@
 use super::{map_pairs, map_probed_pairs};
 use crate::{
     cli::ArgsCrispr,
-    io::{write_bus_matrix, write_features, write_probe_matrices, write_statistics},
+    io::{write_features, write_statistics},
 };
 use anyhow::Result;
 use scmap::{
@@ -19,7 +19,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
-    let (counts, statistics) = map_probed_pairs(
+    let statistics = map_probed_pairs(
         reader,
         &target_mapper,
         &probe_mapper,
@@ -30,7 +30,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 
     write_statistics(&args.output, &statistics)?;
     write_features(&args.output, &target_mapper)?;
-    write_probe_matrices(&args.output, &probe_mapper, &counts)
+    Ok(())
 }
 
 pub fn bus(args: ArgsCrispr) -> Result<()> {
@@ -39,7 +39,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
-    let (counts, statistics) = map_pairs(
+    let statistics = map_pairs(
         reader,
         &target_mapper,
         Some(target_offset),
@@ -48,7 +48,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
 
     write_statistics(&args.output, &statistics)?;
     write_features(&args.output, &target_mapper)?;
-    write_bus_matrix(&args.output, &counts)
+    Ok(())
 }
 
 pub fn run(args: ArgsCrispr) -> Result<()> {
