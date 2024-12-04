@@ -330,7 +330,7 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 
 [[package]]
 name = "scmap"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bitnuc",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "scmap-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "bitnuc",
