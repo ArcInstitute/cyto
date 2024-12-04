@@ -88,7 +88,7 @@ pub fn write_probe_matrices(
         let counts = counter.get_probe_counter(*p_idx).unwrap();
 
         // Write the BUS matrix to the output path
-        _write_bus_matrix(&output_path, counts, args.with_header)?;
+        impl_write_bus_matrix(&output_path, counts, args.with_header)?;
     }
 
     Ok(())
@@ -107,7 +107,7 @@ pub fn write_bus_matrix(args: &ArgsOutput, counter: &BarcodeIndexCounter) -> Res
     let output_path = format!("{}.mtx", args.prefix);
 
     // Write the BUS matrix to the output path
-    _write_bus_matrix(&output_path, counter, args.with_header)
+    impl_write_bus_matrix(&output_path, counter, args.with_header)
 }
 
 /// Internal writing function for a single BUS matrix
@@ -115,7 +115,7 @@ pub fn write_bus_matrix(args: &ArgsOutput, counter: &BarcodeIndexCounter) -> Res
 /// This function is used to write a single BUS matrix to a file
 /// This function is fully parameterized and used by upstream convenience functions
 /// which handle the arguments and parameterization
-fn _write_bus_matrix(
+fn impl_write_bus_matrix(
     output_path: &str,
     counter: &BarcodeIndexCounter,
     with_header: bool,
