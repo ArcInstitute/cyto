@@ -1,23 +1,15 @@
 mod cli;
 mod commands;
-mod crispr;
-mod flex;
-mod geometry;
 mod ibu;
-mod input;
 mod map;
 mod output;
-mod probe;
 mod view;
+
+pub use map::{ArgsCrispr, ArgsFlex, Geometry, PairedInput};
 
 pub use cli::Cli;
 pub use commands::Commands;
-pub use crispr::ArgsCrispr;
-pub use flex::ArgsFlex;
-use geometry::Geometry;
 pub use ibu::IbuCommand;
-use input::PairedInput;
 pub use map::MapCommand;
 pub use output::ArgsOutput;
-use probe::ProbeOptions;
 pub use view::ArgsView;
