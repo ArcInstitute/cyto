@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufWriter};
 
 use anyhow::Result;
-use scmap::mappers::ProbeMapper;
+use cyto::mappers::ProbeMapper;
 
 pub fn build_filepath(prefix: &str, name: Option<&str>) -> String {
     if let Some(name) = name {

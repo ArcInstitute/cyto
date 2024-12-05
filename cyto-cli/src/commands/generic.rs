@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ibu::{Header, Record};
-use scmap::{
+use cyto::{
     mappers::{MapperOffset, ProbeMapper},
     statistics::{LibraryCombination, Statistics},
     GeometryR1, Mapper, MappingStatistics, PairedReader,

@@ -1,7 +1,10 @@
-use crate::{cli::ArgsFlex, io::write_statistics};
+use crate::{
+    cli::ArgsCrispr,
+    io::{write_features, write_statistics},
+};
 use anyhow::Result;
-use scmap::{
-    libraries::{FlexLibrary, ProbeLibrary},
+use cyto::{
+    libraries::{CrisprLibrary, ProbeLibrary},
     mappers::MapperOffset,
     PairedReader,
 };
@@ -14,14 +17,14 @@ use super::{
     },
 };
 
-fn probed_bus(args: ArgsFlex) -> Result<()> {
+pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
-    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
+    let target_mapper =
+        CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
     let probe_mapper =
         ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?.into_mapper()?;
-
-    // The expected start position of the probe sequence in the bus sequence
-    let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
+    let target_offset = MapperOffset::RightOf(args.crispr.offset);
+    let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
@@ -29,12 +32,13 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     // Open a file handle for each handle
     let mut probe_writers = open_handles(&filepaths)?;
 
+    // map the reads and write the results to the probe files
     let statistics = ibu_map_probed_pairs(
         reader,
         &mut probe_writers,
         &target_mapper,
         &probe_mapper,
-        None,
+        Some(target_offset),
         Some(probe_offset),
         args.geometry.into(),
     )?;
@@ -43,12 +47,15 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     delete_empty_paths(&filepaths)?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
-fn bus(args: ArgsFlex) -> Result<()> {
+pub fn bus(args: ArgsCrispr) -> Result<()> {
     let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
-    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
+    let target_mapper =
+        CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
+    let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -56,11 +63,12 @@ fn bus(args: ArgsFlex) -> Result<()> {
     // Open a file handle for the output file
     let mut handle = open_handle(&output_filepath)?;
 
+    // map the reads and write the results to the output file
     let statistics = ibu_map_pairs(
         reader,
         &mut handle,
         &target_mapper,
-        None,
+        Some(target_offset),
         args.geometry.into(),
     )?;
 
@@ -68,10 +76,11 @@ fn bus(args: ArgsFlex) -> Result<()> {
     delete_empty_path(&output_filepath)?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
-pub fn run(args: ArgsFlex) -> Result<()> {
+pub fn run(args: ArgsCrispr) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         probed_bus(args)
     } else {

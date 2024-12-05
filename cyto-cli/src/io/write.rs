@@ -1,6 +1,6 @@
 use crate::cli::ArgsOutput;
 use anyhow::Result;
-use scmap::{
+use cyto::{
     io::{write_sparse_mtx, FeatureWriter},
     mappers::ProbeMapper,
     statistics::Statistics,
