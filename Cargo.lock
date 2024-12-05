@@ -352,6 +352,7 @@ dependencies = [
  "bitnuc",
  "csv",
  "hashbrown",
+ "ibu",
  "niffler",
  "seq_io",
  "serde",
