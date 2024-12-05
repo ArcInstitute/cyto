@@ -68,7 +68,14 @@ pub fn run(args: &ArgsView) -> Result<()> {
     let header = reader.header();
 
     // Write the header to the output file
-    write_header(header, &mut output)?;
+    if !args.options.skip_header {
+        write_header(header, &mut output)?;
+    }
+
+    // If only the header is requested, return early
+    if args.options.header {
+        return Ok(());
+    }
 
     // Write the records to the output file
     let mut csv_writer = build_csv_writer(output);
