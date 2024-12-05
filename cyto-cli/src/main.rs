@@ -18,6 +18,7 @@ fn main() -> Result<()> {
         },
         Commands::Ibu(ibu) => match ibu {
             IbuCommand::View(args) => ibu_commands::view::run(&args),
+            IbuCommand::Sort(args) => ibu_commands::sort::run(&args),
         },
     }
 }

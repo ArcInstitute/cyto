@@ -1,7 +1,9 @@
 mod input;
+mod sort;
 mod view;
 
 pub use input::IbuInput;
+pub use sort::ArgsSort;
 pub use view::ArgsView;
 
 /// Perform operations on an IBU library
@@ -9,4 +11,7 @@ pub use view::ArgsView;
 pub enum IbuCommand {
     /// View the contents of an IBU library as plain text
     View(ArgsView),
+
+    /// Sort the contents of an IBU library
+    Sort(ArgsSort),
 }
