@@ -5,8 +5,8 @@ mod progress;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands, MapCommand};
-use commands::map as map_commands;
+use cli::{Cli, Commands, IbuCommand, MapCommand};
+use commands::{ibu as ibu_commands, map as map_commands};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -16,6 +16,8 @@ fn main() -> Result<()> {
             MapCommand::Crispr(args) => map_commands::crispr::run(args),
             MapCommand::Flex(args) => map_commands::flex::run(args),
         },
-        Commands::Ibu(ibu) => match ibu {},
+        Commands::Ibu(ibu) => match ibu {
+            IbuCommand::View(args) => ibu_commands::view::run(&args),
+        },
     }
 }

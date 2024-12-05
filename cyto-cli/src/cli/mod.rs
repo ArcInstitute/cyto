@@ -1,7 +1,7 @@
 mod cli;
 mod commands;
-mod ibu;
-mod map;
+pub mod ibu;
+pub mod map;
 mod output;
 mod view;
 
