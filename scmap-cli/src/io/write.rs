@@ -67,6 +67,7 @@ pub fn write_features<'a, F: FeatureWriter<'a>>(
 }
 
 /// Writes each probe BUS matrix to a separate file
+#[allow(unused)]
 pub fn write_probe_matrices(
     args: &ArgsOutput,
     mapper: &ProbeMapper,
@@ -95,6 +96,7 @@ pub fn write_probe_matrices(
 }
 
 /// Writes a single BUS matrix to a file
+#[allow(unused)]
 pub fn write_bus_matrix(args: &ArgsOutput, counter: &BarcodeIndexCounter) -> Result<()> {
     // Only skip the matrix writing under certain compilation conditions and flags
     //

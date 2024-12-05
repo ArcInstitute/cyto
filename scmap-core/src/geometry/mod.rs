@@ -1,9 +1,5 @@
 mod bus;
-pub use bus::Bus;
-use serde::{Deserialize, Serialize};
+mod r1;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct GeometryR1 {
-    pub barcode: usize,
-    pub umi: usize,
-}
+pub use bus::Bus;
+pub use r1::GeometryR1;

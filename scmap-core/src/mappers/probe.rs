@@ -61,6 +61,14 @@ impl ProbeMapper {
     pub fn get_alias(&self, index: usize) -> Option<&ProbeAlias> {
         self.index_to_alias.get(index)
     }
+
+    pub fn get_alias_index(&self, index: usize) -> Option<usize> {
+        self.index_to_alias.get_index(index)
+    }
+
+    pub fn num_unique_aliases(&self) -> usize {
+        self.index_to_alias.num_unique_aliases()
+    }
 }
 
 impl Mapper for ProbeMapper {

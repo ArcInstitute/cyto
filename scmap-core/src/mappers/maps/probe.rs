@@ -8,26 +8,37 @@ use crate::{
 
 #[derive(Default, Debug, Clone)]
 pub struct MapIndexToAlias {
-    map: HashMap<usize, ProbeAlias>,
+    map: HashMap<usize, usize>,
+    alias_map: HashMap<usize, ProbeAlias>,
 }
 impl MapIndexToAlias {
     /// Insert an index-alias pairing into the map
     pub fn insert(&mut self, index: usize, alias_nuc: AliasNuc, alias: Alias) {
-        self.map.insert(index, ProbeAlias::new(alias_nuc, alias));
+        let probe_alias = ProbeAlias::new(alias_nuc, alias);
+        let probe_alias_index = self.alias_map.len();
+        self.map.insert(index, probe_alias_index);
+        self.alias_map.insert(probe_alias_index, probe_alias);
     }
 
     /// Get an alias by index
+    ///
+    /// This is used to get the full alias struct from the map
     pub fn get(&self, index: usize) -> Option<&ProbeAlias> {
-        self.map.get(&index)
+        self.map
+            .get(&index)
+            .and_then(|alias_index| self.alias_map.get(alias_index))
+    }
+
+    /// Get the index of an alias by index
+    ///
+    /// This is used to the unique index of an alias in the map
+    pub fn get_index(&self, index: usize) -> Option<usize> {
+        self.map.get(&index).copied()
     }
 
     /// The number of unique aliases in the map
     pub fn num_unique_aliases(&self) -> usize {
-        self.map
-            .values()
-            .map(|alias| &alias.name)
-            .collect::<std::collections::HashSet<_>>()
-            .len()
+        self.alias_map.len()
     }
 }
 
