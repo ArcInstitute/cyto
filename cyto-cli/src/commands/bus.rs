@@ -1,5 +1,5 @@
 use anyhow::Result;
-use scmap::PairedReader;
+use cyto::PairedReader;
 use std::{
     fs::File,
     io::{stdout, BufWriter, Write},

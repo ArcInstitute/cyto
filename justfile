@@ -13,36 +13,36 @@ CRISPR_FASTQ_R2 := "./data/crispr_R2.fastq.gz"
 
 
 install-dev:
-    cargo install --path scmap-cli -F benchmarking
+    cargo install --path cyto-cli -F benchmarking
 
 install:
-    cargo install --path scmap-cli
+    cargo install --path cyto-cli
 
 run-crispr-probe: install
-    time scmap crispr \
+    time cyto crispr \
         -i {{CRISPR_FASTQ_R1}} \
         -I {{CRISPR_FASTQ_R2}} \
         -c {{CRISPR_GUIDES}} \
         -p {{PROBE_BARCODES}}
 
 run-crispr: install
-    time scmap crispr \
+    time cyto crispr \
         -i {{CRISPR_FASTQ_R1}} \
         -I {{CRISPR_FASTQ_R2}} \
         -c {{CRISPR_GUIDES}}
 
 run-flex-probe: install
-    time scmap flex \
+    time cyto flex \
         -i {{FLEX_FASTQ_R1}} \
         -I {{FLEX_FASTQ_R2}} \
         -c {{FLEX_PROBES}} \
         -p {{PROBE_BARCODES}}
 
 run-flex: install
-    time scmap flex \
+    time cyto flex \
         -i {{FLEX_FASTQ_R1}} \
         -I {{FLEX_FASTQ_R2}} \
         -c {{FLEX_PROBES}}
 
 clean:
-    rm -v scmap_out.*
+    rm -v cyto_out.*

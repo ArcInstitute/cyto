@@ -1,5 +1,5 @@
 [workspace]
-members = ["scmap-cli", "scmap-core"]
+members = ["cyto-cli", "cyto-core"]
 resolver = "2"
 
 [workspace.dependencies]

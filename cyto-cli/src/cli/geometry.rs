@@ -1,5 +1,5 @@
 use clap::Parser;
-use scmap::GeometryR1;
+use cyto::GeometryR1;
 
 #[derive(Parser)]
 #[clap(next_help_heading = "Geometry Configuration")]
