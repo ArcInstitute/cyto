@@ -10,7 +10,7 @@ use cli::{Cli, Commands, MapCommand};
 fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
-        Commands::Bus(args) => commands::bus::run(args),
+        Commands::View(args) => commands::view::run(args),
         Commands::Map(map) => match map {
             MapCommand::Crispr(args) => commands::crispr::run(args),
             MapCommand::Flex(args) => commands::flex::run(args),

@@ -5,7 +5,7 @@ use std::{
     io::{stdout, BufWriter, Write},
 };
 
-use crate::cli::ArgsBus;
+use crate::cli::ArgsView;
 
 fn match_output(filepath: Option<String>) -> Result<Box<dyn Write>> {
     if let Some(filepath) = filepath {
@@ -17,7 +17,7 @@ fn match_output(filepath: Option<String>) -> Result<Box<dyn Write>> {
     }
 }
 
-pub fn run(args: ArgsBus) -> Result<()> {
+pub fn run(args: ArgsView) -> Result<()> {
     let mut reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
     let writer = match_output(args.options.output)?;
     reader.write_to(writer, args.geometry.barcode, args.geometry.umi)

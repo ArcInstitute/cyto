@@ -1,12 +1,13 @@
 use clap::Subcommand;
 
-use super::{ArgsBus, MapCommand};
+use super::{ArgsView, MapCommand};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Map sequences to a library
     #[clap(subcommand)]
     Map(MapCommand),
-    // Crispr(ArgsCrispr),
-    // Flex(ArgsFlex),
-    Bus(ArgsBus),
+
+    /// Separate the Barcode, UMI, and R2 sequence and view as plain text
+    View(ArgsView),
 }
