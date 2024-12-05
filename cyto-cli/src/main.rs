@@ -15,5 +15,6 @@ fn main() -> Result<()> {
             MapCommand::Crispr(args) => commands::crispr::run(args),
             MapCommand::Flex(args) => commands::flex::run(args),
         },
+        Commands::Ibu(ibu) => match ibu {},
     }
 }
