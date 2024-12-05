@@ -1,10 +1,12 @@
 use clap::Subcommand;
 
-use super::{ArgsBus, ArgsCrispr, ArgsFlex};
+use super::{ArgsBus, MapCommand};
 
 #[derive(Subcommand)]
 pub enum Commands {
-    Crispr(ArgsCrispr),
-    Flex(ArgsFlex),
+    #[clap(subcommand)]
+    Map(MapCommand),
+    // Crispr(ArgsCrispr),
+    // Flex(ArgsFlex),
     Bus(ArgsBus),
 }

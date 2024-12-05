@@ -5,6 +5,7 @@ mod crispr;
 mod flex;
 mod geometry;
 mod input;
+mod map;
 mod output;
 mod probe;
 
@@ -15,5 +16,6 @@ pub use crispr::ArgsCrispr;
 pub use flex::ArgsFlex;
 use geometry::Geometry;
 use input::PairedInput;
+pub use map::MapCommand;
 pub use output::ArgsOutput;
 use probe::ProbeOptions;
