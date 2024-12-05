@@ -1,26 +1,26 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-};
-
 use anyhow::Result;
 use ibu::Reader;
 use rayon::slice::ParallelSliceMut;
 
 use super::utils::init_thread_pool;
-use crate::{cli::ibu::ArgsSort, io::match_output};
+use crate::{
+    cli::ibu::ArgsSort,
+    io::{match_input, match_output},
+};
 
-fn pull_records<R: Read>(reader: Reader<R>) -> Result<Vec<ibu::Record>, ibu::BinaryFormatError> {
+fn pull_records<R: std::io::Read>(
+    reader: Reader<R>,
+) -> Result<Vec<ibu::Record>, ibu::BinaryFormatError> {
     reader.collect()
 }
 
 pub fn run(args: &ArgsSort) -> Result<()> {
     // Build IO handles
-    let handle = File::open(&args.input.input).map(BufReader::new)?;
+    let input = match_input(args.input.input.as_ref())?;
     let mut output = match_output(args.output.as_ref())?;
 
     // Initialize the reader and header
-    let reader = Reader::new(handle)?;
+    let reader = Reader::new(input)?;
     let header = reader.header();
 
     // Read in all records

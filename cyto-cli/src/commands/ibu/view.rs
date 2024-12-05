@@ -1,12 +1,12 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read, Write},
-};
+use std::io::{Read, Write};
 
 use anyhow::Result;
 use ibu::{Header, Reader, Record};
 
-use crate::{cli::ibu::ArgsView, io::match_output};
+use crate::{
+    cli::ibu::ArgsView,
+    io::{match_input, match_output},
+};
 
 fn build_csv_writer<W: Write>(writer: W) -> csv::Writer<W> {
     csv::WriterBuilder::default()
@@ -60,11 +60,11 @@ fn dump_decoded_records<W: Write, R: Read>(
 
 pub fn run(args: &ArgsView) -> Result<()> {
     // Handle IO handles
-    let handle = File::open(&args.input.input).map(BufReader::new)?;
+    let input = match_input(args.input.input.as_ref())?;
     let mut output = match_output(args.options.output.as_ref())?;
 
     // Initialize the reader and header
-    let reader = Reader::new(handle)?;
+    let reader = Reader::new(input)?;
     let header = reader.header();
 
     // Write the header to the output file
