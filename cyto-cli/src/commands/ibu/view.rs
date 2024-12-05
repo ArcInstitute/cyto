@@ -61,7 +61,7 @@ fn dump_decoded_records<W: Write, R: Read>(
 pub fn run(args: &ArgsView) -> Result<()> {
     // Handle IO handles
     let handle = File::open(&args.input.input).map(BufReader::new)?;
-    let mut output = match_output(None)?;
+    let mut output = match_output(args.options.output.as_ref())?;
 
     // Initialize the reader and header
     let reader = Reader::new(handle)?;

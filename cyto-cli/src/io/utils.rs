@@ -4,7 +4,7 @@ use std::{
     io::{stdout, BufWriter, Write},
 };
 
-pub fn match_output(filepath: Option<String>) -> Result<Box<dyn Write>> {
+pub fn match_output(filepath: Option<&String>) -> Result<Box<dyn Write>> {
     if let Some(filepath) = filepath {
         let handle = File::create(filepath).map(BufWriter::new)?;
         Ok(Box::new(handle))

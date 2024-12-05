@@ -11,7 +11,7 @@ use commands::{ibu as ibu_commands, map as map_commands};
 fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
-        Commands::View(args) => commands::view::run(args),
+        Commands::View(args) => commands::view::run(&args),
         Commands::Map(map) => match map {
             MapCommand::Crispr(args) => map_commands::crispr::run(args),
             MapCommand::Flex(args) => map_commands::flex::run(args),
