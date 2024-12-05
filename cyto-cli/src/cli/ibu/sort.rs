@@ -7,4 +7,7 @@ pub struct ArgsSort {
 
     #[clap(short, long)]
     pub output: Option<String>,
+
+    #[clap(short = 't', long, default_value = "1")]
+    pub num_threads: usize,
 }

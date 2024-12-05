@@ -5,7 +5,9 @@ use std::{
 
 use anyhow::Result;
 use ibu::Reader;
+use rayon::slice::ParallelSliceMut;
 
+use super::utils::init_thread_pool;
 use crate::{cli::ibu::ArgsSort, io::match_output};
 
 fn pull_records<R: Read>(reader: Reader<R>) -> Result<Vec<ibu::Record>, ibu::BinaryFormatError> {
@@ -25,7 +27,12 @@ pub fn run(args: &ArgsSort) -> Result<()> {
     let mut records = pull_records(reader)?;
 
     // Sort the records
-    records.sort_unstable();
+    if args.num_threads > 1 {
+        init_thread_pool(args.num_threads)?;
+        records.par_sort_unstable();
+    } else {
+        records.sort_unstable();
+    }
 
     // Write the header
     header.write_bytes(&mut output)?;
