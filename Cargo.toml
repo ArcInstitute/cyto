@@ -9,7 +9,6 @@ bitnuc = "0.1.0"
 ibu = "0.1.0"
 
 [profile.release]
-lto = true
 debug = true
 
 [workspace.lints.clippy]
