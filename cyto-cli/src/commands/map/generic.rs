@@ -1,10 +1,10 @@
 use anyhow::Result;
-use ibu::{Header, Record};
 use cyto::{
     mappers::{MapperOffset, ProbeMapper},
     statistics::{LibraryCombination, Statistics},
     GeometryR1, Mapper, MappingStatistics, PairedReader,
 };
+use ibu::{Header, Record};
 use std::io::Write;
 
 use crate::progress::ProgressBar;

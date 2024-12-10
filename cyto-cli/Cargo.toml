@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 
 [dependencies]
@@ -12,6 +12,7 @@ bitnuc = { workspace = true }
 ibu = { workspace = true, features = ["serde"] }
 spinoff = "0.8.0"
 csv = "1.3.1"
+rayon = "1.10.0"
 
 [features]
 benchmarking = []
