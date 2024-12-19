@@ -1,0 +1,22 @@
+mod count;
+mod input;
+mod sort;
+mod view;
+
+pub use count::ArgsCount;
+pub use input::IbuInput;
+pub use sort::ArgsSort;
+pub use view::ArgsView;
+
+/// Perform operations on an IBU library
+#[derive(clap::Subcommand)]
+pub enum IbuCommand {
+    /// View the contents of an IBU library as plain text
+    View(ArgsView),
+
+    /// Sort the contents of an IBU library
+    Sort(ArgsSort),
+
+    /// Create barcode-index count matrix from an IBU library
+    Count(ArgsCount),
+}

@@ -1,5 +1,7 @@
-use super::{ArgsOutput, Geometry, PairedInput, ProbeOptions};
 use clap::Parser;
+
+use super::{Geometry, PairedInput, ProbeOptions};
+use crate::cli::ArgsOutput;
 
 #[derive(Parser)]
 pub struct ArgsFlex {
