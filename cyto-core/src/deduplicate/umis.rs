@@ -104,6 +104,7 @@ impl UmiState {
 
 pub fn deduplicate_umis(
     mut record_stream: impl Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>>,
+    max_index: u64,
 ) -> Result<BarcodeIndexCounts> {
     let mut counts = BarcodeIndexCounts::new();
     let mut umi_state = UmiState::default();
@@ -111,11 +112,15 @@ pub fn deduplicate_umis(
     let mut last_record = if let Some(record) = record_stream.next() {
         record?
     } else {
-        bail!("Empty IBU provided");
+        bail!("No records found in the input stream.");
     };
 
     for record in record_stream {
         let record = record?;
+
+        if record.index() > max_index {
+            bail!("Index value ({}) exceeds the maximum index value provided ({}). Likely an incorrect feature list.", record.index(), max_index);
+        }
 
         // Designates an unsorted IBU
         if last_record > record {
@@ -167,7 +172,7 @@ mod testing {
     fn test_skip_redudant_records() -> Result<()> {
         let records = vec![ibu::Record::new(1, 1, 0); 100];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(1));
@@ -183,7 +188,7 @@ mod testing {
             ibu::Record::new(1, 2, 0),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(1));
@@ -201,7 +206,7 @@ mod testing {
             ibu::Record::new(1, 2, 1),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(1));
@@ -222,7 +227,7 @@ mod testing {
             ibu::Record::new(1, 2, 1),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(1));
@@ -243,7 +248,7 @@ mod testing {
             ibu::Record::new(1, 2, 1), // clear winner with 4
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(2));
@@ -267,7 +272,7 @@ mod testing {
             ibu::Record::new(1, 3, 1), // new umi with same index as previous
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(2));
@@ -291,7 +296,7 @@ mod testing {
             ibu::Record::new(1, 3, 2), // new umi with different index to previous
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(3));
@@ -312,7 +317,7 @@ mod testing {
             ibu::Record::new(5, 1, 0),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 5);
         for i in 1..6 {
@@ -338,7 +343,7 @@ mod testing {
             ibu::Record::new(5, 1, 0),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 5);
         for i in 1..6 {
@@ -364,7 +369,7 @@ mod testing {
             ibu::Record::new(5, 2, 0),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 5);
         for i in 1..6 {
@@ -390,7 +395,7 @@ mod testing {
             ibu::Record::new(5, 2, 1),
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 5);
         for i in 1..6 {
@@ -427,7 +432,7 @@ mod testing {
             ibu::Record::new(5, 2, 2), // likely an error since it's only observed once
         ];
         let stream = build_record_stream(records);
-        let counts = super::deduplicate_umis(stream)?;
+        let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 5);
         for i in 1..6 {
@@ -437,5 +442,64 @@ mod testing {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn test_incorrect_feature_size() {
+        let records = vec![
+            ibu::Record::new(1, 1, 0),
+            ibu::Record::new(1, 1, 1),
+            ibu::Record::new(1, 1, 2),
+            ibu::Record::new(1, 1, 3),
+            ibu::Record::new(1, 1, 4),
+            ibu::Record::new(1, 1, 5),
+        ];
+        let stream = build_record_stream(records);
+        let result = super::deduplicate_umis(stream, 3);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unsorted_input_barcode() {
+        let records = vec![
+            ibu::Record::new(1, 1, 0),
+            ibu::Record::new(2, 1, 1),
+            ibu::Record::new(1, 1, 2),
+        ];
+        let stream = build_record_stream(records);
+        let result = super::deduplicate_umis(stream, u64::MAX);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unsorted_input_umi() {
+        let records = vec![
+            ibu::Record::new(1, 1, 0),
+            ibu::Record::new(1, 2, 1),
+            ibu::Record::new(1, 1, 2),
+        ];
+        let stream = build_record_stream(records);
+        let result = super::deduplicate_umis(stream, u64::MAX);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unsorted_input_index() {
+        let records = vec![
+            ibu::Record::new(1, 1, 0),
+            ibu::Record::new(1, 1, 1),
+            ibu::Record::new(1, 1, 0),
+        ];
+        let stream = build_record_stream(records);
+        let result = super::deduplicate_umis(stream, u64::MAX);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_stream() {
+        let records = vec![];
+        let stream = build_record_stream(records);
+        let result = super::deduplicate_umis(stream, u64::MAX);
+        assert!(result.is_err());
     }
 }
