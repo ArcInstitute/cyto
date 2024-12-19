@@ -19,6 +19,24 @@ fn dump_encoded_records<W: Write>(
     Ok(())
 }
 
+#[allow(clippy::cast_possible_truncation)]
+fn dump_encoded_records_features<W: Write>(
+    csv_writer: &mut csv::Writer<W>,
+    records: impl Iterator<Item = BarcodeIndexCount>,
+    features: &[String],
+) -> Result<()> {
+    for record in records {
+        let tuple = (
+            record.barcode(),
+            &features[record.index() as usize],
+            record.count(),
+        );
+        csv_writer.serialize(tuple)?;
+    }
+    csv_writer.flush()?;
+    Ok(())
+}
+
 fn decode_record(record: BarcodeIndexCount, header: Header) -> Result<(String, u64, u64)> {
     let barcode = bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize)?;
     let barcode_str = String::from_utf8(barcode)?;
@@ -38,22 +56,57 @@ fn dump_decoded_records<W: Write>(
     Ok(())
 }
 
+#[allow(clippy::cast_possible_truncation)]
+fn dump_decoded_records_features<W: Write>(
+    csv_writer: &mut csv::Writer<W>,
+    records: impl Iterator<Item = BarcodeIndexCount>,
+    header: Header,
+    features: &[String],
+) -> Result<()> {
+    for record in records {
+        let barcode = bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize)?;
+        let barcode_str = String::from_utf8(barcode)?;
+        let decoded = (
+            barcode_str,
+            &features[record.index() as usize],
+            record.count(),
+        );
+        csv_writer.serialize(decoded)?;
+    }
+    csv_writer.flush()?;
+    Ok(())
+}
+
+fn load_features(path: Option<&String>) -> Result<Option<Vec<String>>> {
+    if let Some(path) = path {
+        let features = std::fs::read_to_string(path)?;
+        Ok(Some(features.lines().map(String::from).collect()))
+    } else {
+        Ok(None)
+    }
+}
+
 pub fn run(args: &ArgsCount) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
+    let features = load_features(args.features.as_ref())?;
 
     let reader = Reader::new(input)?;
     let header = reader.header();
     let counts = deduplicate_umis(reader)?;
     let output_handle = match_output(args.output.as_ref())?;
 
-    // Write output
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .from_writer(output_handle);
 
-    if args.compressed {
-        dump_encoded_records(&mut writer, counts.iter_counts())
-    } else {
-        dump_decoded_records(&mut writer, counts.iter_counts(), header)
+    match (features, args.compressed) {
+        (Some(features), true) => {
+            dump_encoded_records_features(&mut writer, counts.iter_counts(), &features)
+        }
+        (Some(features), false) => {
+            dump_decoded_records_features(&mut writer, counts.iter_counts(), header, &features)
+        }
+        (None, true) => dump_encoded_records(&mut writer, counts.iter_counts()),
+        (None, false) => dump_decoded_records(&mut writer, counts.iter_counts(), header),
     }
 }

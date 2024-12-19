@@ -16,4 +16,10 @@ pub struct ArgsCount {
     /// Keep the barcode values 2bit compressed in the output
     #[clap(short = 'e', long = "compressed")]
     pub compressed: bool,
+
+    /// File containing the index features
+    ///
+    /// If this is provided the index features names will be output instead of their index values
+    #[clap(short = 'f', long)]
+    pub features: Option<String>,
 }
