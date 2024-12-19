@@ -1,5 +1,6 @@
 pub mod aliases;
 mod counters;
+pub mod deduplicate;
 mod geometry;
 pub mod io;
 pub mod libraries;
@@ -10,6 +11,7 @@ pub mod statistics;
 pub use counters::{
     BarcodeIndexCounter, BusCounter, Counter, ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
+pub use deduplicate::deduplicate_umis;
 pub use geometry::{Bus, GeometryR1};
 pub use io::PairedReader;
 pub use mappers::Mapper;
