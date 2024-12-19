@@ -2,11 +2,22 @@ use anyhow::{bail, Result};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct BarcodeIndexCount {
     barcode: u64,
     index: u64,
     count: u64,
+}
+impl BarcodeIndexCount {
+    pub fn barcode(&self) -> u64 {
+        self.barcode
+    }
+    pub fn index(&self) -> u64 {
+        self.index
+    }
+    pub fn count(&self) -> u64 {
+        self.count
+    }
 }
 
 #[derive(Debug, Default)]

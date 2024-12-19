@@ -1,2 +1,2 @@
 mod umis;
-pub use umis::deduplicate_umis;
+pub use umis::{deduplicate_umis, BarcodeIndexCount, BarcodeIndexCounts};
