@@ -11,7 +11,7 @@ pub mod statistics;
 pub use counters::{
     BarcodeIndexCounter, BusCounter, Counter, ProbeBarcodeIndexCounter, ProbeBusCounter,
 };
-pub use deduplicate::{deduplicate_umis, BarcodeIndexCount, BarcodeIndexCounts};
+pub use deduplicate::{deduplicate_umis, BarcodeIndexCount, BarcodeIndexCounts, DeduplicateError};
 pub use geometry::{Bus, GeometryR1};
 pub use io::PairedReader;
 pub use mappers::Mapper;
