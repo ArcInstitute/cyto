@@ -22,7 +22,7 @@ impl PairedInput {
     }
     #[allow(clippy::wrong_self_convention)]
     pub fn into_readers(&self) -> Result<Vec<PairedReader>> {
-        if self.r1.len() == 0 {
+        if self.r1.is_empty() {
             anyhow::bail!("No input files provided");
         }
         if !self.valid_sizing() {
