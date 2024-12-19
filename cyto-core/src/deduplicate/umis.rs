@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct BarcodeIndexCount {
@@ -102,6 +103,16 @@ impl UmiState {
     }
 }
 
+#[derive(Error, Debug, PartialEq)]
+pub enum DeduplicateError {
+    #[error("IBU is not sorted. Please sort the IBU before counting.")]
+    UnsortedIbu,
+    #[error("Index value ({}) exceeds the maximum index value provided ({}). Likely an incorrect feature list.", .index, .max_index)]
+    MaxIndexExceeded { index: u64, max_index: u64 },
+    #[error("No records found in the input stream.")]
+    EmptyStream,
+}
+
 pub fn deduplicate_umis(
     mut record_stream: impl Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>>,
     max_index: u64,
@@ -112,19 +123,22 @@ pub fn deduplicate_umis(
     let mut last_record = if let Some(record) = record_stream.next() {
         record?
     } else {
-        bail!("No records found in the input stream.");
+        bail!(DeduplicateError::EmptyStream);
     };
 
     for record in record_stream {
         let record = record?;
 
         if record.index() > max_index {
-            bail!("Index value ({}) exceeds the maximum index value provided ({}). Likely an incorrect feature list.", record.index(), max_index);
+            bail!(DeduplicateError::MaxIndexExceeded {
+                index: record.index(),
+                max_index
+            });
         }
 
         // Designates an unsorted IBU
         if last_record > record {
-            bail!("IBU is not sorted. Please sort the IBU before counting.");
+            bail!(DeduplicateError::UnsortedIbu);
         }
 
         // Handle new barcode
@@ -456,7 +470,16 @@ mod testing {
         ];
         let stream = build_record_stream(records);
         let result = super::deduplicate_umis(stream, 3);
-        assert!(result.is_err());
+        assert_eq!(
+            result
+                .unwrap_err()
+                .downcast::<super::DeduplicateError>()
+                .unwrap(),
+            super::DeduplicateError::MaxIndexExceeded {
+                index: 4,
+                max_index: 3
+            },
+        );
     }
 
     #[test]
@@ -468,7 +491,13 @@ mod testing {
         ];
         let stream = build_record_stream(records);
         let result = super::deduplicate_umis(stream, u64::MAX);
-        assert!(result.is_err());
+        assert_eq!(
+            result
+                .unwrap_err()
+                .downcast::<super::DeduplicateError>()
+                .unwrap(),
+            super::DeduplicateError::UnsortedIbu,
+        );
     }
 
     #[test]
@@ -480,7 +509,13 @@ mod testing {
         ];
         let stream = build_record_stream(records);
         let result = super::deduplicate_umis(stream, u64::MAX);
-        assert!(result.is_err());
+        assert_eq!(
+            result
+                .unwrap_err()
+                .downcast::<super::DeduplicateError>()
+                .unwrap(),
+            super::DeduplicateError::UnsortedIbu,
+        );
     }
 
     #[test]
@@ -492,7 +527,13 @@ mod testing {
         ];
         let stream = build_record_stream(records);
         let result = super::deduplicate_umis(stream, u64::MAX);
-        assert!(result.is_err());
+        assert_eq!(
+            result
+                .unwrap_err()
+                .downcast::<super::DeduplicateError>()
+                .unwrap(),
+            super::DeduplicateError::UnsortedIbu,
+        );
     }
 
     #[test]
@@ -500,6 +541,12 @@ mod testing {
         let records = vec![];
         let stream = build_record_stream(records);
         let result = super::deduplicate_umis(stream, u64::MAX);
-        assert!(result.is_err());
+        assert_eq!(
+            result
+                .unwrap_err()
+                .downcast::<super::DeduplicateError>()
+                .unwrap(),
+            super::DeduplicateError::EmptyStream,
+        );
     }
 }
