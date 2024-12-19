@@ -89,10 +89,15 @@ fn load_features(path: Option<&String>) -> Result<Option<Vec<String>>> {
 pub fn run(args: &ArgsCount) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
     let features = load_features(args.features.as_ref())?;
+    let max_index = if let Some(features) = &features {
+        features.len()
+    } else {
+        usize::MAX
+    };
 
     let reader = Reader::new(input)?;
     let header = reader.header();
-    let counts = deduplicate_umis(reader)?;
+    let counts = deduplicate_umis(reader, max_index as u64)?;
     let output_handle = match_output(args.output.as_ref())?;
 
     let mut writer = csv::WriterBuilder::new()
