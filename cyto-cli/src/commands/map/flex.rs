@@ -3,7 +3,6 @@ use anyhow::Result;
 use cyto::{
     libraries::{FlexLibrary, ProbeLibrary},
     mappers::MapperOffset,
-    PairedReader,
 };
 
 use super::{
@@ -15,7 +14,7 @@ use super::{
 };
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
-    let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
+    let readers = args.input.into_readers()?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
     let probe_mapper =
         ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?.into_mapper()?;
@@ -30,7 +29,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     let mut probe_writers = open_handles(&filepaths)?;
 
     let statistics = ibu_map_probed_pairs(
-        reader,
+        readers,
         &mut probe_writers,
         &target_mapper,
         &probe_mapper,
@@ -47,7 +46,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
-    let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
+    let readers = args.input.into_readers()?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
 
     // Define the file path for the output file
@@ -57,7 +56,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
     let mut handle = open_handle(&output_filepath)?;
 
     let statistics = ibu_map_pairs(
-        reader,
+        readers,
         &mut handle,
         &target_mapper,
         None,

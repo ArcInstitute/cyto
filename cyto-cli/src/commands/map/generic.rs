@@ -10,7 +10,7 @@ use std::io::Write;
 use crate::progress::ProgressBar;
 
 pub fn ibu_map_pairs<M, W>(
-    mut reader: PairedReader,
+    mut readers: Vec<PairedReader>,
     writer: &mut W,
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
@@ -30,20 +30,22 @@ where
 
     // Initialize the main loop
     let mut pbar = ProgressBar::default();
-    while let Some(pair) = reader.next() {
-        let pair = pair?;
-        let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
-            continue;
-        };
-        match target_mapper.map(bus.seq, target_offset) {
-            Ok(index) => {
-                let record = Record::new(bus.barcode, bus.umi, index as u64);
-                record.write_bytes(writer)?;
-                map_stats.increment_mapped();
+    for reader in &mut readers {
+        while let Some(pair) = reader.next() {
+            let pair = pair?;
+            let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
+                continue;
+            };
+            match target_mapper.map(bus.seq, target_offset) {
+                Ok(index) => {
+                    let record = Record::new(bus.barcode, bus.umi, index as u64);
+                    record.write_bytes(writer)?;
+                    map_stats.increment_mapped();
+                }
+                Err(why) => map_stats.increment_unmapped(why),
             }
-            Err(why) => map_stats.increment_unmapped(why),
+            pbar.tick();
         }
-        pbar.tick();
     }
     pbar.finish();
     writer.flush()?;
@@ -51,7 +53,7 @@ where
 }
 
 pub fn ibu_map_probed_pairs<M, W>(
-    mut reader: PairedReader,
+    mut readers: Vec<PairedReader>,
     writers: &mut [W],
     target_mapper: &M,
     probe_mapper: &ProbeMapper,
@@ -76,29 +78,31 @@ where
     );
     let mut map_stats = MappingStatistics::default();
     let mut pbar = ProgressBar::default();
-    while let Some(pair) = reader.next() {
-        let pair = pair?;
-        let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
-            continue;
-        };
-        let target_index = target_mapper.map(bus.seq, target_offset);
-        let probe_index = probe_mapper.map(bus.seq, probe_offset);
-        match (target_index, probe_index) {
-            (Ok(t_idx), Ok(p_idx)) => {
-                // Create the record
-                let record = Record::new(bus.barcode, bus.umi, t_idx as u64);
+    for reader in &mut readers {
+        while let Some(pair) = reader.next() {
+            let pair = pair?;
+            let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
+                continue;
+            };
+            let target_index = target_mapper.map(bus.seq, target_offset);
+            let probe_index = probe_mapper.map(bus.seq, probe_offset);
+            match (target_index, probe_index) {
+                (Ok(t_idx), Ok(p_idx)) => {
+                    // Create the record
+                    let record = Record::new(bus.barcode, bus.umi, t_idx as u64);
 
-                // Write the record to the correct file
-                let probe_alias_index = probe_mapper.get_alias_index(p_idx).unwrap();
-                record.write_bytes(&mut writers[probe_alias_index])?;
+                    // Write the record to the correct file
+                    let probe_alias_index = probe_mapper.get_alias_index(p_idx).unwrap();
+                    record.write_bytes(&mut writers[probe_alias_index])?;
 
-                // Update the mapping statistics
-                map_stats.increment_mapped();
+                    // Update the mapping statistics
+                    map_stats.increment_mapped();
+                }
+                (Err(why), Ok(_)) | (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
+                (Err(why1), Err(why2)) => map_stats.increment_unmapped_multi_reason(why1, why2),
             }
-            (Err(why), Ok(_)) | (Ok(_), Err(why)) => map_stats.increment_unmapped(why),
-            (Err(why1), Err(why2)) => map_stats.increment_unmapped_multi_reason(why1, why2),
+            pbar.tick();
         }
-        pbar.tick();
     }
     pbar.finish();
 

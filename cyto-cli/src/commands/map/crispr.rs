@@ -6,7 +6,6 @@ use anyhow::Result;
 use cyto::{
     libraries::{CrisprLibrary, ProbeLibrary},
     mappers::MapperOffset,
-    PairedReader,
 };
 
 use super::{
@@ -18,7 +17,7 @@ use super::{
 };
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
-    let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
+    let readers = args.input.into_readers()?;
     let target_mapper =
         CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
     let probe_mapper =
@@ -34,7 +33,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 
     // map the reads and write the results to the probe files
     let statistics = ibu_map_probed_pairs(
-        reader,
+        readers,
         &mut probe_writers,
         &target_mapper,
         &probe_mapper,
@@ -52,7 +51,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 }
 
 pub fn bus(args: ArgsCrispr) -> Result<()> {
-    let reader = PairedReader::new(&args.input.r1, &args.input.r2)?;
+    let readers = args.input.into_readers()?;
     let target_mapper =
         CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
@@ -65,7 +64,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
 
     // map the reads and write the results to the output file
     let statistics = ibu_map_pairs(
-        reader,
+        readers,
         &mut handle,
         &target_mapper,
         Some(target_offset),
