@@ -37,9 +37,17 @@ fn dump_encoded_records_features<W: Write>(
     Ok(())
 }
 
-fn decode_record(record: BarcodeIndexCount, header: Header) -> Result<(String, u64, u64)> {
-    let barcode = bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize)?;
-    let barcode_str = String::from_utf8(barcode)?;
+fn decode_record(
+    record: BarcodeIndexCount,
+    header: Header,
+    barcode_buffer: &mut Vec<u8>,
+) -> Result<(&str, u64, u64)> {
+    bitnuc::from_2bit(
+        record.barcode(),
+        header.barcode_len() as usize,
+        barcode_buffer,
+    )?;
+    let barcode_str = std::str::from_utf8(barcode_buffer)?;
     Ok((barcode_str, record.count(), record.index()))
 }
 
@@ -48,9 +56,11 @@ fn dump_decoded_records<W: Write>(
     records: impl Iterator<Item = BarcodeIndexCount>,
     header: Header,
 ) -> Result<()> {
+    let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
     for record in records {
-        let decoded = decode_record(record, header)?;
+        let decoded = decode_record(record, header, &mut barcode_buffer)?;
         csv_writer.serialize(decoded)?;
+        barcode_buffer.clear();
     }
     csv_writer.flush()?;
     Ok(())
@@ -63,15 +73,21 @@ fn dump_decoded_records_features<W: Write>(
     header: Header,
     features: &[String],
 ) -> Result<()> {
+    let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
     for record in records {
-        let barcode = bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize)?;
-        let barcode_str = String::from_utf8(barcode)?;
+        bitnuc::from_2bit(
+            record.barcode(),
+            header.barcode_len() as usize,
+            &mut barcode_buffer,
+        )?;
+        let barcode_str = std::str::from_utf8(&barcode_buffer)?;
         let decoded = (
             barcode_str,
             &features[record.index() as usize],
             record.count(),
         );
         csv_writer.serialize(decoded)?;
+        barcode_buffer.clear();
     }
     csv_writer.flush()?;
     Ok(())
