@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "cyto"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "bitnuc",
@@ -234,7 +234,7 @@ dependencies = [
 
 [[package]]
 name = "cyto-cli"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "bitnuc",
