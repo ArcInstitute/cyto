@@ -60,17 +60,23 @@ impl PairedReader {
             .has_headers(false)
             .from_writer(writer);
 
+        let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
+        let mut umi_buffer = Vec::new(); // Reusable buffer for UMI nucleotides
+
         while let Some(pair) = self.next() {
             let pair = pair?;
             let Ok(bus) = pair.as_bus(barcode, umi) else {
                 continue;
             };
             let record = (
-                &bus.str_barcode()?,
-                &bus.str_umi()?,
+                bus.str_barcode(&mut barcode_buffer)?,
+                bus.str_umi(&mut umi_buffer)?,
                 std::str::from_utf8(bus.seq)?,
             );
             wtr.serialize(record)?;
+
+            barcode_buffer.clear();
+            umi_buffer.clear();
         }
         wtr.flush()?;
 
@@ -88,17 +94,23 @@ impl PairedReader {
             .has_headers(false)
             .from_writer(writer);
 
+        let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
+        let mut umi_buffer = Vec::new(); // Reusable buffer for UMI nucleotides
+
         while let Some(pair) = self.next() {
             let pair = pair?;
             let Ok(bus) = pair.as_bus(barcode, umi) else {
                 continue;
             };
             let record = (
-                &bus.str_barcode()?,
-                &bus.str_umi()?,
+                &bus.str_barcode(&mut barcode_buffer)?,
+                &bus.str_umi(&mut umi_buffer)?,
                 std::str::from_utf8(bus.seq)?,
             );
             wtr.serialize(record)?;
+
+            barcode_buffer.clear();
+            umi_buffer.clear();
         }
         wtr.flush()?;
 

@@ -36,15 +36,13 @@ impl<'a> Bus<'a> {
         })
     }
 
-    pub fn str_barcode(&self) -> Result<String> {
-        let bytes = from_2bit(self.barcode, self.size_barcode)?;
-        let nuc = String::from_utf8(bytes)?;
-        Ok(nuc)
+    pub fn str_barcode<'b>(&self, nuc: &'b mut Vec<u8>) -> Result<&'b str> {
+        from_2bit(self.barcode, self.size_barcode, nuc)?;
+        Ok(std::str::from_utf8(nuc)?)
     }
 
-    pub fn str_umi(&self) -> Result<String> {
-        let bytes = from_2bit(self.umi, self.size_umi)?;
-        let nuc = String::from_utf8(bytes)?;
-        Ok(nuc)
+    pub fn str_umi<'b>(&self, nuc: &'b mut Vec<u8>) -> Result<&'b str> {
+        from_2bit(self.umi, self.size_umi, nuc)?;
+        Ok(std::str::from_utf8(nuc)?)
     }
 }

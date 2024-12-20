@@ -36,11 +36,22 @@ fn dump_encoded_records<W: Write, R: Read>(
     Ok(())
 }
 
-fn decode_record(record: Record, header: Header) -> Result<(String, String, u64)> {
-    let barcode = bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize)?;
-    let barcode_str = String::from_utf8(barcode)?;
-    let umi = bitnuc::from_2bit(record.umi(), header.umi_len() as usize)?;
-    let umi_str = String::from_utf8(umi)?;
+fn decode_record<'a, 'b>(
+    record: Record,
+    header: Header,
+    barcode_buffer: &'a mut Vec<u8>,
+    umi_buffer: &'b mut Vec<u8>,
+) -> Result<(&'a str, &'b str, u64)> {
+    bitnuc::from_2bit(
+        record.barcode(),
+        header.barcode_len() as usize,
+        barcode_buffer,
+    )?;
+    let barcode_str = std::str::from_utf8(barcode_buffer)?;
+
+    bitnuc::from_2bit(record.umi(), header.umi_len() as usize, umi_buffer)?;
+    let umi_str = std::str::from_utf8(umi_buffer)?;
+
     Ok((barcode_str, umi_str, record.index()))
 }
 
@@ -49,10 +60,15 @@ fn dump_decoded_records<W: Write, R: Read>(
     reader: Reader<R>,
     header: Header,
 ) -> Result<()> {
+    let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
+    let mut umi_buffer = Vec::new(); // Reusable buffer for UMI nucleotides
     for record in reader {
         let record = record?;
-        let decoded = decode_record(record, header)?;
+        let decoded = decode_record(record, header, &mut barcode_buffer, &mut umi_buffer)?;
         csv_writer.serialize(decoded)?;
+
+        barcode_buffer.clear();
+        umi_buffer.clear();
     }
     csv_writer.flush()?;
     Ok(())
