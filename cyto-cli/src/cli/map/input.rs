@@ -2,6 +2,11 @@ use anyhow::Result;
 use clap::Parser;
 use cyto::PairedReader;
 
+#[cfg(feature = "binseq")]
+pub use anyhow::bail;
+#[cfg(feature = "binseq")]
+pub use binseq::PairedMmapReader;
+
 #[derive(Parser)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
@@ -31,5 +36,38 @@ impl PairedInput {
         self.iter_pairs()
             .map(|(r1, r2)| PairedReader::new(&r1, &r2))
             .collect()
+    }
+}
+
+#[derive(Parser)]
+#[clap(next_help_heading = "Binseq input options")]
+pub struct BinseqInput {
+    #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]
+    pub input: Option<String>,
+
+    /// Number of threads to use for decoding and processing records.
+    ///
+    /// If 0, the number of threads will be set to the maximum number of threads.
+    /// Otherwise it will be the minimum of the provided threads and the maximum number of threads.
+    #[clap(short = 'T', long, default_value = "0")]
+    pub threads: usize,
+}
+#[cfg(feature = "binseq")]
+impl BinseqInput {
+    #[allow(clippy::wrong_self_convention)]
+    pub fn into_reader(&self) -> Result<PairedMmapReader> {
+        if let Some(input) = &self.input {
+            PairedMmapReader::new(input)
+        } else {
+            bail!("No input file provided");
+        }
+    }
+
+    pub fn num_threads(&self) -> usize {
+        if self.threads == 0 {
+            num_cpus::get()
+        } else {
+            self.threads.min(num_cpus::get())
+        }
     }
 }

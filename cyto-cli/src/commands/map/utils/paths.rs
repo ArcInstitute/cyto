@@ -1,4 +1,7 @@
-use std::{fs::File, io::BufWriter};
+use std::{
+    fs::{File, OpenOptions},
+    io::BufWriter,
+};
 
 use anyhow::Result;
 use cyto::mappers::ProbeMapper;
@@ -25,6 +28,15 @@ pub fn build_filepaths(prefix: &str, probe_mapper: &ProbeMapper) -> Result<Vec<S
 
 pub fn open_handle(filepath: &str) -> Result<BufWriter<File>, std::io::Error> {
     File::create(filepath).map(BufWriter::new)
+}
+
+#[allow(dead_code)]
+/// Used in binseq to reopen a handle for appending
+pub fn reopen_handle(filepath: &str) -> Result<BufWriter<File>, std::io::Error> {
+    OpenOptions::new()
+        .append(true)
+        .open(filepath)
+        .map(BufWriter::new)
 }
 
 pub fn open_handles(filepaths: &[String]) -> Result<Vec<BufWriter<File>>, std::io::Error> {

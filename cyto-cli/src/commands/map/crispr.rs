@@ -16,6 +16,9 @@ use super::{
     },
 };
 
+#[cfg(feature = "binseq")]
+use super::ibu_map_pairs_binseq;
+
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let readers = args.input.into_readers()?;
     let target_mapper =
@@ -79,10 +82,38 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "binseq")]
+fn bus_binseq(args: ArgsCrispr) -> Result<()> {
+    let reader = args.binseq.into_reader()?;
+    let target_mapper =
+        CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?.into_mapper()?;
+    let target_offset = MapperOffset::RightOf(args.crispr.offset);
+
+    // Define the file path for the output file
+    let output_filepath = build_filepath(&args.output.prefix, None);
+
+    // Open a file handle for the output file
+    let statistics = ibu_map_pairs_binseq(
+        reader,
+        output_filepath,
+        target_mapper,
+        Some(target_offset),
+        args.geometry.into(),
+        args.binseq.num_threads(),
+    )?;
+
+    write_statistics(&args.output, &statistics)?;
+    Ok(())
+}
+
 pub fn run(args: ArgsCrispr) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         probed_bus(args)
     } else {
+        #[cfg(feature = "binseq")]
+        if args.binseq.input.is_some() {
+            return bus_binseq(args);
+        }
         bus(args)
     }
 }
