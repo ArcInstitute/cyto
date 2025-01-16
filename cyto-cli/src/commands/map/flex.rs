@@ -1,4 +1,7 @@
-use crate::{cli::ArgsFlex, io::write_statistics};
+use crate::{
+    cli::ArgsFlex,
+    io::{write_features, write_statistics},
+};
 use anyhow::Result;
 use cyto::{
     libraries::{FlexLibrary, ProbeLibrary},
@@ -45,6 +48,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     delete_empty_paths(&filepaths)?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
@@ -70,6 +74,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
     delete_empty_path(&output_filepath)?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
@@ -92,6 +97,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
     )?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
