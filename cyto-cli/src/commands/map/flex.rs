@@ -13,6 +13,9 @@ use super::{
     },
 };
 
+#[cfg(feature = "binseq")]
+use super::ibu_map_pairs_binseq;
+
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let readers = args.input.into_readers()?;
     let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
@@ -70,10 +73,36 @@ fn bus(args: ArgsFlex) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "binseq")]
+fn bus_binseq(args: ArgsFlex) -> Result<()> {
+    let reader = args.binseq.into_reader()?;
+    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
+
+    // Define the file path for the output file
+    let output_filepath = build_filepath(&args.output.prefix, None);
+
+    // Open a file handle for the output file
+    let statistics = ibu_map_pairs_binseq(
+        reader,
+        output_filepath,
+        target_mapper,
+        None,
+        args.geometry.into(),
+        args.binseq.num_threads(),
+    )?;
+
+    write_statistics(&args.output, &statistics)?;
+    Ok(())
+}
+
 pub fn run(args: ArgsFlex) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         probed_bus(args)
     } else {
+        #[cfg(feature = "binseq")]
+        if args.binseq.input.is_some() {
+            return bus_binseq(args);
+        }
         bus(args)
     }
 }

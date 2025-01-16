@@ -7,7 +7,7 @@ pub mod probe;
 pub use crispr::ArgsCrispr;
 pub use flex::ArgsFlex;
 pub use geometry::Geometry;
-pub use input::PairedInput;
+pub use input::{BinseqInput, PairedInput};
 pub use probe::ProbeOptions;
 
 use clap::Subcommand;
