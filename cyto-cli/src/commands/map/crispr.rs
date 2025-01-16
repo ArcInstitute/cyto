@@ -103,6 +103,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     )?;
 
     write_statistics(&args.output, &statistics)?;
+    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
