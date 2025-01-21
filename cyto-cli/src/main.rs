@@ -20,6 +20,7 @@ fn main() -> Result<()> {
             IbuCommand::View(args) => ibu_commands::view::run(&args),
             IbuCommand::Sort(args) => ibu_commands::sort::run(&args),
             IbuCommand::Count(args) => ibu_commands::count::run(&args),
+            IbuCommand::Correct(args) => ibu_commands::correct::run(&args),
         },
     }
 }

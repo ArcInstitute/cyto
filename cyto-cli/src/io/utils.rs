@@ -4,7 +4,7 @@ use std::{
     io::{stdin, stdout, BufReader, BufWriter, Read, Write},
 };
 
-pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read>> {
+pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read + Send>> {
     if let Some(filepath) = filepath {
         let handle = File::open(filepath).map(BufReader::new)?;
         Ok(Box::new(handle))
@@ -14,7 +14,7 @@ pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read>> {
     }
 }
 
-pub fn match_output(filepath: Option<&String>) -> Result<Box<dyn Write>> {
+pub fn match_output(filepath: Option<&String>) -> Result<Box<dyn Write + Send>> {
     if let Some(filepath) = filepath {
         let handle = File::create(filepath).map(BufWriter::new)?;
         Ok(Box::new(handle))
