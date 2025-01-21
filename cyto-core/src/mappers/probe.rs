@@ -1,4 +1,5 @@
 use anyhow::Result;
+use disambiseq::Disambibyte;
 
 use super::{
     maps::probe::{MapIndexToAlias, MapSequenceToIndex},
@@ -15,6 +16,7 @@ use crate::{
 pub struct ProbeMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_alias: MapIndexToAlias,
+    corrected: Disambibyte,
 }
 impl ProbeMapper {
     pub fn new(probe_library: ProbeLibrary) -> Result<Self> {
@@ -31,6 +33,27 @@ impl ProbeMapper {
         Ok(Self {
             sequence_to_index,
             index_to_alias,
+            corrected: Disambibyte::default(),
+        })
+    }
+
+    pub fn new_corrected(probe_library: ProbeLibrary) -> Result<Self> {
+        let mut sequence_to_index = MapSequenceToIndex::default();
+        let mut index_to_alias = MapIndexToAlias::default();
+        let mut corrected = Disambibyte::default();
+        probe_library
+            .into_iter()
+            .enumerate()
+            .try_for_each(|(index, probe)| -> Result<()> {
+                corrected.insert(&probe.sequence);
+                sequence_to_index.insert(probe.sequence, index)?;
+                index_to_alias.insert(index, probe.alias_nuc, probe.alias);
+                Ok(())
+            })?;
+        Ok(Self {
+            sequence_to_index,
+            index_to_alias,
+            corrected,
         })
     }
 
@@ -46,6 +69,24 @@ impl ProbeMapper {
         }
     }
 
+    /// Maps the sequence to the left of the offset to an index.
+    ///
+    /// First corrects the sequence to a sequence in the library if possible.
+    fn map_left_corrected(&self, sequence: SeqRef, offset: usize) -> Result<usize, MappingError> {
+        let rpos = offset;
+        let lpos = rpos - self.sequence_to_index.sequence_size;
+        let subsequence = &sequence[lpos..rpos];
+        if let Some(seq) = self.corrected.get_parent(subsequence) {
+            if let Some(index) = self.sequence_to_index.get(&seq.0) {
+                Ok(index)
+            } else {
+                Err(MappingError::MissingProbe)
+            }
+        } else {
+            Err(MappingError::MissingProbe)
+        }
+    }
+
     /// Maps the sequence to the right of the offset to an index.
     fn map_right(&self, sequence: SeqRef, offset: usize) -> Result<usize, MappingError> {
         let lpos = offset;
@@ -53,6 +94,24 @@ impl ProbeMapper {
         let subsequence = &sequence[lpos..rpos];
         if let Some(index) = self.sequence_to_index.get(subsequence) {
             Ok(index)
+        } else {
+            Err(MappingError::MissingProbe)
+        }
+    }
+
+    /// Maps the sequence to the right of the offset to an index.
+    ///
+    /// First corrects the sequence to a sequence in the library if possible.
+    fn map_right_corrected(&self, sequence: SeqRef, offset: usize) -> Result<usize, MappingError> {
+        let lpos = offset;
+        let rpos = lpos + self.sequence_to_index.sequence_size;
+        let subsequence = &sequence[lpos..rpos];
+        if let Some(seq) = self.corrected.get_parent(subsequence) {
+            if let Some(index) = self.sequence_to_index.get(&seq.0) {
+                Ok(index)
+            } else {
+                Err(MappingError::MissingProbe)
+            }
         } else {
             Err(MappingError::MissingProbe)
         }
@@ -76,6 +135,17 @@ impl Mapper for ProbeMapper {
         match offset {
             Some(MapperOffset::LeftOf(offset)) => self.map_left(sequence, offset),
             Some(MapperOffset::RightOf(offset)) => self.map_right(sequence, offset),
+            None => panic!("ProbeMapper requires an offset to map the sequence."),
+        }
+    }
+    fn map_corrected(
+        &self,
+        sequence: SeqRef,
+        offset: Option<MapperOffset>,
+    ) -> Result<usize, MappingError> {
+        match offset {
+            Some(MapperOffset::LeftOf(offset)) => self.map_left_corrected(sequence, offset),
+            Some(MapperOffset::RightOf(offset)) => self.map_right_corrected(sequence, offset),
             None => panic!("ProbeMapper requires an offset to map the sequence."),
         }
     }

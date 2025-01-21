@@ -15,6 +15,7 @@ pub fn ibu_map_pairs<M, W>(
     target_mapper: &M,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
+    exact_matching: bool,
 ) -> Result<Statistics>
 where
     M: Mapper,
@@ -36,7 +37,12 @@ where
             let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
                 continue;
             };
-            match target_mapper.map(bus.seq, target_offset) {
+            let index = if exact_matching {
+                target_mapper.map(bus.seq, target_offset)
+            } else {
+                target_mapper.map_corrected(bus.seq, target_offset)
+            };
+            match index {
                 Ok(index) => {
                     let record = Record::new(bus.barcode, bus.umi, index as u64);
                     record.write_bytes(writer)?;
@@ -52,6 +58,7 @@ where
     Ok(Statistics::new(lib_stats, map_stats))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs<M, W>(
     mut readers: Vec<PairedReader>,
     writers: &mut [W],
@@ -60,6 +67,7 @@ pub fn ibu_map_probed_pairs<M, W>(
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
+    exact_matching: bool,
 ) -> Result<Statistics>
 where
     M: Mapper,
@@ -76,6 +84,7 @@ where
         target_mapper.library_statistics(),
         probe_mapper.library_statistics(),
     );
+
     let mut map_stats = MappingStatistics::default();
     let mut pbar = ProgressBar::default();
     for reader in &mut readers {
@@ -84,8 +93,19 @@ where
             let Ok(bus) = pair.as_bus(geometry.barcode, geometry.umi) else {
                 continue;
             };
-            let target_index = target_mapper.map(bus.seq, target_offset);
-            let probe_index = probe_mapper.map(bus.seq, probe_offset);
+
+            let (target_index, probe_index) = if exact_matching {
+                (
+                    target_mapper.map(bus.seq, target_offset),
+                    probe_mapper.map(bus.seq, probe_offset),
+                )
+            } else {
+                (
+                    target_mapper.map_corrected(bus.seq, target_offset),
+                    probe_mapper.map_corrected(bus.seq, probe_offset),
+                )
+            };
+
             match (target_index, probe_index) {
                 (Ok(t_idx), Ok(p_idx)) => {
                     // Create the record

@@ -7,7 +7,7 @@ use anyhow::{bail, Result};
 use binseq::{PairedMmapReader, ParallelPairedProcessor, RefRecordPair};
 use bitnuc::{decode, split_packed};
 use cyto::{
-    mappers::MapperOffset,
+    mappers::{MapperOffset, MappingError},
     statistics::{LibraryCombination, Statistics},
     GeometryR1, Mapper, MappingStatistics,
 };
@@ -38,6 +38,9 @@ pub struct MappingImplementor<M: Mapper> {
 
     // Lock used to synchronize access to output writer
     output_lock: Arc<Mutex<()>>,
+
+    // Exact matching flag
+    exact_matching: bool,
 }
 impl<M: Mapper> MappingImplementor<M> {
     pub fn new(
@@ -45,6 +48,7 @@ impl<M: Mapper> MappingImplementor<M> {
         target_offset: Option<MapperOffset>,
         geometry: GeometryR1,
         filename: String,
+        exact_matching: bool,
     ) -> Self {
         let local_stats = MappingStatistics::default();
         let global_stats = Arc::new(Mutex::new(MappingStatistics::default()));
@@ -60,6 +64,7 @@ impl<M: Mapper> MappingImplementor<M> {
             local_output_buf: Vec::new(),
             filename,
             output_lock: Arc::new(Mutex::new(())),
+            exact_matching,
         }
     }
 
@@ -99,6 +104,16 @@ impl<M: Mapper> MappingImplementor<M> {
                 .to_owned(),
         )
     }
+
+    fn map_sequence(&self) -> Result<usize, MappingError> {
+        if self.exact_matching {
+            self.target_mapper
+                .map(self.dbuf.as_slice(), self.target_offset)
+        } else {
+            self.target_mapper
+                .map_corrected(self.dbuf.as_slice(), self.target_offset)
+        }
+    }
 }
 impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
     fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
@@ -111,10 +126,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
         self.decode_r2(&pair)?;
 
         // Map the sequence
-        match self
-            .target_mapper
-            .map(self.dbuf.as_slice(), self.target_offset)
-        {
+        match self.map_sequence() {
             Ok(index) => {
                 // Write the record
                 let record = ibu::Record::new(barcode, umi, index as u64);
@@ -159,6 +171,7 @@ pub fn ibu_map_pairs_binseq<M>(
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
     num_threads: usize,
+    exact_matching: bool,
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
@@ -172,7 +185,13 @@ where
     }
 
     // Initialize the mapping implementor
-    let implementor = MappingImplementor::new(target_mapper, target_offset, geometry, filename);
+    let implementor = MappingImplementor::new(
+        target_mapper,
+        target_offset,
+        geometry,
+        filename,
+        exact_matching,
+    );
 
     // Process the records in parallel
     reader.process_parallel(implementor.clone(), num_threads)?;

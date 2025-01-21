@@ -1,4 +1,5 @@
 use anyhow::Result;
+use disambiseq::Disambibyte;
 
 use super::{
     mapper::MapperOffset,
@@ -16,6 +17,8 @@ use crate::{
 pub struct CrisprMapper {
     anchor_to_sequence: MapAnchorToSequence,
     index_to_name: MapIndexToName,
+    anchor_corr: Disambibyte,
+    guide_corr: Disambibyte,
 }
 impl CrisprMapper {
     pub fn new(guide_library: CrisprLibrary) -> Result<Self> {
@@ -34,8 +37,36 @@ impl CrisprMapper {
         Ok(Self {
             anchor_to_sequence,
             index_to_name,
+            anchor_corr: Disambibyte::default(),
+            guide_corr: Disambibyte::default(),
         })
     }
+
+    pub fn new_corrected(guide_library: CrisprLibrary) -> Result<Self> {
+        let mut anchor_to_sequence = MapAnchorToSequence::default();
+        let mut index_to_name = MapIndexToName::with_capacity(guide_library.len());
+        let mut anchor_corr = Disambibyte::default();
+        let mut guide_corr = Disambibyte::default();
+
+        guide_library
+            .into_iter()
+            .enumerate()
+            .try_for_each(|(index, guide)| -> Result<()> {
+                anchor_corr.insert(&guide.anchor);
+                guide_corr.insert(&guide.sequence);
+                anchor_to_sequence.insert(guide.anchor, guide.sequence, index)?;
+                index_to_name.insert(index, guide.name);
+                Ok(())
+            })?;
+
+        Ok(Self {
+            anchor_to_sequence,
+            index_to_name,
+            anchor_corr,
+            guide_corr,
+        })
+    }
+
     /// Maps an input sequence to a potential set of guides through an anchor sequence.
     fn map_anchor(
         &self,
@@ -46,6 +77,30 @@ impl CrisprMapper {
             let anchor = &sequence[offset..offset + anchor_size];
             if let Some(sequence_map) = self.anchor_to_sequence.get_sequence_map(anchor) {
                 return Ok((*anchor_size, sequence_map));
+            }
+        }
+        Err(MappingError::MissingAnchor)
+    }
+
+    /// Maps an input sequence to a potential set of guides through an anchor sequence
+    ///
+    /// First correcting the anchor sequence.
+    fn map_anchor_corrected(
+        &self,
+        sequence: SeqRef,
+        offset: usize,
+    ) -> Result<(usize, &MapSequenceToIndex), MappingError> {
+        for anchor_size in &self.anchor_to_sequence.anchor_sizes {
+            let anchor = &sequence[offset..offset + anchor_size];
+            match self.anchor_corr.get_parent(anchor) {
+                Some(anchor_corr) => {
+                    if let Some(sequence_map) =
+                        self.anchor_to_sequence.get_sequence_map(&anchor_corr.0)
+                    {
+                        return Ok((*anchor_size, sequence_map));
+                    }
+                }
+                None => continue,
             }
         }
         Err(MappingError::MissingAnchor)
@@ -66,6 +121,31 @@ impl CrisprMapper {
             Ok(*index)
         } else {
             Err(MappingError::MissingProtospacer)
+        }
+    }
+
+    /// Maps an input sequence to a guide name through a sequence.
+    ///
+    /// First correcting the sequence.
+    fn map_sequence_corrected(
+        &self,
+        sequence: SeqRef,
+        sequence_map: &MapSequenceToIndex,
+        offset: usize,
+        anchor_size: usize,
+    ) -> Result<usize, MappingError> {
+        let lpos = offset + anchor_size;
+        let rpos = lpos + self.anchor_to_sequence.sequence_size;
+        let sequence = &sequence[lpos..rpos];
+        match self.guide_corr.get_parent(sequence) {
+            Some(guide_corr) => {
+                if let Some(index) = sequence_map.get(&guide_corr.0) {
+                    Ok(*index)
+                } else {
+                    Err(MappingError::MissingProtospacer)
+                }
+            }
+            None => Err(MappingError::MissingProtospacer),
         }
     }
 
@@ -96,6 +176,18 @@ impl Mapper for CrisprMapper {
         let offset = offset.unwrap();
         let (anchor_size, sequence_map) = self.map_anchor(sequence, offset.into())?;
         self.map_sequence(sequence, sequence_map, offset.into(), anchor_size)
+    }
+
+    /// Overwrites the default `map` method to use the corrected anchor and guide sequences.
+    fn map_corrected(
+        &self,
+        seq: SeqRef,
+        offset: Option<MapperOffset>,
+    ) -> Result<usize, MappingError> {
+        assert!(offset.is_some(), "CrisprMapper requires an offset");
+        let offset = offset.unwrap();
+        let (anchor_size, sequence_map) = self.map_anchor_corrected(seq, offset.into())?;
+        self.map_sequence_corrected(seq, sequence_map, offset.into(), anchor_size)
     }
 
     fn library_statistics(&self) -> Library {

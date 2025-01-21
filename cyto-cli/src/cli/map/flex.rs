@@ -27,8 +27,17 @@ pub struct ArgsFlex {
 #[derive(Parser)]
 #[clap(next_help_heading = "FLEX Options")]
 pub struct FlexOptions {
+    //// Path to flex GEX library file
     #[clap(short = 'c', long = "flex")]
     pub flex_filepath: String,
+
+    /// Spacer sequence length
     #[clap(short = 's', long, default_value = "18")]
     pub spacer: usize,
+
+    /// Use exact matching for flex sequences and probes.
+    ///
+    /// Default allows for unambiguous 1-hamming distance mismatches
+    #[clap(short = 'x', long)]
+    pub exact_matching: bool,
 }
