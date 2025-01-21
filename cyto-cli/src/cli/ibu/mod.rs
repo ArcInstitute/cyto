@@ -1,8 +1,10 @@
+mod correct;
 mod count;
 mod input;
 mod sort;
 mod view;
 
+pub use correct::ArgsCorrect;
 pub use count::ArgsCount;
 pub use input::IbuInput;
 pub use sort::ArgsSort;
@@ -19,4 +21,9 @@ pub enum IbuCommand {
 
     /// Create barcode-index count matrix from an IBU library
     Count(ArgsCount),
+
+    /// Correct barcode errors in an IBU library
+    ///
+    /// Will return a sorted IBU library with corrected barcodes
+    Correct(ArgsCorrect),
 }
