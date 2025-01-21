@@ -21,6 +21,14 @@ impl From<MapperOffset> for usize {
 pub trait Mapper: Clone + Send {
     fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError>;
 
+    fn map_corrected(
+        &self,
+        seq: SeqRef,
+        offset: Option<MapperOffset>,
+    ) -> Result<usize, MappingError> {
+        self.map(seq, offset)
+    }
+
     fn library_statistics(&self) -> Library;
 }
 
@@ -28,6 +36,15 @@ impl<M: Mapper + Sync> Mapper for &M {
     fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
         (*self).map(seq, offset)
     }
+
+    fn map_corrected(
+        &self,
+        seq: SeqRef,
+        offset: Option<MapperOffset>,
+    ) -> Result<usize, MappingError> {
+        (*self).map_corrected(seq, offset)
+    }
+
     fn library_statistics(&self) -> Library {
         (*self).library_statistics()
     }

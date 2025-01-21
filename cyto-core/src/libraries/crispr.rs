@@ -26,7 +26,9 @@ impl CrisprLibrary {
     pub fn into_mapper(self) -> Result<CrisprMapper> {
         CrisprMapper::new(self)
     }
-
+    pub fn into_corrected_mapper(self) -> Result<CrisprMapper> {
+        CrisprMapper::new_corrected(self)
+    }
     pub fn len(&self) -> usize {
         self.guides.len()
     }

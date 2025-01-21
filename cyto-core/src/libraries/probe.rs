@@ -26,6 +26,9 @@ impl ProbeLibrary {
     pub fn into_mapper(self) -> Result<ProbeMapper> {
         ProbeMapper::new(self)
     }
+    pub fn into_corrected_mapper(self) -> Result<ProbeMapper> {
+        ProbeMapper::new_corrected(self)
+    }
 }
 impl IntoIterator for ProbeLibrary {
     type Item = Probe;

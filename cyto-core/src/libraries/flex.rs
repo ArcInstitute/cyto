@@ -26,6 +26,9 @@ impl FlexLibrary {
     pub fn into_mapper(self) -> Result<FlexMapper> {
         FlexMapper::new(self)
     }
+    pub fn into_corrected_mapper(self) -> Result<FlexMapper> {
+        FlexMapper::new_corrected(self)
+    }
     pub fn len(&self) -> usize {
         self.collection.len()
     }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use disambiseq::Disambibyte;
 
 use super::{
     maps::flex::{MapIndexToName, MapSequenceToIndex},
@@ -15,11 +16,13 @@ use crate::{
 pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_name: MapIndexToName,
+    correction: Disambibyte,
 }
 impl FlexMapper {
     pub fn new(library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let correction = Disambibyte::default();
 
         library
             .into_iter()
@@ -33,6 +36,29 @@ impl FlexMapper {
         Ok(Self {
             sequence_to_index,
             index_to_name,
+            correction,
+        })
+    }
+
+    pub fn new_corrected(library: FlexLibrary) -> Result<Self> {
+        let mut sequence_to_index = MapSequenceToIndex::default();
+        let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let mut correction = Disambibyte::default();
+
+        library
+            .into_iter()
+            .enumerate()
+            .try_for_each(|(index, flex)| -> Result<()> {
+                correction.insert(&flex.sequence);
+                sequence_to_index.insert(flex.sequence, index)?;
+                index_to_name.insert(index, flex.name);
+                Ok(())
+            })?;
+
+        Ok(Self {
+            sequence_to_index,
+            index_to_name,
+            correction,
         })
     }
 
@@ -54,6 +80,25 @@ impl Mapper for FlexMapper {
             Err(MappingError::MissingFlexSequence)
         }
     }
+
+    fn map_corrected(
+        &self,
+        seq: SeqRef,
+        _offset: Option<MapperOffset>,
+    ) -> Result<usize, MappingError> {
+        let flex_sequence = &seq[..self.sequence_to_index.sequence_size];
+        match self.correction.get_parent(flex_sequence) {
+            Some(corrected) => {
+                if let Some(index) = self.sequence_to_index.get(&corrected.0) {
+                    Ok(index)
+                } else {
+                    Err(MappingError::MissingFlexSequence)
+                }
+            }
+            None => Err(MappingError::MissingFlexSequence),
+        }
+    }
+
     fn library_statistics(&self) -> Library {
         let statistics = FlexLibraryStatistics {
             num_flex_sequences: self.sequence_to_index.len(),
