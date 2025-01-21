@@ -21,9 +21,22 @@ use super::ibu_map_pairs_binseq;
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let readers = args.input.into_readers()?;
-    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
-    let probe_mapper =
-        ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?.into_mapper()?;
+
+    // Load the target library
+    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
+    let target_mapper = if args.flex.exact_matching {
+        target_library.into_mapper()
+    } else {
+        target_library.into_corrected_mapper()
+    }?;
+
+    // Load the probe library
+    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
+    let probe_mapper = if args.flex.exact_matching {
+        probe_library.into_mapper()
+    } else {
+        probe_library.into_corrected_mapper()
+    }?;
 
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
@@ -42,6 +55,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         None,
         Some(probe_offset),
         args.geometry.into(),
+        args.flex.exact_matching,
     )?;
 
     // Delete the probe files if there are no mapped reads
@@ -54,7 +68,12 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 
 fn bus(args: ArgsFlex) -> Result<()> {
     let readers = args.input.into_readers()?;
-    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
+    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
+    let target_mapper = if args.flex.exact_matching {
+        target_library.into_mapper()
+    } else {
+        target_library.into_corrected_mapper()
+    }?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -68,6 +87,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         &target_mapper,
         None,
         args.geometry.into(),
+        args.flex.exact_matching,
     )?;
 
     // Delete the output file if there are no mapped reads
@@ -81,10 +101,18 @@ fn bus(args: ArgsFlex) -> Result<()> {
 #[cfg(feature = "binseq")]
 fn bus_binseq(args: ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
-    let target_mapper = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?.into_mapper()?;
+    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
+    let target_mapper = if args.flex.exact_matching {
+        target_library.into_mapper()
+    } else {
+        target_library.into_corrected_mapper()
+    }?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
+
+    // Write the features to the output file
+    write_features(&args.output, &target_mapper)?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
@@ -94,10 +122,10 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         None,
         args.geometry.into(),
         args.binseq.num_threads(),
+        args.flex.exact_matching,
     )?;
 
     write_statistics(&args.output, &statistics)?;
-    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
