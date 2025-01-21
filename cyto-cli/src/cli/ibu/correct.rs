@@ -38,7 +38,7 @@ pub struct OptionsCorrect {
 
     /// Number of threads to use
     ///
-    /// If zero will set to maximum number of threads. [default = 0]
+    /// If zero will set to maximum number of threads.
     #[clap(short = 'T', long, default_value = "0")]
     pub num_threads: usize,
 
