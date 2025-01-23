@@ -10,9 +10,9 @@ pub use binseq::PairedMmapReader;
 #[derive(Parser)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
-    #[clap(short = 'i', long, num_args = 1..)]
+    #[clap(short = 'i', long, num_args = 1.., required_unless_present="input")]
     pub r1: Vec<String>,
-    #[clap(short = 'I', long, num_args = 1..)]
+    #[clap(short = 'I', long, num_args = 1.., required_unless_present="input")]
     pub r2: Vec<String>,
 }
 impl PairedInput {
