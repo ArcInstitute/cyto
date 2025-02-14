@@ -20,7 +20,6 @@ paraseq = "0.1.2"
 indicatif = "0.17.11"
 
 [features]
-default = ["binseq"]
 binseq = ["dep:binseq"]
 benchmarking = []
 
