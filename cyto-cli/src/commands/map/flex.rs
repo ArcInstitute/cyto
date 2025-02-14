@@ -1,15 +1,17 @@
 use crate::{
     cli::ArgsFlex,
-    io::{write_features, write_statistics},
+    io::{match_input_transparent, write_features, write_statistics},
 };
 use anyhow::Result;
 use cyto::{
     libraries::{FlexLibrary, ProbeLibrary},
     mappers::MapperOffset,
 };
+use paraseq::fastq::Reader;
 
 use super::{
-    ibu_map_pairs, ibu_map_probed_pairs,
+    generic_paraseq::ibu_map_pairs_paraseq,
+    ibu_map_probed_pairs,
     utils::{
         build_filepath, build_filepaths, delete_empty_path, delete_empty_paths, open_handle,
         open_handles,
@@ -67,7 +69,16 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
-    let readers = args.input.into_readers()?;
+    // let readers = args.input.into_readers()?;
+
+    let paths = args.input.iter_pairs().next().unwrap();
+
+    let h1 = match_input_transparent(Some(&paths.0))?;
+    let h2 = match_input_transparent(Some(&paths.1))?;
+
+    let r1 = Reader::new(h1);
+    let r2 = Reader::new(h2);
+
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
     let target_mapper = if args.flex.exact_matching {
         target_library.into_mapper()
@@ -78,23 +89,25 @@ fn bus(args: ArgsFlex) -> Result<()> {
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
-    // Open a file handle for the output file
-    let mut handle = open_handle(&output_filepath)?;
+    // Write the features to the output file
+    write_features(&args.output, &target_mapper)?;
 
-    let statistics = ibu_map_pairs(
-        readers,
-        &mut handle,
-        &target_mapper,
+    let statistics = ibu_map_pairs_paraseq(
+        r1,
+        r2,
+        output_filepath.clone(),
+        target_mapper,
         None,
         args.geometry.into(),
+        args.runtime.num_threads(),
         args.flex.exact_matching,
     )?;
 
     // Delete the output file if there are no mapped reads
     delete_empty_path(&output_filepath)?;
 
+    // Write the statistics to the output file
     write_statistics(&args.output, &statistics)?;
-    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 

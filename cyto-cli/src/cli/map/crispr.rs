@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use super::{BinseqInput, Geometry, PairedInput, ProbeOptions};
+use super::{BinseqInput, Geometry, PairedInput, ProbeOptions, RuntimeOptions};
 use crate::cli::ArgsOutput;
 
 #[derive(Parser)]
@@ -19,6 +19,9 @@ pub struct ArgsCrispr {
 
     #[clap(flatten)]
     pub probe: ProbeOptions,
+
+    #[clap(flatten)]
+    pub runtime: RuntimeOptions,
 
     #[clap(flatten)]
     pub output: ArgsOutput,

@@ -45,11 +45,11 @@ pub struct BinseqInput {
     #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]
     pub input: Option<String>,
 
-    /// Number of threads to use for decoding and processing records.
+    /// number of threads to use for decoding and processing records.
     ///
-    /// If 0, the number of threads will be set to the maximum number of threads.
-    /// Otherwise it will be the minimum of the provided threads and the maximum number of threads.
-    #[clap(short = 'T', long, default_value = "0")]
+    /// if 0, the number of threads will be set to the maximum number of threads.
+    /// otherwise it will be the minimum of the provided threads and the maximum number of threads.
+    #[clap(short = 't', long, default_value = "0")]
     pub threads: usize,
 }
 #[cfg(feature = "binseq")]

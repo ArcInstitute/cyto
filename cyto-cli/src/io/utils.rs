@@ -14,6 +14,12 @@ pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read + Send>> {
     }
 }
 
+pub fn match_input_transparent(filepath: Option<&String>) -> Result<Box<dyn Read + Send>> {
+    let handle = match_input(filepath)?;
+    let (pass, _comp) = niffler::send::get_reader(handle)?;
+    Ok(Box::new(pass))
+}
+
 pub fn match_output(filepath: Option<&String>) -> Result<Box<dyn Write + Send>> {
     if let Some(filepath) = filepath {
         let handle = File::create(filepath).map(BufWriter::new)?;
