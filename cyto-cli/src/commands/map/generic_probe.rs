@@ -25,7 +25,7 @@ use crate::io::open_file_handle;
 
 #[derive(Clone)]
 pub struct MappingProbeImplementor<M: Mapper> {
-    target_mapper: M,
+    target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
@@ -80,7 +80,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
 
         Self {
-            target_mapper,
+            target_mapper: Arc::new(target_mapper),
             probe_mapper,
             target_offset,
             probe_offset,
