@@ -25,7 +25,7 @@ use binseq::{PairedMmapReader, ParallelPairedProcessor};
 
 #[derive(Clone)]
 pub struct MappingImplementor<M: Mapper> {
-    target_mapper: M,
+    target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
 
@@ -76,7 +76,7 @@ impl<M: Mapper> MappingImplementor<M> {
         pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
 
         Self {
-            target_mapper,
+            target_mapper: Arc::new(target_mapper),
             target_offset,
             geometry,
             local_stats,
