@@ -5,9 +5,10 @@ use crate::{cli::ArgsView, io::match_output};
 
 pub fn run(args: &ArgsView) -> Result<()> {
     let mut writer = match_output(args.options.output.as_ref())?;
-    for (r1, r2) in args.input.iter_pairs() {
-        let mut reader = PairedReader::new(&r1, &r2)?;
-        reader.append_to(&mut writer, args.geometry.barcode, args.geometry.umi)?;
-    }
+    let mut reader = match (&args.input.r1, &args.input.r2) {
+        (Some(r1), Some(r2)) => PairedReader::new(&r1, &r2)?,
+        _ => unreachable!(),
+    };
+    reader.append_to(&mut writer, args.geometry.barcode, args.geometry.umi)?;
     Ok(())
 }

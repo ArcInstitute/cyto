@@ -3,12 +3,17 @@ pub mod flex;
 pub mod geometry;
 pub mod input;
 pub mod probe;
+pub mod runtime;
 
 pub use crispr::ArgsCrispr;
 pub use flex::ArgsFlex;
 pub use geometry::Geometry;
-pub use input::{BinseqInput, PairedInput};
+pub use input::PairedInput;
 pub use probe::ProbeOptions;
+pub use runtime::RuntimeOptions;
+
+#[cfg(feature = "binseq")]
+use input::BinseqInput;
 
 use clap::Subcommand;
 

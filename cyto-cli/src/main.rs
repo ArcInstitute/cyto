@@ -1,7 +1,6 @@
 mod cli;
 mod commands;
 mod io;
-mod progress;
 
 use anyhow::Result;
 use clap::Parser;

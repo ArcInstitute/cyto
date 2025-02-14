@@ -23,7 +23,7 @@ fn skip_if_needed(_args: &ArgsOutput) -> bool {
 }
 
 /// Convenience function to open a file handle
-fn open_file_handle(output_path: &str) -> Result<Box<dyn Write>> {
+pub fn open_file_handle(output_path: &str) -> Result<Box<dyn Write + Send>> {
     let buffer = File::create(output_path).map(BufWriter::new)?;
     Ok(Box::new(buffer))
 }
