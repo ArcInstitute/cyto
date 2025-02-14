@@ -50,8 +50,8 @@ cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file>
 Where:
 
 1. `<mode>` is the mapping mode (e.g. `crispr`, `flex`)
-2. `-i <R1>` is the path to the R1 fastq file (or a list of R1 files to concatenate)
-3. `-I <R2>` is the path to the R2 fastq file (or a list of R2 files to concatenate)
+2. `-i <R1>` is the path to the R1 fastq file
+3. `-I <R2>` is the path to the R2 fastq file
 4. `-c <feature_table>` is a feature table that maps the target sequences to their corresponding barcodes. Each mode has a specific format for the feature table.
 5. `-p <probe_file>` is an **optional probe file** that can be used to demultiplex the reads by probe sequences.
 
