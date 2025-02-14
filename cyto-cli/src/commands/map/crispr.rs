@@ -9,18 +9,16 @@ use cyto::{
 };
 
 use super::{
-    ibu_map_pairs, ibu_map_probed_pairs,
-    utils::{
-        build_filepath, build_filepaths, delete_empty_path, delete_empty_paths, open_handle,
-        open_handles,
-    },
+    ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
+    utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
 
 #[cfg(feature = "binseq")]
 use super::ibu_map_pairs_binseq;
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
-    let readers = args.input.into_readers()?;
+    // Load the input readers
+    let (r1, r2) = args.input.to_readers()?;
 
     // Load the target mapper
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
@@ -45,18 +43,20 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
-    // Open a file handle for each handle
-    let mut probe_writers = open_handles(&filepaths)?;
+    // Write the features to the output file
+    write_features(&args.output, &target_mapper)?;
 
     // map the reads and write the results to the probe files
-    let statistics = ibu_map_probed_pairs(
-        readers,
-        &mut probe_writers,
-        &target_mapper,
-        &probe_mapper,
+    let statistics = ibu_map_probed_pairs_paraseq(
+        r1,
+        r2,
+        &filepaths,
+        target_mapper,
+        probe_mapper,
         Some(target_offset),
         Some(probe_offset),
         args.geometry.into(),
+        args.runtime.num_threads(),
         args.crispr.exact_matching,
     )?;
 
@@ -64,12 +64,13 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     delete_empty_paths(&filepaths)?;
 
     write_statistics(&args.output, &statistics)?;
-    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
 pub fn bus(args: ArgsCrispr) -> Result<()> {
-    let readers = args.input.into_readers()?;
+    // Load the input readers
+    let (r1, r2) = args.input.to_readers()?;
+
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
     let target_mapper = if args.crispr.exact_matching {
         target_library.into_mapper()
@@ -81,16 +82,18 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
-    // Open a file handle for the output file
-    let mut handle = open_handle(&output_filepath)?;
+    // Write the features to the output file
+    write_features(&args.output, &target_mapper)?;
 
     // map the reads and write the results to the output file
-    let statistics = ibu_map_pairs(
-        readers,
-        &mut handle,
-        &target_mapper,
+    let statistics = ibu_map_pairs_paraseq(
+        r1,
+        r2,
+        &output_filepath,
+        target_mapper,
         Some(target_offset),
         args.geometry.into(),
+        args.runtime.num_threads(),
         args.crispr.exact_matching,
     )?;
 
@@ -98,7 +101,6 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     delete_empty_path(&output_filepath)?;
 
     write_statistics(&args.output, &statistics)?;
-    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 

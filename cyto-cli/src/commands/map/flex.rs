@@ -1,28 +1,23 @@
 use crate::{
     cli::ArgsFlex,
-    io::{match_input_transparent, write_features, write_statistics},
+    io::{write_features, write_statistics},
 };
 use anyhow::Result;
 use cyto::{
     libraries::{FlexLibrary, ProbeLibrary},
     mappers::MapperOffset,
 };
-use paraseq::fastq::Reader;
 
 use super::{
-    generic_paraseq::ibu_map_pairs_paraseq,
-    ibu_map_probed_pairs,
-    utils::{
-        build_filepath, build_filepaths, delete_empty_path, delete_empty_paths, open_handle,
-        open_handles,
-    },
+    ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
+    utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
 
 #[cfg(feature = "binseq")]
 use super::ibu_map_pairs_binseq;
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
-    let readers = args.input.into_readers()?;
+    let (r1, r2) = args.input.to_readers()?;
 
     // Load the target library
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
@@ -46,17 +41,19 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
-    // Open a file handle for each handle
-    let mut probe_writers = open_handles(&filepaths)?;
+    // Write the features to the output file
+    write_features(&args.output, &target_mapper)?;
 
-    let statistics = ibu_map_probed_pairs(
-        readers,
-        &mut probe_writers,
-        &target_mapper,
-        &probe_mapper,
+    let statistics = ibu_map_probed_pairs_paraseq(
+        r1,
+        r2,
+        &filepaths,
+        target_mapper,
+        probe_mapper,
         None,
         Some(probe_offset),
         args.geometry.into(),
+        args.runtime.num_threads(),
         args.flex.exact_matching,
     )?;
 
@@ -64,20 +61,12 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     delete_empty_paths(&filepaths)?;
 
     write_statistics(&args.output, &statistics)?;
-    write_features(&args.output, &target_mapper)?;
     Ok(())
 }
 
 fn bus(args: ArgsFlex) -> Result<()> {
-    // let readers = args.input.into_readers()?;
-
-    let paths = args.input.iter_pairs().next().unwrap();
-
-    let h1 = match_input_transparent(Some(&paths.0))?;
-    let h2 = match_input_transparent(Some(&paths.1))?;
-
-    let r1 = Reader::new(h1);
-    let r2 = Reader::new(h2);
+    // Load the input files
+    let (r1, r2) = args.input.to_readers()?;
 
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
     let target_mapper = if args.flex.exact_matching {
@@ -95,7 +84,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
     let statistics = ibu_map_pairs_paraseq(
         r1,
         r2,
-        output_filepath.clone(),
+        &output_filepath,
         target_mapper,
         None,
         args.geometry.into(),

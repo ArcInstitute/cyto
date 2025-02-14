@@ -1,41 +1,38 @@
+use std::io::Read;
+
 use anyhow::Result;
 use clap::Parser;
-use cyto::PairedReader;
 
 #[cfg(feature = "binseq")]
 pub use anyhow::bail;
 #[cfg(feature = "binseq")]
 pub use binseq::PairedMmapReader;
+use paraseq::fastq;
+
+use crate::io::match_input_transparent;
 
 #[derive(Parser)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
-    #[clap(short = 'i', long, num_args = 1.., required_unless_present="input")]
-    pub r1: Vec<String>,
-    #[clap(short = 'I', long, num_args = 1.., required_unless_present="input")]
-    pub r2: Vec<String>,
+    #[clap(short = 'i', long, required_unless_present = "input")]
+    pub r1: String,
+    #[clap(short = 'I', long, required_unless_present = "input")]
+    pub r2: String,
 }
 impl PairedInput {
-    pub fn valid_sizing(&self) -> bool {
-        self.r1.len() == self.r2.len()
-    }
-    pub fn iter_pairs(&self) -> impl Iterator<Item = (String, String)> + '_ {
-        self.r1
-            .iter()
-            .zip(self.r2.iter())
-            .map(|(r1, r2)| (r1.clone(), r2.clone()))
-    }
-    #[allow(clippy::wrong_self_convention)]
-    pub fn into_readers(&self) -> Result<Vec<PairedReader>> {
-        if self.r1.is_empty() {
-            anyhow::bail!("No input files provided");
-        }
-        if !self.valid_sizing() {
-            anyhow::bail!("Number of R1 and R2 files must match");
-        }
-        self.iter_pairs()
-            .map(|(r1, r2)| PairedReader::new(&r1, &r2))
-            .collect()
+    pub fn to_readers(
+        &self,
+    ) -> Result<(
+        fastq::Reader<Box<dyn Read + Send>>,
+        fastq::Reader<Box<dyn Read + Send>>,
+    )> {
+        let h1 = match_input_transparent(Some(&self.r1))?;
+        let h2 = match_input_transparent(Some(&self.r2))?;
+
+        let r1 = fastq::Reader::new(h1);
+        let r2 = fastq::Reader::new(h2);
+
+        Ok((r1, r2))
     }
 }
 
