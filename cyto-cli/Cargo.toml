@@ -20,6 +20,7 @@ parking_lot = "0.12.3"
 paraseq = "0.1.2"
 
 [features]
+default = ["binseq"]
 binseq = ["dep:binseq"]
 benchmarking = []
 

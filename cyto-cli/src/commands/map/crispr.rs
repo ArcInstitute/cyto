@@ -9,12 +9,9 @@ use cyto::{
 };
 
 use super::{
-    ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
+    ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
     utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
-
-#[cfg(feature = "binseq")]
-use super::ibu_map_pairs_binseq;
 
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     // Load the input readers
@@ -125,7 +122,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
         reader,
-        output_filepath,
+        &output_filepath,
         target_mapper,
         Some(target_offset),
         args.geometry.into(),

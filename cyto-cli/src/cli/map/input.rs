@@ -15,9 +15,9 @@ use crate::io::match_input_transparent;
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
     #[clap(short = 'i', long, required_unless_present = "input")]
-    pub r1: String,
+    pub r1: Option<String>,
     #[clap(short = 'I', long, required_unless_present = "input")]
-    pub r2: String,
+    pub r2: Option<String>,
 }
 impl PairedInput {
     pub fn to_readers(
@@ -26,8 +26,8 @@ impl PairedInput {
         fastq::Reader<Box<dyn Read + Send>>,
         fastq::Reader<Box<dyn Read + Send>>,
     )> {
-        let h1 = match_input_transparent(Some(&self.r1))?;
-        let h2 = match_input_transparent(Some(&self.r2))?;
+        let h1 = match_input_transparent(self.r1.as_ref())?;
+        let h2 = match_input_transparent(self.r2.as_ref())?;
 
         let r1 = fastq::Reader::new(h1);
         let r2 = fastq::Reader::new(h2);
