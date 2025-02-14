@@ -36,18 +36,12 @@ impl PairedInput {
     }
 }
 
+#[cfg(feature = "binseq")]
 #[derive(Parser)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
     #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]
     pub input: Option<String>,
-
-    /// number of threads to use for decoding and processing records.
-    ///
-    /// if 0, the number of threads will be set to the maximum number of threads.
-    /// otherwise it will be the minimum of the provided threads and the maximum number of threads.
-    #[clap(short = 't', long, default_value = "0")]
-    pub threads: usize,
 }
 #[cfg(feature = "binseq")]
 impl BinseqInput {
@@ -57,14 +51,6 @@ impl BinseqInput {
             PairedMmapReader::new(input)
         } else {
             bail!("No input file provided");
-        }
-    }
-
-    pub fn num_threads(&self) -> usize {
-        if self.threads == 0 {
-            num_cpus::get()
-        } else {
-            self.threads.min(num_cpus::get())
         }
     }
 }

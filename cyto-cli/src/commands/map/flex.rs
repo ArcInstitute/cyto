@@ -9,10 +9,12 @@ use cyto::{
 };
 
 use super::{
-    ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
-    ibu_map_probed_pairs_paraseq,
+    ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
     utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
+
+#[cfg(feature = "binseq")]
+use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let (r1, r2) = args.input.to_readers()?;
@@ -121,7 +123,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         target_mapper,
         None,
         args.geometry.into(),
-        args.binseq.num_threads(),
+        args.runtime.num_threads(),
         args.flex.exact_matching,
     )?;
 

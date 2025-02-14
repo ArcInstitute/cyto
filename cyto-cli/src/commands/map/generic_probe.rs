@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use binseq::ParallelPairedProcessor;
 use bitnuc::encode;
 use cyto::{
     mappers::{MapperOffset, MappingError, ProbeMapper},
@@ -17,6 +16,9 @@ use paraseq::{
     parallel::{PairedParallelProcessor, PairedParallelReader},
 };
 use parking_lot::Mutex;
+
+#[cfg(feature = "binseq")]
+use binseq::ParallelPairedProcessor;
 
 use crate::io::open_file_handle;
 
@@ -36,6 +38,7 @@ pub struct MappingProbeImplementor<M: Mapper> {
     umi_buf: Vec<u64>,
 
     // Temporary decoding buffer for R2 sequences (binseq)
+    #[cfg(feature = "binseq")]
     dbuf: Vec<u8>,
 
     // Temporary buffer for output
@@ -72,6 +75,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             global_stats,
             barcode_buf: Vec::new(),
             umi_buf: Vec::new(),
+            #[cfg(feature = "binseq")]
             dbuf: Vec::new(),
             local_output_buffers,
             files,
@@ -111,6 +115,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         Ok(true)
     }
 
+    #[cfg(feature = "binseq")]
     fn split_r1(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
         // Split R1 into barcode and UMI
         let r1_config = pair.s_config();
@@ -132,6 +137,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         Ok(())
     }
 
+    #[cfg(feature = "binseq")]
     fn decode_r2(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
         self.dbuf.clear();
         bitnuc::decode(pair.x_seq, pair.x_config.slen as usize, &mut self.dbuf)?;
@@ -232,6 +238,8 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
         Ok(())
     }
 }
+
+#[cfg(feature = "binseq")]
 impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
     fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
@@ -331,6 +339,7 @@ where
     Ok(implementor.statistics())
 }
 
+#[cfg(feature = "binseq")]
 pub fn ibu_map_probed_pairs_binseq<M>(
     reader: binseq::PairedMmapReader,
     filenames: &[String],

@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use binseq::{PairedMmapReader, ParallelPairedProcessor};
 use bitnuc::encode;
 use cyto::{
     mappers::{MapperOffset, MappingError},
@@ -20,6 +19,9 @@ use parking_lot::Mutex;
 
 use crate::io::open_file_handle;
 
+#[cfg(feature = "binseq")]
+use binseq::{PairedMmapReader, ParallelPairedProcessor};
+
 #[derive(Clone)]
 pub struct MappingImplementor<M: Mapper> {
     target_mapper: M,
@@ -34,6 +36,7 @@ pub struct MappingImplementor<M: Mapper> {
     umi_buf: Vec<u64>,
 
     // Temporary decoding buffer for R2 sequences (binseq)
+    #[cfg(feature = "binseq")]
     dbuf: Vec<u8>,
 
     // Temporary buffer for output
@@ -64,6 +67,7 @@ impl<M: Mapper> MappingImplementor<M> {
             global_stats,
             barcode_buf: Vec::new(),
             umi_buf: Vec::new(),
+            #[cfg(feature = "binseq")]
             dbuf: Vec::new(),
             local_output_buf: Vec::new(),
             file,
@@ -103,6 +107,7 @@ impl<M: Mapper> MappingImplementor<M> {
         Ok(true)
     }
 
+    #[cfg(feature = "binseq")]
     fn split_r1(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
         // Split R1 into barcode and UMI
         let r1_config = pair.s_config();
@@ -124,6 +129,7 @@ impl<M: Mapper> MappingImplementor<M> {
         Ok(())
     }
 
+    #[cfg(feature = "binseq")]
     fn decode_r2(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
         self.dbuf.clear();
         bitnuc::decode(pair.x_seq, pair.x_config.slen as usize, &mut self.dbuf)?;
@@ -199,6 +205,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     }
 }
 
+#[cfg(feature = "binseq")]
 impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
     fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
         // Split R1 into barcode and UMI
@@ -273,6 +280,7 @@ where
     Ok(implementor.statistics())
 }
 
+#[cfg(feature = "binseq")]
 pub fn ibu_map_pairs_binseq<M>(
     reader: PairedMmapReader,
     filename: &str,
