@@ -10,6 +10,7 @@ use cyto::{
     statistics::{LibraryCombination, Statistics},
     GeometryR1, Mapper, MappingStatistics,
 };
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use paraseq::{
     fastq::Reader,
     fastx::Record as FastxRecord,
@@ -48,6 +49,12 @@ pub struct MappingImplementor<M: Mapper> {
 
     // Exact matching flag
     exact_matching: bool,
+
+    // thread id
+    tid: usize,
+
+    // progress bar
+    pbar: Arc<Mutex<ProgressBar>>,
 }
 impl<M: Mapper> MappingImplementor<M> {
     pub fn new(
@@ -59,6 +66,15 @@ impl<M: Mapper> MappingImplementor<M> {
     ) -> Self {
         let local_stats = MappingStatistics::default();
         let global_stats = Arc::new(Mutex::new(MappingStatistics::default()));
+
+        let pbar = ProgressBar::new_spinner();
+        pbar.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.cyan} [{elapsed_precise}] {msg}")
+                .unwrap(),
+        );
+        pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
+
         Self {
             target_mapper,
             target_offset,
@@ -72,6 +88,8 @@ impl<M: Mapper> MappingImplementor<M> {
             local_output_buf: Vec::new(),
             file,
             exact_matching,
+            tid: 0,
+            pbar: Arc::new(Mutex::new(pbar)),
         }
     }
 
@@ -165,6 +183,40 @@ impl<M: Mapper> MappingImplementor<M> {
         self.global_stats.lock().merge(&self.local_stats);
         self.local_stats.clear();
     }
+
+    fn update_pbar(&self) {
+        if self.tid == 0 {
+            let (total, map_pc) = {
+                let stats = self.global_stats.lock();
+                (
+                    stats.total_reads as f64 / 1_000_000.0,
+                    stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
+                )
+            };
+            let pb = self.pbar.lock();
+            let throughput = total / pb.elapsed().as_secs_f64();
+            pb.set_message(format!(
+                "Processed: {:.3}M reads ( Mapped: {:.2}%, Throughput: {:.3}M/s )",
+                total, map_pc, throughput
+            ));
+        }
+    }
+
+    fn finish_pbar(&self) {
+        let (total, map_pc) = {
+            let stats = self.global_stats.lock();
+            (
+                stats.total_reads as f64 / 1_000_000.0,
+                stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
+            )
+        };
+        let pb = self.pbar.lock();
+        let throughput = total / pb.elapsed().as_secs_f64();
+        pb.finish_with_message(format!(
+            "Mapping complete: {:.3}M reads ( Mapped: {:.2}%, Throughput: {:.3}M/s )",
+            total, map_pc, throughput
+        ));
+    }
 }
 impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
@@ -201,7 +253,12 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     fn on_batch_complete(&mut self) -> paraseq::parallel::Result<()> {
         self.write_buffer()?;
         self.update_stats();
+        self.update_pbar();
         Ok(())
+    }
+
+    fn set_thread_id(&mut self, thread_id: usize) {
+        self.tid = thread_id;
     }
 }
 
@@ -237,7 +294,12 @@ impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
     fn on_batch_complete(&mut self) -> Result<()> {
         self.write_buffer()?;
         self.update_stats();
+        self.update_pbar();
         Ok(())
+    }
+
+    fn set_tid(&mut self, tid: usize) {
+        self.tid = tid;
     }
 }
 
@@ -276,6 +338,9 @@ where
     // Process the records in parallel
     rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
 
+    // Finalize the progress bar
+    implementor.finish_pbar();
+
     // Return the statistics
     Ok(implementor.statistics())
 }
@@ -313,6 +378,9 @@ where
 
     // Process the records in parallel
     reader.process_parallel(implementor.clone(), num_threads)?;
+
+    // Complete the progress bar
+    implementor.finish_pbar();
 
     // Return the statistics
     Ok(implementor.statistics())
