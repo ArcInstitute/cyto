@@ -9,7 +9,8 @@ use cyto::{
 };
 
 use super::{
-    ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
+    ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
+    ibu_map_probed_pairs_paraseq,
     utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
 
@@ -134,8 +135,54 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "binseq")]
+pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
+    let reader = args.binseq.into_reader()?;
+    let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
+    let target_mapper = if args.crispr.exact_matching {
+        target_library.into_mapper()
+    } else {
+        target_library.into_corrected_mapper()
+    }?;
+
+    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
+    let probe_mapper = if args.crispr.exact_matching {
+        probe_library.into_mapper()
+    } else {
+        probe_library.into_corrected_mapper()
+    }?;
+
+    let target_offset = MapperOffset::RightOf(args.crispr.offset);
+    let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
+
+    let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
+
+    write_features(&args.output, &target_mapper)?;
+
+    let statistics = ibu_map_probed_pairs_binseq(
+        reader,
+        &filepaths,
+        target_mapper,
+        probe_mapper,
+        Some(target_offset),
+        Some(probe_offset),
+        args.geometry.into(),
+        args.binseq.num_threads(),
+        args.crispr.exact_matching,
+    )?;
+
+    delete_empty_paths(&filepaths)?;
+
+    write_statistics(&args.output, &statistics)?;
+    Ok(())
+}
+
 pub fn run(args: ArgsCrispr) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
+        #[cfg(feature = "binseq")]
+        if args.binseq.input.is_some() {
+            return probed_bus_binseq(args);
+        }
         probed_bus(args)
     } else {
         #[cfg(feature = "binseq")]

@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use binseq::ParallelPairedProcessor;
 use bitnuc::encode;
 use cyto::{
     mappers::{MapperOffset, MappingError, ProbeMapper},
@@ -33,6 +34,9 @@ pub struct MappingProbeImplementor<M: Mapper> {
     // Buffers for barcode and UMI sequences used during splitting
     barcode_buf: Vec<u64>,
     umi_buf: Vec<u64>,
+
+    // Temporary decoding buffer for R2 sequences (binseq)
+    dbuf: Vec<u8>,
 
     // Temporary buffer for output
     local_output_buffers: Vec<Vec<u8>>,
@@ -68,6 +72,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             global_stats,
             barcode_buf: Vec::new(),
             umi_buf: Vec::new(),
+            dbuf: Vec::new(),
             local_output_buffers,
             files,
             exact_matching,
@@ -106,6 +111,33 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         Ok(true)
     }
 
+    fn split_r1(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+        // Split R1 into barcode and UMI
+        let r1_config = pair.s_config();
+        if r1_config.slen as usize != self.geometry.barcode + self.geometry.umi {
+            bail!("R1 sequence length does not match provided geometry");
+        }
+        bitnuc::split_packed(
+            pair.s_seq(),
+            r1_config.slen as usize,
+            self.geometry.barcode,
+            &mut self.barcode_buf,
+            &mut self.umi_buf,
+        )?;
+        if self.barcode_buf.len() != 1 || self.umi_buf.len() != 1 {
+            bail!(
+                "Barcode split assertion length failed - both barcode and UMI must be under 32bp"
+            );
+        }
+        Ok(())
+    }
+
+    fn decode_r2(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+        self.dbuf.clear();
+        bitnuc::decode(pair.x_seq, pair.x_config.slen as usize, &mut self.dbuf)?;
+        Ok(())
+    }
+
     fn statistics(&self) -> Statistics {
         Statistics::new(
             // LibraryCombination::Single(self.target_mapper.library_statistics()),
@@ -132,6 +164,25 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             self.probe_mapper.map_corrected(seq, self.probe_offset)
         }
     }
+
+    fn write_buffers(&mut self) -> Result<()> {
+        // Write all local output buffers to the corresponding files
+        for idx in 0..self.local_output_buffers.len() {
+            // Scope the lock to ensure it is released early
+            {
+                let writer = &mut self.files[idx].lock();
+                writer.write_all(&self.local_output_buffers[idx])?;
+                writer.flush()?;
+            }
+            self.local_output_buffers[idx].clear();
+        }
+        Ok(())
+    }
+
+    fn update_stats(&mut self) {
+        self.global_stats.lock().merge(&self.local_stats);
+        self.local_stats.clear();
+    }
 }
 impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
@@ -145,6 +196,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
             return Ok(()); // Skip the record if it contains an `N`
         }
 
+        // Shorthand the barcode and UMI
         let barcode = self.barcode_buf[0];
         let umi = self.umi_buf[0];
 
@@ -175,20 +227,54 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
     }
 
     fn on_batch_complete(&mut self) -> paraseq::parallel::Result<()> {
-        // Write all local output buffers to the corresponding files
-        for idx in 0..self.local_output_buffers.len() {
-            // Scope the lock to ensure it is released early
-            {
-                let writer = &mut self.files[idx].lock();
-                writer.write_all(&self.local_output_buffers[idx])?;
-                writer.flush()?;
+        self.write_buffers()?;
+        self.update_stats();
+        Ok(())
+    }
+}
+impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
+    // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
+    fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
+        // Split R1 into barcode and UMI
+        self.split_r1(&pair)?;
+
+        // Decode R2
+        self.decode_r2(&pair)?;
+
+        // Shorthand the barcode and UMI and sequence
+        let barcode = self.barcode_buf[0];
+        let umi = self.umi_buf[0];
+        let seq = &self.dbuf;
+
+        // Map the sequence
+        match (self.map_target(seq), self.map_probe(seq)) {
+            (Ok(t_idx), Ok(p_idx)) => {
+                // Create the record
+                let record = ibu::Record::new(barcode, umi, t_idx as u64);
+
+                // Identify the correct output buffer index
+                let probe_alias_index = self
+                    .probe_mapper
+                    .get_alias_index(p_idx)
+                    .expect("Could not access probe alias index");
+
+                // Write the record to the correct output buffer
+                record.write_bytes(&mut self.local_output_buffers[probe_alias_index])?;
             }
-            self.local_output_buffers[idx].clear();
+            (Err(why), Ok(_)) | (Ok(_), Err(why)) => {
+                self.local_stats.increment_unmapped(why);
+            }
+            (Err(why1), Err(why2)) => {
+                self.local_stats.increment_unmapped_multi_reason(why1, why2);
+            }
         }
 
-        self.global_stats.lock().merge(&self.local_stats);
-        self.local_stats.clear();
+        Ok(())
+    }
 
+    fn on_batch_complete(&mut self) -> Result<()> {
+        self.write_buffers()?;
+        self.update_stats();
         Ok(())
     }
 }
@@ -240,6 +326,56 @@ where
 
     // Process the records in parallel
     rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
+
+    // Return the statistics
+    Ok(implementor.statistics())
+}
+
+pub fn ibu_map_probed_pairs_binseq<M>(
+    reader: binseq::PairedMmapReader,
+    filenames: &[String],
+    target_mapper: M,
+    probe_mapper: ProbeMapper,
+    target_offset: Option<MapperOffset>,
+    probe_offset: Option<MapperOffset>,
+    geometry: GeometryR1,
+    num_threads: usize,
+    exact_matching: bool,
+) -> Result<Statistics>
+where
+    M: Mapper + 'static,
+{
+    // Initialize the header and write it to the output file
+    let header = ibu::Header::try_from(geometry)?;
+
+    // Open the output files
+    let mut writers = filenames
+        .iter()
+        .map(|filename| open_file_handle(filename))
+        .collect::<Result<Vec<_>>>()?;
+
+    // Write the header to each output file
+    for writer in writers.iter_mut() {
+        header.write_bytes(writer)?;
+        writer.flush()?;
+    }
+
+    // Wrap the writers
+    let writers = Arc::new(writers.into_iter().map(Mutex::new).collect::<Vec<_>>());
+
+    // Initialize the mapping implementor
+    let implementor = MappingProbeImplementor::new(
+        target_mapper,
+        Arc::new(probe_mapper),
+        target_offset,
+        probe_offset,
+        geometry,
+        writers,
+        exact_matching,
+    );
+
+    // Process the records in parallel
+    reader.process_parallel(implementor.clone(), num_threads)?;
 
     // Return the statistics
     Ok(implementor.statistics())
