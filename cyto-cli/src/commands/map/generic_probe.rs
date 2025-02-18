@@ -65,6 +65,7 @@ pub struct MappingProbeImplementor<M: Mapper> {
     map_time: Instant,
 }
 impl<M: Mapper> MappingProbeImplementor<M> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         target_mapper: M,
         probe_mapper: Arc<ProbeMapper>,
@@ -377,6 +378,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_paraseq<M, R>(
     rdr_r1: Reader<R>,
     rdr_r2: Reader<R>,
@@ -435,6 +437,7 @@ where
 }
 
 #[cfg(feature = "binseq")]
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
     reader: binseq::PairedMmapReader,
     filenames: &[String],

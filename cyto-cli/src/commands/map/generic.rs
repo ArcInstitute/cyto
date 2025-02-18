@@ -327,6 +327,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_paraseq<M, R>(
     rdr_r1: Reader<R>,
     rdr_r2: Reader<R>,
@@ -372,6 +373,7 @@ where
 }
 
 #[cfg(feature = "binseq")]
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_binseq<M>(
     reader: PairedMmapReader,
     filename: &str,
