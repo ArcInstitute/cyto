@@ -14,7 +14,7 @@ ibu = { workspace = true, features = ["serde"] }
 csv = "1.3.1"
 rayon = "1.10.0"
 num_cpus = "1.16.0"
-niffler = "2.6.0"
+niffler = "3.0.0"
 parking_lot = "0.12.3"
 paraseq = "0.1.2"
 indicatif = "0.17.11"
