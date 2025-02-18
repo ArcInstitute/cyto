@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::{
     cli::ArgsFlex,
     io::{write_features, write_statistics},
@@ -18,6 +20,8 @@ use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let (r1, r2) = args.input.to_readers()?;
+
+    let start_time = Instant::now();
 
     // Load the target library
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
@@ -55,6 +59,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        start_time,
     )?;
 
     // Delete the probe files if there are no mapped reads
@@ -67,6 +72,8 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 fn bus(args: ArgsFlex) -> Result<()> {
     // Load the input files
     let (r1, r2) = args.input.to_readers()?;
+
+    let start_time = Instant::now();
 
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
     let target_mapper = if args.flex.exact_matching {
@@ -90,6 +97,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        start_time,
     )?;
 
     // Delete the output file if there are no mapped reads
@@ -103,6 +111,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
 #[cfg(feature = "binseq")]
 fn bus_binseq(args: ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
+    let start_time = Instant::now();
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
     let target_mapper = if args.flex.exact_matching {
         target_library.into_mapper()
@@ -125,6 +134,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        start_time,
     )?;
 
     write_statistics(&args.output, &statistics)?;
@@ -134,6 +144,8 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
 #[cfg(feature = "binseq")]
 pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
+
+    let start_time = Instant::now();
 
     // Load the target library
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
@@ -170,6 +182,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        start_time,
     )?;
 
     // Delete the probe files if there are no mapped reads

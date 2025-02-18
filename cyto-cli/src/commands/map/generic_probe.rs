@@ -1,13 +1,14 @@
 use std::{
     io::{Read, Write},
     sync::Arc,
+    time::Instant,
 };
 
 use anyhow::{bail, Result};
 use bitnuc::encode;
 use cyto::{
     mappers::{MapperOffset, MappingError, ProbeMapper},
-    statistics::{LibraryCombination, Statistics},
+    statistics::{LibraryCombination, RuntimeStatistics, Statistics},
     GeometryR1, Mapper, MappingStatistics,
 };
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
@@ -56,8 +57,15 @@ pub struct MappingProbeImplementor<M: Mapper> {
 
     // progress bar
     pbar: Arc<Mutex<ProgressBar>>,
+
+    // init time
+    init_time: Instant,
+
+    // mapping start time
+    map_time: Instant,
 }
 impl<M: Mapper> MappingProbeImplementor<M> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         target_mapper: M,
         probe_mapper: Arc<ProbeMapper>,
@@ -66,6 +74,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         geometry: GeometryR1,
         files: Arc<Vec<Mutex<Box<dyn Write + Send>>>>,
         exact_matching: bool,
+        init_time: Instant,
     ) -> Self {
         let local_stats = MappingStatistics::default();
         let global_stats = Arc::new(Mutex::new(MappingStatistics::default()));
@@ -96,6 +105,8 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             exact_matching,
             tid: 0,
             pbar: Arc::new(Mutex::new(pbar)),
+            init_time,
+            map_time: Instant::now(),
         }
     }
 
@@ -161,6 +172,13 @@ impl<M: Mapper> MappingProbeImplementor<M> {
     }
 
     fn statistics(&self) -> Statistics {
+        let runtime = RuntimeStatistics::new(
+            self.init_time.elapsed().as_secs_f64(),
+            (self.map_time - self.init_time).as_secs_f64(),
+            self.map_time.elapsed().as_secs_f64(),
+            self.global_stats.lock().total_reads as f64 / self.map_time.elapsed().as_secs_f64(),
+        );
+
         Statistics::new(
             // LibraryCombination::Single(self.target_mapper.library_statistics()),
             LibraryCombination::Dual(
@@ -168,6 +186,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
                 self.probe_mapper.library_statistics(),
             ),
             self.global_stats.lock().to_owned(),
+            runtime,
         )
     }
 
@@ -215,12 +234,15 @@ impl<M: Mapper> MappingProbeImplementor<M> {
                     stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
                 )
             };
-            let pb = self.pbar.lock();
-            let throughput = total / pb.elapsed().as_secs_f64();
-            pb.set_message(format!(
-                "Processed: {:.3}M reads ( Mapped: {:.2}%, Throughput: {:.3}M/s )",
-                total, map_pc, throughput
-            ));
+            let elapsed = self.map_time.elapsed().as_secs_f64();
+            let throughput = total / elapsed;
+            // Lock the progress bar and update the message
+            {
+                let pb = self.pbar.lock();
+                pb.set_message(format!(
+                    "Processed: {total:.3}M reads ( Mapped: {map_pc:.2}%, Throughput: {throughput:.3}M/s )",
+                ));
+            }
         }
     }
 
@@ -232,12 +254,15 @@ impl<M: Mapper> MappingProbeImplementor<M> {
                 stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
             )
         };
-        let pb = self.pbar.lock();
-        let throughput = total / pb.elapsed().as_secs_f64();
-        pb.finish_with_message(format!(
-            "Mapping complete: {:.3}M reads ( Mapped: {:.2}%, Throughput: {:.3}M/s )",
-            total, map_pc, throughput
-        ));
+        let elapsed = self.map_time.elapsed().as_secs_f64();
+        let throughput = total / elapsed;
+        // Lock the progress bar and finish the message
+        {
+            let pb = self.pbar.lock();
+            pb.finish_with_message(format!(
+                "Mapping complete: {total:.3}M reads ( Mapped: {map_pc:.2}%, Throughput: {throughput:.3}M/s )",
+            ));
+        }
     }
 }
 impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
@@ -353,6 +378,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_paraseq<M, R>(
     rdr_r1: Reader<R>,
     rdr_r2: Reader<R>,
@@ -364,6 +390,7 @@ pub fn ibu_map_probed_pairs_paraseq<M, R>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    start_time: Instant,
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
@@ -379,7 +406,7 @@ where
         .collect::<Result<Vec<_>>>()?;
 
     // Write the header to each output file
-    for writer in writers.iter_mut() {
+    for writer in &mut writers {
         header.write_bytes(writer)?;
         writer.flush()?;
     }
@@ -396,6 +423,7 @@ where
         geometry,
         writers,
         exact_matching,
+        start_time,
     );
 
     // Process the records in parallel
@@ -409,6 +437,7 @@ where
 }
 
 #[cfg(feature = "binseq")]
+#[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
     reader: binseq::PairedMmapReader,
     filenames: &[String],
@@ -419,6 +448,7 @@ pub fn ibu_map_probed_pairs_binseq<M>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    start_time: Instant,
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
@@ -433,7 +463,7 @@ where
         .collect::<Result<Vec<_>>>()?;
 
     // Write the header to each output file
-    for writer in writers.iter_mut() {
+    for writer in &mut writers {
         header.write_bytes(writer)?;
         writer.flush()?;
     }
@@ -450,6 +480,7 @@ where
         geometry,
         writers,
         exact_matching,
+        start_time,
     );
 
     // Process the records in parallel

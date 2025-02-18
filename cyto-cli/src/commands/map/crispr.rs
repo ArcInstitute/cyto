@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::{
     cli::ArgsCrispr,
     io::{write_features, write_statistics},
@@ -19,6 +21,8 @@ use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
+
+    let start_time = Instant::now();
 
     // Load the target mapper
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
@@ -58,6 +62,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        start_time,
     )?;
 
     // Delete the probe files if there are no mapped reads
@@ -70,6 +75,8 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 pub fn bus(args: ArgsCrispr) -> Result<()> {
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
+
+    let start_time = Instant::now();
 
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
     let target_mapper = if args.crispr.exact_matching {
@@ -95,6 +102,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        start_time,
     )?;
 
     // Delete the output file if there are no mapped reads
@@ -107,6 +115,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
 #[cfg(feature = "binseq")]
 fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
+    let start_time = Instant::now();
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
     let target_mapper = if args.crispr.exact_matching {
         target_library.into_mapper()
@@ -131,6 +140,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        start_time,
     )?;
 
     write_statistics(&args.output, &statistics)?;
@@ -140,6 +150,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
 #[cfg(feature = "binseq")]
 pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
+    let start_time = Instant::now();
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
     let target_mapper = if args.crispr.exact_matching {
         target_library.into_mapper()
@@ -171,6 +182,7 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        start_time,
     )?;
 
     delete_empty_paths(&filepaths)?;

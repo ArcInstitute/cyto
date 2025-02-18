@@ -11,6 +11,9 @@ use paraseq::fastq;
 
 use crate::io::match_input_transparent;
 
+type FqReader = fastq::Reader<Box<dyn Read + Send>>;
+type FqReaderPair = (FqReader, FqReader);
+
 #[derive(Parser)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
@@ -20,12 +23,7 @@ pub struct PairedInput {
     pub r2: Option<String>,
 }
 impl PairedInput {
-    pub fn to_readers(
-        &self,
-    ) -> Result<(
-        fastq::Reader<Box<dyn Read + Send>>,
-        fastq::Reader<Box<dyn Read + Send>>,
-    )> {
+    pub fn to_readers(&self) -> Result<FqReaderPair> {
         let h1 = match_input_transparent(self.r1.as_ref())?;
         let h2 = match_input_transparent(self.r2.as_ref())?;
 
