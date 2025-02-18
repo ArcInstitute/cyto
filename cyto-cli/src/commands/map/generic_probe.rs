@@ -364,6 +364,7 @@ pub fn ibu_map_probed_pairs_paraseq<M, R>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    verbose: bool,
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
@@ -404,6 +405,15 @@ where
     // Finish the progress bar
     implementor.finish_pbar();
 
+    if verbose {
+        let elapsed = implementor.pbar.lock().elapsed();
+        let num_records = implementor.global_stats.lock().total_reads;
+        let throughput = num_records as f64 / elapsed.as_secs_f64();
+        println!("elapsed,{}", elapsed.as_secs_f64(),);
+        println!("records,{}", num_records,);
+        println!("throughput,{}", throughput,);
+    }
+
     // Return the statistics
     Ok(implementor.statistics())
 }
@@ -419,6 +429,7 @@ pub fn ibu_map_probed_pairs_binseq<M>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    verbose: bool,
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
@@ -457,6 +468,15 @@ where
 
     // Finish the progress bar
     implementor.finish_pbar();
+
+    if verbose {
+        let elapsed = implementor.pbar.lock().elapsed();
+        let num_records = implementor.global_stats.lock().total_reads;
+        let throughput = num_records as f64 / elapsed.as_secs_f64();
+        println!("elapsed,{}", elapsed.as_secs_f64(),);
+        println!("records,{}", num_records,);
+        println!("throughput,{}", throughput,);
+    }
 
     // Return the statistics
     Ok(implementor.statistics())

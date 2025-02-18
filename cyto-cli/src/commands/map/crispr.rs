@@ -58,6 +58,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.runtime.verbose,
     )?;
 
     // Delete the probe files if there are no mapped reads
@@ -95,6 +96,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.runtime.verbose,
     )?;
 
     // Delete the output file if there are no mapped reads
@@ -131,6 +133,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.runtime.verbose,
     )?;
 
     write_statistics(&args.output, &statistics)?;
@@ -171,6 +174,7 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.runtime.verbose,
     )?;
 
     delete_empty_paths(&filepaths)?;

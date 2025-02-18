@@ -55,6 +55,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.runtime.verbose,
     )?;
 
     // Delete the probe files if there are no mapped reads
@@ -90,6 +91,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.runtime.verbose,
     )?;
 
     // Delete the output file if there are no mapped reads
@@ -125,6 +127,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.runtime.verbose,
     )?;
 
     write_statistics(&args.output, &statistics)?;
@@ -170,6 +173,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.runtime.verbose,
     )?;
 
     // Delete the probe files if there are no mapped reads
