@@ -2,6 +2,7 @@ use anyhow::Result;
 use disambiseq::Disambibyte;
 
 use super::{
+    mapper::Adjustment,
     maps::flex::{MapIndexToName, MapSequenceToIndex},
     Mapper, MapperOffset, MappingError,
 };
@@ -72,8 +73,17 @@ impl FlexMapper {
 }
 
 impl Mapper for FlexMapper {
-    fn map(&self, seq: SeqRef, _offset: Option<MapperOffset>) -> Result<usize, MappingError> {
-        let flex_sequence = &seq[..self.sequence_to_index.sequence_size];
+    fn map_inner(
+        &self,
+        seq: SeqRef,
+        _offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
+    ) -> Result<usize, MappingError> {
+        let flex_sequence = match adjustment {
+            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size],
+            Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
+            _ => &seq[..self.sequence_to_index.sequence_size],
+        };
         if let Some(index) = self.sequence_to_index.get(flex_sequence) {
             Ok(index)
         } else {
@@ -81,12 +91,17 @@ impl Mapper for FlexMapper {
         }
     }
 
-    fn map_corrected(
+    fn map_corrected_inner(
         &self,
         seq: SeqRef,
         _offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
-        let flex_sequence = &seq[..self.sequence_to_index.sequence_size];
+        let flex_sequence = match adjustment {
+            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size],
+            Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
+            _ => &seq[..self.sequence_to_index.sequence_size],
+        };
         match self.correction.get_parent(flex_sequence) {
             Some(corrected) => {
                 if let Some(index) = self.sequence_to_index.get(&corrected.0) {

@@ -2,6 +2,7 @@ use anyhow::Result;
 use disambiseq::Disambibyte;
 
 use super::{
+    mapper::Adjustment,
     maps::probe::{MapIndexToAlias, MapSequenceToIndex},
     Mapper, MapperOffset, MappingError,
 };
@@ -131,17 +132,23 @@ impl ProbeMapper {
 }
 
 impl Mapper for ProbeMapper {
-    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
+    fn map_inner(
+        &self,
+        sequence: SeqRef,
+        offset: Option<MapperOffset>,
+        _adjustment: Option<Adjustment>,
+    ) -> Result<usize, MappingError> {
         match offset {
             Some(MapperOffset::LeftOf(offset)) => self.map_left(sequence, offset),
             Some(MapperOffset::RightOf(offset)) => self.map_right(sequence, offset),
             None => panic!("ProbeMapper requires an offset to map the sequence."),
         }
     }
-    fn map_corrected(
+    fn map_corrected_inner(
         &self,
         sequence: SeqRef,
         offset: Option<MapperOffset>,
+        _adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         match offset {
             Some(MapperOffset::LeftOf(offset)) => self.map_left_corrected(sequence, offset),
