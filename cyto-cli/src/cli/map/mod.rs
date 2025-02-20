@@ -26,4 +26,6 @@ pub enum MapCommand {
     Crispr(ArgsCrispr),
     /// Map sequences to a FLEX library
     Flex(ArgsFlex),
+    /// Map sequences to a generic library
+    Generic(ArgsGeneric),
 }
