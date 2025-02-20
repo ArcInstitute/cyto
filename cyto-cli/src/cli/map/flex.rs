@@ -47,4 +47,8 @@ pub struct FlexOptions {
     /// Default allows for unambiguous 1-hamming distance mismatches
     #[clap(short = 'x', long)]
     pub exact_matching: bool,
+
+    /// Remap sequences with positional adjustment
+    #[clap(short = 'a', long)]
+    pub adjustment: bool,
 }

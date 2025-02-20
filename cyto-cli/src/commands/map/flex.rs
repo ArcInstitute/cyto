@@ -59,6 +59,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.flex.adjustment,
         start_time,
     )?;
 
@@ -97,6 +98,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.flex.adjustment,
         start_time,
     )?;
 
@@ -134,6 +136,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.flex.adjustment,
         start_time,
     )?;
 
@@ -182,6 +185,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.flex.exact_matching,
+        args.flex.adjustment,
         start_time,
     )?;
 

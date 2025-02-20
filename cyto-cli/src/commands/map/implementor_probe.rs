@@ -7,7 +7,7 @@ use std::{
 use anyhow::{bail, Result};
 use bitnuc::encode;
 use cyto::{
-    mappers::{MapperOffset, MappingError, ProbeMapper},
+    mappers::{Adjustment, MapperOffset, MappingError, ProbeMapper},
     statistics::{LibraryCombination, RuntimeStatistics, Statistics},
     GeometryR1, Mapper, MappingStatistics,
 };
@@ -31,6 +31,7 @@ pub struct MappingProbeImplementor<M: Mapper> {
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
+    adjustment: Option<Adjustment>,
 
     local_stats: MappingStatistics,
     global_stats: Arc<Mutex<MappingStatistics>>,
@@ -74,10 +75,16 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         geometry: GeometryR1,
         files: Arc<Vec<Mutex<Box<dyn Write + Send>>>>,
         exact_matching: bool,
+        adjustment: bool,
         init_time: Instant,
     ) -> Self {
         let local_stats = MappingStatistics::default();
         let global_stats = Arc::new(Mutex::new(MappingStatistics::default()));
+        let adjustment = if adjustment {
+            Some(Adjustment::default())
+        } else {
+            None
+        };
 
         let local_output_buffers = vec![Vec::new(); files.len()];
         let pbar = ProgressBar::new_spinner();
@@ -107,6 +114,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             pbar: Arc::new(Mutex::new(pbar)),
             init_time,
             map_time: Instant::now(),
+            adjustment,
         }
     }
 
@@ -192,17 +200,21 @@ impl<M: Mapper> MappingProbeImplementor<M> {
 
     fn map_target(&self, seq: &[u8]) -> Result<usize, MappingError> {
         if self.exact_matching {
-            self.target_mapper.map(seq, self.target_offset)
+            self.target_mapper
+                .map(seq, self.target_offset, self.adjustment)
         } else {
-            self.target_mapper.map_corrected(seq, self.target_offset)
+            self.target_mapper
+                .map_corrected(seq, self.target_offset, self.adjustment)
         }
     }
 
     fn map_probe(&self, seq: &[u8]) -> Result<usize, MappingError> {
         if self.exact_matching {
-            self.probe_mapper.map(seq, self.probe_offset)
+            self.probe_mapper
+                .map(seq, self.probe_offset, Some(Adjustment::default()))
         } else {
-            self.probe_mapper.map_corrected(seq, self.probe_offset)
+            self.probe_mapper
+                .map_corrected(seq, self.probe_offset, Some(Adjustment::default()))
         }
     }
 
@@ -390,6 +402,7 @@ pub fn ibu_map_probed_pairs_paraseq<M, R>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    adjustment: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -423,6 +436,7 @@ where
         geometry,
         writers,
         exact_matching,
+        adjustment,
         start_time,
     );
 
@@ -448,6 +462,7 @@ pub fn ibu_map_probed_pairs_binseq<M>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    adjustment: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -480,6 +495,7 @@ where
         geometry,
         writers,
         exact_matching,
+        adjustment,
         start_time,
     );
 

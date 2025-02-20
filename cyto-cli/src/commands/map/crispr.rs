@@ -62,6 +62,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.crispr.adjustment,
         start_time,
     )?;
 
@@ -102,6 +103,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.crispr.adjustment,
         start_time,
     )?;
 
@@ -140,6 +142,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.crispr.adjustment,
         start_time,
     )?;
 
@@ -182,6 +185,7 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.crispr.exact_matching,
+        args.crispr.adjustment,
         start_time,
     )?;
 

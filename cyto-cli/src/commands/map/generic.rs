@@ -44,6 +44,7 @@ fn bus(args: ArgsGeneric) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.generic.exact_matching,
+        args.generic.adjustment,
         start_time,
     )?;
 
@@ -83,6 +84,7 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
         args.geometry.into(),
         args.runtime.num_threads(),
         args.generic.exact_matching,
+        args.generic.adjustment,
         start_time,
     )?;
 
