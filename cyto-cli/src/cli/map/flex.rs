@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use super::{Geometry, PairedInput, ProbeOptions, RuntimeOptions};
+use super::{Geometry, MapOptions, PairedInput, ProbeOptions, RuntimeOptions};
 use crate::cli::ArgsOutput;
 
 #[cfg(feature = "binseq")]
@@ -22,6 +22,9 @@ pub struct ArgsFlex {
     pub flex: FlexOptions,
 
     #[clap(flatten)]
+    pub map: MapOptions,
+
+    #[clap(flatten)]
     pub probe: ProbeOptions,
 
     #[clap(flatten)]
@@ -41,10 +44,4 @@ pub struct FlexOptions {
     /// Spacer sequence length
     #[clap(short = 's', long, default_value = "18")]
     pub spacer: usize,
-
-    /// Use exact matching for flex sequences and probes.
-    ///
-    /// Default allows for unambiguous 1-hamming distance mismatches
-    #[clap(short = 'x', long)]
-    pub exact_matching: bool,
 }

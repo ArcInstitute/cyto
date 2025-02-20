@@ -2,6 +2,7 @@ use anyhow::Result;
 use disambiseq::Disambibyte;
 
 use super::{
+    mapper::Adjustment,
     maps::generic::{MapIndexToName, MapSequenceToIndex},
     Mapper, MapperOffset, MappingError,
 };
@@ -70,10 +71,20 @@ impl GenericMapper {
         self.sequence_to_index.sequence_size
     }
 
-    pub fn isolate_sequence<'a>(&self, seq: &'a SeqRef, offset: MapperOffset) -> &'a [u8] {
+    pub fn isolate_sequence<'a>(
+        &self,
+        seq: &'a SeqRef,
+        offset: MapperOffset,
+        adjustment: Option<Adjustment>,
+    ) -> &'a [u8] {
         let seq_size = self.sequence_to_index.sequence_size;
         match offset {
             MapperOffset::LeftOf(x) => {
+                let x = match adjustment {
+                    Some(Adjustment::Plus) => x + 1,
+                    Some(Adjustment::Minus) => x - 1,
+                    _ => x,
+                };
                 assert!(
                     x >= seq_size && x <= seq.len(),
                     "LeftOf offset with target sequence size must remain in bounds of the sequence."
@@ -81,6 +92,11 @@ impl GenericMapper {
                 &seq[x - seq_size..x]
             }
             MapperOffset::RightOf(x) => {
+                let x = match adjustment {
+                    Some(Adjustment::Plus) => x + 1,
+                    Some(Adjustment::Minus) => x - 1,
+                    _ => x,
+                };
                 assert!(
                     x + seq_size <= seq.len(),
                     "RightOf offset with target sequence size must remain in bounds of the sequence."
@@ -92,10 +108,15 @@ impl GenericMapper {
 }
 
 impl Mapper for GenericMapper {
-    fn map(&self, seq: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
+    fn map_inner(
+        &self,
+        seq: SeqRef,
+        offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
+    ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let target = self.isolate_sequence(&seq, offset);
+        let target = self.isolate_sequence(&seq, offset, adjustment);
         if let Some(index) = self.sequence_to_index.get(target) {
             Ok(index)
         } else {
@@ -103,14 +124,15 @@ impl Mapper for GenericMapper {
         }
     }
 
-    fn map_corrected(
+    fn map_corrected_inner(
         &self,
         seq: SeqRef,
         offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let target = self.isolate_sequence(&seq, offset);
+        let target = self.isolate_sequence(&seq, offset, adjustment);
         match self.correction.get_parent(target) {
             Some(corrected) => {
                 if let Some(index) = self.sequence_to_index.get(&corrected.0) {

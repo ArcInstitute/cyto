@@ -26,7 +26,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 
     // Load the target mapper
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.crispr.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -34,7 +34,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 
     // Load the probe mapper
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.crispr.exact_matching {
+    let probe_mapper = if args.map.exact_matching {
         probe_library.into_mapper()
     } else {
         probe_library.into_corrected_mapper()
@@ -61,7 +61,8 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
         Some(probe_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.crispr.exact_matching,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -79,7 +80,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     let start_time = Instant::now();
 
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.crispr.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -101,7 +102,8 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
         Some(target_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.crispr.exact_matching,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -117,7 +119,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.crispr.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -139,7 +141,8 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
         Some(target_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.crispr.exact_matching,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -152,14 +155,14 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.crispr.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
     }?;
 
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.crispr.exact_matching {
+    let probe_mapper = if args.map.exact_matching {
         probe_library.into_mapper()
     } else {
         probe_library.into_corrected_mapper()
@@ -181,7 +184,8 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
         Some(probe_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.crispr.exact_matching,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 

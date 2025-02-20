@@ -7,7 +7,7 @@ use std::{
 use anyhow::{bail, Result};
 use bitnuc::encode;
 use cyto::{
-    mappers::{MapperOffset, MappingError},
+    mappers::{Adjustment, MapperOffset, MappingError},
     statistics::{LibraryCombination, RuntimeStatistics, Statistics},
     GeometryR1, Mapper, MappingStatistics,
 };
@@ -29,6 +29,7 @@ pub struct MappingImplementor<M: Mapper> {
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
+    adjustment: Option<Adjustment>,
 
     local_stats: MappingStatistics,
     global_stats: Arc<Mutex<MappingStatistics>>,
@@ -70,10 +71,16 @@ impl<M: Mapper> MappingImplementor<M> {
         geometry: GeometryR1,
         file: Arc<Mutex<Box<dyn Write + Send>>>,
         exact_matching: bool,
+        adjustment: bool,
         init_time: Instant,
     ) -> Self {
         let local_stats = MappingStatistics::default();
         let global_stats = Arc::new(Mutex::new(MappingStatistics::default()));
+        let adjustment = if adjustment {
+            Some(Adjustment::default())
+        } else {
+            None
+        };
 
         let pbar = ProgressBar::new_spinner();
         pbar.set_style(
@@ -100,6 +107,7 @@ impl<M: Mapper> MappingImplementor<M> {
             pbar: Arc::new(Mutex::new(pbar)),
             init_time,
             map_time: Instant::now(),
+            adjustment,
         }
     }
 
@@ -181,9 +189,11 @@ impl<M: Mapper> MappingImplementor<M> {
 
     fn map_sequence(&self, seq: &[u8]) -> Result<usize, MappingError> {
         if self.exact_matching {
-            self.target_mapper.map(seq, self.target_offset)
+            self.target_mapper
+                .map(seq, self.target_offset, self.adjustment)
         } else {
-            self.target_mapper.map_corrected(seq, self.target_offset)
+            self.target_mapper
+                .map_corrected(seq, self.target_offset, self.adjustment)
         }
     }
 
@@ -337,6 +347,7 @@ pub fn ibu_map_pairs_paraseq<M, R>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    adjustment: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -359,6 +370,7 @@ where
         geometry,
         writer,
         exact_matching,
+        adjustment,
         start_time,
     );
 
@@ -382,6 +394,7 @@ pub fn ibu_map_pairs_binseq<M>(
     geometry: GeometryR1,
     num_threads: usize,
     exact_matching: bool,
+    adjustment: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -403,6 +416,7 @@ where
         geometry,
         writer,
         exact_matching,
+        adjustment,
         start_time,
     );
 

@@ -2,7 +2,7 @@ use anyhow::Result;
 use disambiseq::Disambibyte;
 
 use super::{
-    mapper::MapperOffset,
+    mapper::{Adjustment, MapperOffset},
     maps::crispr::{MapAnchorToSequence, MapIndexToName, MapSequenceToIndex},
     Mapper, MappingError,
 };
@@ -171,23 +171,39 @@ impl Mapper for CrisprMapper {
     ///     b. If not found, return None
     /// 3. Map the guide index to the guide name.
     /// 4. Return the guide name.
-    fn map(&self, sequence: SeqRef, offset: Option<MapperOffset>) -> Result<usize, MappingError> {
-        assert!(offset.is_some(), "CrisprMapper requires an offset");
-        let offset = offset.unwrap();
-        let (anchor_size, sequence_map) = self.map_anchor(sequence, offset.into())?;
-        self.map_sequence(sequence, sequence_map, offset.into(), anchor_size)
-    }
-
-    /// Overwrites the default `map` method to use the corrected anchor and guide sequences.
-    fn map_corrected(
+    fn map_inner(
         &self,
-        seq: SeqRef,
+        sequence: SeqRef,
         offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "CrisprMapper requires an offset");
         let offset = offset.unwrap();
-        let (anchor_size, sequence_map) = self.map_anchor_corrected(seq, offset.into())?;
-        self.map_sequence_corrected(seq, sequence_map, offset.into(), anchor_size)
+        let pos = match adjustment {
+            Some(Adjustment::Plus) => offset.value() + 1,
+            Some(Adjustment::Minus) => offset.value() - 1,
+            _ => offset.value(),
+        };
+        let (anchor_size, sequence_map) = self.map_anchor(sequence, pos)?;
+        self.map_sequence(sequence, sequence_map, pos, anchor_size)
+    }
+
+    /// Overwrites the default `map` method to use the corrected anchor and guide sequences.
+    fn map_corrected_inner(
+        &self,
+        seq: SeqRef,
+        offset: Option<MapperOffset>,
+        adjustment: Option<Adjustment>,
+    ) -> Result<usize, MappingError> {
+        assert!(offset.is_some(), "CrisprMapper requires an offset");
+        let offset = offset.unwrap();
+        let pos = match adjustment {
+            Some(Adjustment::Plus) => offset.value() + 1,
+            Some(Adjustment::Minus) => offset.value() - 1,
+            _ => offset.value(),
+        };
+        let (anchor_size, sequence_map) = self.map_anchor_corrected(seq, pos)?;
+        self.map_sequence_corrected(seq, sequence_map, pos, anchor_size)
     }
 
     fn library_statistics(&self) -> Library {
