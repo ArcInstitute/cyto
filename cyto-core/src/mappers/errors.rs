@@ -9,4 +9,6 @@ pub enum MappingError {
     MissingProbe,
     // The flex sequence is missing - used in `FlexMapper`.
     MissingFlexSequence,
+    // The generic target sequence is missing - used in `GenericMapper`.
+    MissingTargetSequence,
 }

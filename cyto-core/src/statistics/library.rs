@@ -21,6 +21,7 @@ pub enum Library {
     Probe(ProbeLibraryStatistics),
     Crispr(CrisprLibraryStatistics),
     Flex(FlexLibraryStatistics),
+    Generic(GenericLibraryStatistics),
 }
 
 #[derive(Debug, Default, Serialize, Clone, Copy)]
@@ -45,4 +46,10 @@ pub struct CrisprLibraryStatistics {
 pub struct FlexLibraryStatistics {
     pub num_flex_sequences: usize,
     pub flex_sequence_size: usize,
+}
+
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct GenericLibraryStatistics {
+    pub num_target_sequences: usize,
+    pub target_sequence_size: usize,
 }

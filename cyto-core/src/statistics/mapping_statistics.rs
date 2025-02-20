@@ -59,6 +59,7 @@ pub struct MappingErrorStatistics {
     pub missing_anchor: usize,
     pub missing_protospacer: usize,
     pub missing_probe: usize,
+    pub missing_target_sequence: usize,
 }
 impl MappingErrorStatistics {
     pub fn increment(&mut self, error: MappingError) {
@@ -67,6 +68,7 @@ impl MappingErrorStatistics {
             MappingError::MissingAnchor => self.missing_anchor += 1,
             MappingError::MissingProtospacer => self.missing_protospacer += 1,
             MappingError::MissingProbe => self.missing_probe += 1,
+            MappingError::MissingTargetSequence => self.missing_target_sequence += 1,
         }
     }
 }
@@ -78,6 +80,7 @@ impl Add for MappingErrorStatistics {
             missing_anchor: self.missing_anchor + other.missing_anchor,
             missing_protospacer: self.missing_protospacer + other.missing_protospacer,
             missing_probe: self.missing_probe + other.missing_probe,
+            missing_target_sequence: self.missing_target_sequence + other.missing_target_sequence,
         }
     }
 }
