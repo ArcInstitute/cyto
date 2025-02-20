@@ -1,5 +1,6 @@
 pub mod crispr;
 pub mod flex;
+pub mod generic;
 pub mod geometry;
 pub mod input;
 pub mod probe;
@@ -7,6 +8,7 @@ pub mod runtime;
 
 pub use crispr::ArgsCrispr;
 pub use flex::ArgsFlex;
+pub use generic::ArgsGeneric;
 pub use geometry::Geometry;
 pub use input::PairedInput;
 pub use probe::ProbeOptions;
