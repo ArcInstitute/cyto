@@ -25,7 +25,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 
     // Load the target library
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.flex.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -33,7 +33,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 
     // Load the probe library
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.flex.exact_matching {
+    let probe_mapper = if args.map.exact_matching {
         probe_library.into_mapper()
     } else {
         probe_library.into_corrected_mapper()
@@ -58,8 +58,8 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
         Some(probe_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.flex.exact_matching,
-        args.flex.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -77,7 +77,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.flex.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -97,8 +97,8 @@ fn bus(args: ArgsFlex) -> Result<()> {
         None,
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.flex.exact_matching,
-        args.flex.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -115,7 +115,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.flex.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -135,8 +135,8 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
         None,
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.flex.exact_matching,
-        args.flex.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -152,7 +152,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
 
     // Load the target library
     let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.flex.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -160,7 +160,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
 
     // Load the probe library
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.flex.exact_matching {
+    let probe_mapper = if args.map.exact_matching {
         probe_library.into_mapper()
     } else {
         probe_library.into_corrected_mapper()
@@ -184,8 +184,8 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
         Some(probe_offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.flex.exact_matching,
-        args.flex.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 

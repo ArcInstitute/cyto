@@ -1,7 +1,7 @@
 use clap::Parser;
 use cyto::mappers::MapperOffset;
 
-use super::{Geometry, PairedInput, RuntimeOptions};
+use super::{Geometry, MapOptions, PairedInput, RuntimeOptions};
 use crate::cli::ArgsOutput;
 
 #[cfg(feature = "binseq")]
@@ -21,6 +21,9 @@ pub struct ArgsGeneric {
 
     #[clap(flatten)]
     pub generic: GenericOptions,
+
+    #[clap(flatten)]
+    pub map: MapOptions,
 
     #[clap(flatten)]
     pub runtime: RuntimeOptions,
@@ -53,16 +56,6 @@ pub struct GenericOptions {
         required_unless_present = "right_of"
     )]
     pub left_of: Option<usize>,
-
-    /// Use exact matching for flex sequences and probes.
-    ///
-    /// Default allows for unambiguous 1-hamming distance mismatches
-    #[clap(short = 'x', long)]
-    pub exact_matching: bool,
-
-    /// Remap sequences with positional adjustment
-    #[clap(short = 'a', long)]
-    pub adjustment: bool,
 }
 
 impl GenericOptions {

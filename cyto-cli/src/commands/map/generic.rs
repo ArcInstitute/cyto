@@ -23,7 +23,7 @@ fn bus(args: ArgsGeneric) -> Result<()> {
 
     let start_time = Instant::now();
     let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.generic.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -43,8 +43,8 @@ fn bus(args: ArgsGeneric) -> Result<()> {
         Some(offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.generic.exact_matching,
-        args.generic.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
@@ -63,7 +63,7 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
 
     let start_time = Instant::now();
     let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.generic.exact_matching {
+    let target_mapper = if args.map.exact_matching {
         target_library.into_mapper()
     } else {
         target_library.into_corrected_mapper()
@@ -83,8 +83,8 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
         Some(offset),
         args.geometry.into(),
         args.runtime.num_threads(),
-        args.generic.exact_matching,
-        args.generic.adjustment,
+        args.map.exact_matching,
+        args.map.adjustment,
         start_time,
     )?;
 
