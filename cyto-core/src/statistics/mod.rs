@@ -5,8 +5,8 @@ mod runtime;
 mod statistics;
 
 pub use library::{
-    CrisprLibraryStatistics, FlexLibraryStatistics, Library, LibraryCombination, LibraryStatistics,
-    ProbeLibraryStatistics,
+    CrisprLibraryStatistics, FlexLibraryStatistics, GenericLibraryStatistics, Library,
+    LibraryCombination, LibraryStatistics, ProbeLibraryStatistics,
 };
 pub use mapping_statistics::MappingStatistics;
 pub use processed_mapping_statistics::ProcessedMappingStatistics;
