@@ -31,6 +31,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     // Load the probe library
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
@@ -39,6 +40,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     } else {
         probe_library.into_corrected_mapper()
     }?;
+    let probe_mapper = Arc::new(probe_mapper);
 
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
@@ -47,7 +49,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     let statistics = ibu_map_probed_pairs_paraseq(
         r1,
@@ -160,6 +162,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     // Load the probe library
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
@@ -168,6 +171,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     } else {
         probe_library.into_corrected_mapper()
     }?;
+    let probe_mapper = Arc::new(probe_mapper);
 
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
@@ -176,7 +180,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     let statistics = ibu_map_probed_pairs_binseq(
         reader,

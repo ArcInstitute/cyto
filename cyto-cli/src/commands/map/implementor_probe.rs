@@ -68,7 +68,7 @@ pub struct MappingProbeImplementor<M: Mapper> {
 impl<M: Mapper> MappingProbeImplementor<M> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        target_mapper: M,
+        target_mapper: Arc<M>,
         probe_mapper: Arc<ProbeMapper>,
         target_offset: Option<MapperOffset>,
         probe_offset: Option<MapperOffset>,
@@ -96,7 +96,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
 
         Self {
-            target_mapper: Arc::new(target_mapper),
+            target_mapper,
             probe_mapper,
             target_offset,
             probe_offset,
@@ -395,8 +395,8 @@ pub fn ibu_map_probed_pairs_paraseq<M, R>(
     rdr_r1: Reader<R>,
     rdr_r2: Reader<R>,
     filenames: &[String],
-    target_mapper: M,
-    probe_mapper: ProbeMapper,
+    target_mapper: Arc<M>,
+    probe_mapper: Arc<ProbeMapper>,
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
@@ -430,7 +430,7 @@ where
     // Initialize the mapping implementor
     let implementor = MappingProbeImplementor::new(
         target_mapper,
-        Arc::new(probe_mapper),
+        probe_mapper,
         target_offset,
         probe_offset,
         geometry,
@@ -455,8 +455,8 @@ where
 pub fn ibu_map_probed_pairs_binseq<M>(
     reader: binseq::PairedMmapReader,
     filenames: &[String],
-    target_mapper: M,
-    probe_mapper: ProbeMapper,
+    target_mapper: Arc<M>,
+    probe_mapper: Arc<ProbeMapper>,
     target_offset: Option<MapperOffset>,
     probe_offset: Option<MapperOffset>,
     geometry: GeometryR1,
@@ -489,7 +489,7 @@ where
     // Initialize the mapping implementor
     let implementor = MappingProbeImplementor::new(
         target_mapper,
-        Arc::new(probe_mapper),
+        probe_mapper,
         target_offset,
         probe_offset,
         geometry,

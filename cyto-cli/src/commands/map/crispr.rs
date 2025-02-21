@@ -32,6 +32,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     // Load the probe mapper
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
@@ -40,6 +41,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     } else {
         probe_library.into_corrected_mapper()
     }?;
+    let probe_mapper = Arc::new(probe_mapper);
 
     // Define the offsets for the target and probe mappers
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
@@ -49,7 +51,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     // map the reads and write the results to the probe files
     let statistics = ibu_map_probed_pairs_paraseq(
@@ -163,6 +165,7 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
     let probe_mapper = if args.map.exact_matching {
@@ -170,13 +173,14 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     } else {
         probe_library.into_corrected_mapper()
     }?;
+    let probe_mapper = Arc::new(probe_mapper);
 
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
 
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     let statistics = ibu_map_probed_pairs_binseq(
         reader,
