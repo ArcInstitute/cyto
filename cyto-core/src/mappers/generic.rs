@@ -76,32 +76,50 @@ impl GenericMapper {
         seq: &'a SeqRef,
         offset: MapperOffset,
         adjustment: Option<Adjustment>,
-    ) -> &'a [u8] {
+    ) -> Option<&'a [u8]> {
         let seq_size = self.sequence_to_index.sequence_size;
         match offset {
             MapperOffset::LeftOf(x) => {
                 let x = match adjustment {
-                    Some(Adjustment::Plus) => x + 1,
-                    Some(Adjustment::Minus) => x - 1,
+                    Some(Adjustment::Plus) => {
+                        if x == seq.len() {
+                            return None;
+                        }
+                        x + 1
+                    }
+                    Some(Adjustment::Minus) => {
+                        if x == 0 {
+                            return None;
+                        }
+                        x - 1
+                    }
                     _ => x,
                 };
-                assert!(
-                    x >= seq_size && x <= seq.len(),
-                    "LeftOf offset with target sequence size must remain in bounds of the sequence."
-                );
-                &seq[x - seq_size..x]
+                if x < seq_size || x > seq.len() {
+                    return None;
+                }
+                Some(&seq[x - seq_size..x])
             }
             MapperOffset::RightOf(x) => {
                 let x = match adjustment {
-                    Some(Adjustment::Plus) => x + 1,
-                    Some(Adjustment::Minus) => x - 1,
+                    Some(Adjustment::Plus) => {
+                        if x == seq.len() {
+                            return None;
+                        }
+                        x + 1
+                    }
+                    Some(Adjustment::Minus) => {
+                        if x == 0 {
+                            return None;
+                        }
+                        x - 1
+                    }
                     _ => x,
                 };
-                assert!(
-                    x + seq_size <= seq.len(),
-                    "RightOf offset with target sequence size must remain in bounds of the sequence."
-                );
-                &seq[x..x + seq_size]
+                if x + seq_size > seq.len() {
+                    return None;
+                }
+                Some(&seq[x..x + seq_size])
             }
         }
     }
@@ -116,7 +134,9 @@ impl Mapper for GenericMapper {
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let target = self.isolate_sequence(&seq, offset, adjustment);
+        let Some(target) = self.isolate_sequence(&seq, offset, adjustment) else {
+            return Err(MappingError::MissingTargetSequence);
+        };
         if let Some(index) = self.sequence_to_index.get(target) {
             Ok(index)
         } else {
@@ -132,7 +152,9 @@ impl Mapper for GenericMapper {
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let target = self.isolate_sequence(&seq, offset, adjustment);
+        let Some(target) = self.isolate_sequence(&seq, offset, adjustment) else {
+            return Err(MappingError::MissingTargetSequence);
+        };
         match self.correction.get_parent(target) {
             Some(corrected) => {
                 if let Some(index) = self.sequence_to_index.get(&corrected.0) {
