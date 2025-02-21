@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::{
@@ -85,13 +86,14 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     // map the reads and write the results to the output file
     let statistics = ibu_map_pairs_paraseq(
@@ -124,6 +126,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
@@ -131,7 +134,7 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(

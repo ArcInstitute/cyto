@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -28,12 +29,13 @@ fn bus(args: ArgsGeneric) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     let statistics = ibu_map_pairs_paraseq(
         r1,
@@ -68,12 +70,13 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
     } else {
         target_library.into_corrected_mapper()
     }?;
+    let target_mapper = Arc::new(target_mapper);
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
