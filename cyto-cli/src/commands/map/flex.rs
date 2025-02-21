@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Instant;
 
 use crate::{
@@ -6,10 +5,7 @@ use crate::{
     io::{write_features, write_statistics},
 };
 use anyhow::Result;
-use cyto::{
-    libraries::{FlexLibrary, ProbeLibrary},
-    mappers::MapperOffset,
-};
+use cyto::mappers::{FlexMapper, MapperOffset, ProbeMapper};
 
 use super::{
     ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
@@ -21,26 +17,17 @@ use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 
 fn probed_bus(args: ArgsFlex) -> Result<()> {
     let (r1, r2) = args.input.to_readers()?;
-
     let start_time = Instant::now();
 
     // Load the target library
-    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+    let target_mapper =
+        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
 
     // Load the probe library
-    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.map.exact_matching {
-        probe_library.into_mapper()
-    } else {
-        probe_library.into_corrected_mapper()
-    }?;
-    let probe_mapper = Arc::new(probe_mapper);
+    let probe_mapper = ProbeMapper::from_tsv_arc(
+        &args.probe.probes_filepath.unwrap(), // already checked
+        args.map.exact_matching,
+    )?;
 
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
@@ -76,16 +63,11 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 fn bus(args: ArgsFlex) -> Result<()> {
     // Load the input files
     let (r1, r2) = args.input.to_readers()?;
-
     let start_time = Instant::now();
 
-    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+    // Load the target library
+    let target_mapper =
+        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -118,13 +100,10 @@ fn bus(args: ArgsFlex) -> Result<()> {
 fn bus_binseq(args: ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
-    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+
+    // Load the target library
+    let target_mapper =
+        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -156,22 +135,14 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target library
-    let target_library = FlexLibrary::from_tsv(args.flex.flex_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+    let target_mapper =
+        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
 
     // Load the probe library
-    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.map.exact_matching {
-        probe_library.into_mapper()
-    } else {
-        probe_library.into_corrected_mapper()
-    }?;
-    let probe_mapper = Arc::new(probe_mapper);
+    let probe_mapper = ProbeMapper::from_tsv_arc(
+        &args.probe.probes_filepath.unwrap(), // already checked
+        args.map.exact_matching,
+    )?;
 
     // The expected start position of the probe sequence in the bus sequence
     let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);

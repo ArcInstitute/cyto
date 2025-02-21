@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Instant;
 
 use crate::{
@@ -6,10 +5,7 @@ use crate::{
     io::{write_features, write_statistics},
 };
 use anyhow::Result;
-use cyto::{
-    libraries::{CrisprLibrary, ProbeLibrary},
-    mappers::MapperOffset,
-};
+use cyto::mappers::{CrisprMapper, MapperOffset, ProbeMapper};
 
 use super::{
     ibu_map_pairs_paraseq, ibu_map_probed_pairs_paraseq,
@@ -26,22 +22,12 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target mapper
-    let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
-
-    // Load the probe mapper
-    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.map.exact_matching {
-        probe_library.into_mapper()
-    } else {
-        probe_library.into_corrected_mapper()
-    }?;
-    let probe_mapper = Arc::new(probe_mapper);
+    let target_mapper =
+        CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
+    let probe_mapper = ProbeMapper::from_tsv_arc(
+        &args.probe.probes_filepath.unwrap(), // already checked
+        args.map.exact_matching,
+    )?;
 
     // Define the offsets for the target and probe mappers
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
@@ -79,16 +65,9 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
 pub fn bus(args: ArgsCrispr) -> Result<()> {
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
-
     let start_time = Instant::now();
-
-    let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+    let target_mapper =
+        CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
@@ -122,14 +101,8 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
 fn bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
-    let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
-
+    let target_mapper =
+        CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
@@ -159,21 +132,12 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
 pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
-    let target_library = CrisprLibrary::from_tsv(args.crispr.guides_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
-
-    let probe_library = ProbeLibrary::from_tsv(args.probe.probes_filepath.unwrap().into())?;
-    let probe_mapper = if args.map.exact_matching {
-        probe_library.into_mapper()
-    } else {
-        probe_library.into_corrected_mapper()
-    }?;
-    let probe_mapper = Arc::new(probe_mapper);
+    let target_mapper =
+        CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
+    let probe_mapper = ProbeMapper::from_tsv_arc(
+        &args.probe.probes_filepath.unwrap(), // already checked
+        args.map.exact_matching,
+    )?;
 
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);

@@ -1,8 +1,7 @@
-use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Result;
-use cyto::libraries::GenericLibrary;
+use cyto::mappers::GenericMapper;
 
 use crate::{
     cli::map::ArgsGeneric,
@@ -23,13 +22,10 @@ fn bus(args: ArgsGeneric) -> Result<()> {
     let offset = args.generic.offset();
 
     let start_time = Instant::now();
-    let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+
+    // Load the target library
+    let target_mapper =
+        GenericMapper::from_tsv_arc(&args.generic.generic_filepath, args.map.exact_matching)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -64,13 +60,10 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
     let offset = args.generic.offset();
 
     let start_time = Instant::now();
-    let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
-    } else {
-        target_library.into_corrected_mapper()
-    }?;
-    let target_mapper = Arc::new(target_mapper);
+
+    // Load the target library
+    let target_mapper =
+        GenericMapper::from_tsv_arc(&args.generic.generic_filepath, args.map.exact_matching)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
