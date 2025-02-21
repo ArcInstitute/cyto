@@ -40,32 +40,20 @@ pub struct GenericOptions {
     pub generic_filepath: String,
 
     /// Index to extract sequence (right of this point)
-    #[clap(
-        short = 's',
-        long,
-        conflicts_with = "left_of",
-        required_unless_present = "left_of"
-    )]
+    #[clap(short = 's', long, conflicts_with = "left_of")]
     pub right_of: Option<usize>,
 
     /// Index to extract sequence (left of this point)
-    #[clap(
-        short = 'S',
-        long,
-        conflicts_with = "right_of",
-        required_unless_present = "right_of"
-    )]
+    #[clap(short = 'S', long, conflicts_with = "right_of")]
     pub left_of: Option<usize>,
 }
 
 impl GenericOptions {
-    pub fn offset(&self) -> MapperOffset {
+    pub fn offset(&self) -> Option<MapperOffset> {
         if let Some(right_of) = self.right_of {
-            MapperOffset::RightOf(right_of)
-        } else if let Some(left_of) = self.left_of {
-            MapperOffset::LeftOf(left_of)
+            Some(MapperOffset::RightOf(right_of))
         } else {
-            unreachable!("This should never happen")
+            self.left_of.map(MapperOffset::LeftOf)
         }
     }
 }

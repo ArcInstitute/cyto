@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use disambiseq::Disambibyte;
 
@@ -20,6 +22,20 @@ pub struct ProbeMapper {
     corrected: Disambibyte,
 }
 impl ProbeMapper {
+    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
+        let lib = ProbeLibrary::from_tsv(filepath.into())?;
+        if exact_match {
+            lib.into_mapper()
+        } else {
+            lib.into_corrected_mapper()
+        }
+    }
+
+    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
+        let mapper = Self::from_tsv(filepath, exact_match)?;
+        Ok(Arc::new(mapper))
+    }
+
     pub fn new(probe_library: ProbeLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();

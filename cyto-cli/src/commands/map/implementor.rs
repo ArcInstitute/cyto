@@ -66,7 +66,7 @@ pub struct MappingImplementor<M: Mapper> {
 }
 impl<M: Mapper> MappingImplementor<M> {
     pub fn new(
-        target_mapper: M,
+        target_mapper: Arc<M>,
         target_offset: Option<MapperOffset>,
         geometry: GeometryR1,
         file: Arc<Mutex<Box<dyn Write + Send>>>,
@@ -91,7 +91,7 @@ impl<M: Mapper> MappingImplementor<M> {
         pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
 
         Self {
-            target_mapper: Arc::new(target_mapper),
+            target_mapper,
             target_offset,
             geometry,
             local_stats,
@@ -342,7 +342,7 @@ pub fn ibu_map_pairs_paraseq<M, R>(
     rdr_r1: Reader<R>,
     rdr_r2: Reader<R>,
     filename: &str,
-    target_mapper: M,
+    target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
     num_threads: usize,
@@ -389,7 +389,7 @@ where
 pub fn ibu_map_pairs_binseq<M>(
     reader: PairedMmapReader,
     filename: &str,
-    target_mapper: M,
+    target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
     num_threads: usize,

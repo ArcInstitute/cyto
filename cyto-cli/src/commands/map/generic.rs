@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use anyhow::Result;
-use cyto::libraries::GenericLibrary;
+use cyto::mappers::GenericMapper;
 
 use crate::{
     cli::map::ArgsGeneric,
@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     implementor::ibu_map_pairs_paraseq,
-    utils::{build_filepath, delete_empty_path},
+    utils::{build_filepath, delete_empty_path, find_offset_paraseq},
 };
 
 #[cfg(feature = "binseq")]
@@ -18,22 +18,25 @@ use super::ibu_map_pairs_binseq;
 
 fn bus(args: ArgsGeneric) -> Result<()> {
     // Load the input files
-    let (r1, r2) = args.input.to_readers()?;
-    let offset = args.generic.offset();
-
+    let (r1, mut r2) = args.input.to_readers()?;
     let start_time = Instant::now();
-    let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
+
+    // Load the target library
+    let target_mapper =
+        GenericMapper::from_tsv_arc(&args.generic.generic_filepath, args.map.exact_matching)?;
+
+    // if not offset is provided, find the best fit
+    let offset = if let Some(offset) = args.generic.offset() {
+        offset
     } else {
-        target_library.into_corrected_mapper()
-    }?;
+        find_offset_paraseq(&mut r2, target_mapper.as_ref())?
+    };
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     let statistics = ibu_map_pairs_paraseq(
         r1,
@@ -58,22 +61,27 @@ fn bus(args: ArgsGeneric) -> Result<()> {
 
 #[cfg(feature = "binseq")]
 fn bus_binseq(args: ArgsGeneric) -> Result<()> {
-    let reader = args.binseq.into_reader()?;
-    let offset = args.generic.offset();
+    use super::utils::find_offset_binseq;
 
+    let mut reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
-    let target_library = GenericLibrary::from_tsv(args.generic.generic_filepath.into())?;
-    let target_mapper = if args.map.exact_matching {
-        target_library.into_mapper()
+
+    // Load the target library
+    let target_mapper =
+        GenericMapper::from_tsv_arc(&args.generic.generic_filepath, args.map.exact_matching)?;
+
+    // Calculate the offset if not provided
+    let offset = if let Some(offset) = args.generic.offset() {
+        offset
     } else {
-        target_library.into_corrected_mapper()
-    }?;
+        find_offset_binseq(&mut reader, &target_mapper, 1024)?
+    };
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
 
     // Write the features to the output file
-    write_features(&args.output, &target_mapper)?;
+    write_features(&args.output, target_mapper.as_ref())?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
