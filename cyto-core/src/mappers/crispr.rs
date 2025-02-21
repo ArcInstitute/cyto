@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use disambiseq::Disambibyte;
 
@@ -21,6 +23,20 @@ pub struct CrisprMapper {
     guide_corr: Disambibyte,
 }
 impl CrisprMapper {
+    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
+        let lib = CrisprLibrary::from_tsv(filepath.into())?;
+        if exact_match {
+            lib.into_mapper()
+        } else {
+            lib.into_corrected_mapper()
+        }
+    }
+
+    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
+        let mapper = Self::from_tsv(filepath, exact_match)?;
+        Ok(Arc::new(mapper))
+    }
+
     pub fn new(guide_library: CrisprLibrary) -> Result<Self> {
         let mut anchor_to_sequence = MapAnchorToSequence::default();
         let mut index_to_name = MapIndexToName::with_capacity(guide_library.len());

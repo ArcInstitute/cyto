@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use disambiseq::Disambibyte;
 
@@ -20,6 +22,20 @@ pub struct GenericMapper {
     correction: Disambibyte,
 }
 impl GenericMapper {
+    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
+        let library = GenericLibrary::from_tsv(filepath.into())?;
+        if exact_match {
+            library.into_mapper()
+        } else {
+            library.into_corrected_mapper()
+        }
+    }
+
+    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
+        let mapper = Self::from_tsv(filepath, exact_match)?;
+        Ok(Arc::new(mapper))
+    }
+
     pub fn new(library: GenericLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_name = MapIndexToName::with_capacity(library.len());
