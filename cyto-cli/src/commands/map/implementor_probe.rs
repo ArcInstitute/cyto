@@ -20,7 +20,7 @@ use paraseq::{
 use parking_lot::Mutex;
 
 #[cfg(feature = "binseq")]
-use binseq::ParallelPairedProcessor;
+use binseq::ParallelProcessor;
 
 use crate::io::open_file_handle;
 
@@ -151,15 +151,15 @@ impl<M: Mapper> MappingProbeImplementor<M> {
     }
 
     #[cfg(feature = "binseq")]
-    fn split_r1(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+    fn split_r1(&mut self, record: &binseq::RefRecord) -> Result<()> {
         // Split R1 into barcode and UMI
-        let r1_config = pair.s_config();
-        if r1_config.slen as usize != self.geometry.barcode + self.geometry.umi {
+        let config = record.config();
+        if config.slen() != self.geometry.barcode + self.geometry.umi {
             bail!("R1 sequence length does not match provided geometry");
         }
         bitnuc::split_packed(
-            pair.s_seq(),
-            r1_config.slen as usize,
+            record.sbuf(),
+            config.slen(),
             self.geometry.barcode,
             &mut self.barcode_buf,
             &mut self.umi_buf,
@@ -173,9 +173,9 @@ impl<M: Mapper> MappingProbeImplementor<M> {
     }
 
     #[cfg(feature = "binseq")]
-    fn decode_r2(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+    fn decode_r2(&mut self, record: &binseq::RefRecord) -> Result<()> {
         self.dbuf.clear();
-        bitnuc::decode(pair.x_seq, pair.x_config.slen as usize, &mut self.dbuf)?;
+        record.decode_x(&mut self.dbuf)?;
         Ok(())
     }
 
@@ -335,9 +335,9 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
 }
 
 #[cfg(feature = "binseq")]
-impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
+impl<M: Mapper> ParallelProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
+    fn process_record(&mut self, pair: binseq::RefRecord) -> Result<(), binseq::Error> {
         // Split R1 into barcode and UMI
         self.split_r1(&pair)?;
 
@@ -378,7 +378,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingProbeImplementor<M> {
         Ok(())
     }
 
-    fn on_batch_complete(&mut self) -> Result<()> {
+    fn on_batch_complete(&mut self) -> Result<(), binseq::Error> {
         self.write_buffers()?;
         self.update_stats();
         self.update_pbar();
@@ -453,7 +453,7 @@ where
 #[cfg(feature = "binseq")]
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
-    reader: binseq::PairedMmapReader,
+    reader: binseq::MmapReader,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,
