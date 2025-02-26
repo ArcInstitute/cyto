@@ -63,7 +63,7 @@ fn bus(args: ArgsGeneric) -> Result<()> {
 fn bus_binseq(args: ArgsGeneric) -> Result<()> {
     use super::utils::find_offset_binseq;
 
-    let mut reader = args.binseq.into_reader()?;
+    let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
 
     // Load the target library
@@ -74,7 +74,7 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
     let offset = if let Some(offset) = args.generic.offset() {
         offset
     } else {
-        find_offset_binseq(&mut reader, &target_mapper, 1024)?
+        find_offset_binseq(&reader, &target_mapper, 1024)?
     };
 
     // Define the file path for the output file

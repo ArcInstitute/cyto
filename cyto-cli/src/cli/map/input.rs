@@ -6,7 +6,7 @@ use clap::Parser;
 #[cfg(feature = "binseq")]
 pub use anyhow::bail;
 #[cfg(feature = "binseq")]
-pub use binseq::PairedMmapReader;
+pub use binseq::MmapReader;
 use paraseq::fastq;
 
 use crate::io::match_input_transparent;
@@ -44,9 +44,10 @@ pub struct BinseqInput {
 #[cfg(feature = "binseq")]
 impl BinseqInput {
     #[allow(clippy::wrong_self_convention)]
-    pub fn into_reader(&self) -> Result<PairedMmapReader> {
+    pub fn into_reader(&self) -> Result<MmapReader> {
         if let Some(input) = &self.input {
-            PairedMmapReader::new(input)
+            let reader = MmapReader::new(input)?;
+            Ok(reader)
         } else {
             bail!("No input file provided");
         }

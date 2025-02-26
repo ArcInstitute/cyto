@@ -8,7 +8,7 @@ use cyto::{
 use paraseq::fastq::{Reader, RecordSet};
 
 #[cfg(feature = "binseq")]
-use binseq::{BinseqRead, PairedMmapReader};
+use binseq::MmapReader;
 
 fn argmax(vec: &[usize]) -> usize {
     let mut max_idx = 0;
@@ -60,38 +60,29 @@ pub fn find_offset_paraseq<R: Read>(
 
 #[cfg(feature = "binseq")]
 pub fn find_offset_binseq(
-    rdr: &mut PairedMmapReader,
+    rdr: &MmapReader,
     mapper: &GenericMapper,
     max_records: usize,
 ) -> Result<MapperOffset> {
-    use binseq::PairedRead;
-
     let target_size = mapper.get_sequence_size();
     let seq_size = rdr.header().xlen as usize;
 
     let offset_scores = (0..seq_size - target_size)
         .map(|offset| -> Result<usize> {
             let mut n_match = 0;
-            let mut n_records = 0;
             let mut dbuf = Vec::new();
 
-            while let Some(pair) = rdr.next_paired() {
-                if n_records > max_records {
-                    break;
-                }
+            for idx in 0..max_records.min(rdr.num_records()) {
                 dbuf.clear();
-                let pair = pair?;
-                pair.decode_x(&mut dbuf)?;
+                let record = rdr.get(idx)?;
+                record.decode_x(&mut dbuf)?;
                 if mapper
                     .map(&dbuf, Some(MapperOffset::RightOf(offset)), None)
                     .is_ok()
                 {
                     n_match += 1;
                 }
-                n_records += 1;
             }
-
-            rdr.reset();
 
             Ok(n_match)
         })

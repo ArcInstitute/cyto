@@ -22,7 +22,7 @@ use parking_lot::Mutex;
 use crate::io::open_file_handle;
 
 #[cfg(feature = "binseq")]
-use binseq::{PairedMmapReader, ParallelPairedProcessor};
+use binseq::{MmapReader, ParallelProcessor};
 
 #[derive(Clone)]
 pub struct MappingImplementor<M: Mapper> {
@@ -144,15 +144,16 @@ impl<M: Mapper> MappingImplementor<M> {
     }
 
     #[cfg(feature = "binseq")]
-    fn split_r1(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+    fn split_r1(&mut self, record: &binseq::RefRecord) -> Result<()> {
+        let config = record.config();
+
         // Split R1 into barcode and UMI
-        let r1_config = pair.s_config();
-        if r1_config.slen as usize != self.geometry.barcode + self.geometry.umi {
+        if config.slen() != self.geometry.barcode + self.geometry.umi {
             bail!("R1 sequence length does not match provided geometry");
         }
         bitnuc::split_packed(
-            pair.s_seq(),
-            r1_config.slen as usize,
+            record.sbuf(),
+            config.slen(),
             self.geometry.barcode,
             &mut self.barcode_buf,
             &mut self.umi_buf,
@@ -166,9 +167,9 @@ impl<M: Mapper> MappingImplementor<M> {
     }
 
     #[cfg(feature = "binseq")]
-    fn decode_r2(&mut self, pair: &binseq::RefRecordPair) -> Result<()> {
+    fn decode_r2(&mut self, record: &binseq::RefRecord) -> Result<()> {
         self.dbuf.clear();
-        bitnuc::decode(pair.x_seq, pair.x_config.slen as usize, &mut self.dbuf)?;
+        record.decode_x(&mut self.dbuf)?;
         Ok(())
     }
 
@@ -297,8 +298,8 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
 }
 
 #[cfg(feature = "binseq")]
-impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
-    fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
+impl<M: Mapper> ParallelProcessor for MappingImplementor<M> {
+    fn process_record(&mut self, pair: binseq::RefRecord) -> Result<(), binseq::Error> {
         // Split R1 into barcode and UMI
         self.split_r1(&pair)?;
 
@@ -325,7 +326,7 @@ impl<M: Mapper> ParallelPairedProcessor for MappingImplementor<M> {
         Ok(())
     }
 
-    fn on_batch_complete(&mut self) -> Result<()> {
+    fn on_batch_complete(&mut self) -> Result<(), binseq::Error> {
         self.write_buffer()?;
         self.update_stats();
         self.update_pbar();
@@ -387,7 +388,7 @@ where
 #[cfg(feature = "binseq")]
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_binseq<M>(
-    reader: PairedMmapReader,
+    reader: MmapReader,
     filename: &str,
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
