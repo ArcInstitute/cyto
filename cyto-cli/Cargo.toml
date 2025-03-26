@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.2.19"
+version = "0.2.20"
 edition = "2021"
 
 [dependencies]
@@ -9,7 +9,7 @@ cyto = { path = "../cyto-core" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 bitnuc = { workspace = true }
-binseq = { git = "ssh://git@github.com/noamteyssier/binseq", optional = true }
+binseq = { git = "ssh://git@github.com/arcinstitute/binseq", optional = true }
 ibu = { workspace = true, features = ["serde"] }
 csv = "1.3.1"
 rayon = "1.10.0"
