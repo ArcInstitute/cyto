@@ -5,9 +5,11 @@ use super::{ArgsCrispr, ArgsFlex};
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
     /// Executes a flex mapping workflow
+    #[clap(name = "flex")]
     FlexMapping(FlexMappingCommand),
 
     /// Executes a crispr mapping workflow
+    #[clap(name = "crispr")]
     CrisprMapping(CrisprMappingCommand),
 }
 
