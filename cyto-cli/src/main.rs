@@ -12,9 +12,9 @@ fn main() -> Result<()> {
     match args.command {
         Commands::View(args) => commands::view::run(&args),
         Commands::Map(map) => match map {
-            MapCommand::Crispr(args) => map_commands::crispr::run(args),
-            MapCommand::Flex(args) => map_commands::flex::run(args),
-            MapCommand::Generic(args) => map_commands::generic::run(args),
+            MapCommand::Crispr(args) => map_commands::crispr::run(&args),
+            MapCommand::Flex(args) => map_commands::flex::run(&args),
+            MapCommand::Generic(args) => map_commands::generic::run(&args),
         },
         Commands::Ibu(ibu) => match ibu {
             IbuCommand::View(args) => ibu_commands::view::run(&args),

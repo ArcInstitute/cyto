@@ -1,11 +1,10 @@
 use anyhow::Result;
 
 use crate::cli::workflow::FlexMappingCommand;
+use crate::commands::map as map_command;
 
 pub fn run(args: &FlexMappingCommand) -> Result<()> {
-    let flex_args = &args.flex_args;
-
-    eprintln!("Flex Args: {:?}", flex_args);
-
+    eprintln!("Running Flex Mapping Command");
+    map_command::flex::run(&args.flex_args)?;
     Ok(())
 }
