@@ -24,6 +24,7 @@ fn main() -> Result<()> {
         },
         Commands::Workflow(workflow) => match workflow {
             WorkflowCommand::FlexMapping(args) => workflow_commands::flex::run(&args),
+            WorkflowCommand::CrisprMapping(args) => workflow_commands::crispr::run(&args),
         },
     }
 }
