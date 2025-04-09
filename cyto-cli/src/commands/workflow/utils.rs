@@ -1,8 +1,22 @@
 use anyhow::Result;
+use glob::glob;
 
 use crate::cli::ibu::ArgsCount;
 use crate::cli::ibu::ArgsSort;
 use crate::commands::ibu as ibu_command;
+
+pub fn identify_ibu_files(prefix: &str) -> Result<Vec<String>> {
+    let ibu_files = glob(&format!("{prefix}*.ibu"))?
+        .map(|path| {
+            path.expect("Path is not valid")
+                .into_os_string()
+                .into_string()
+                .expect("Could not convert path to string")
+        })
+        .filter(|x| !x.ends_with(".sort.ibu"))
+        .collect::<Vec<_>>();
+    Ok(ibu_files)
+}
 
 pub fn sort_and_count(ibu_path: &str, prefix: &str) -> Result<()> {
     let sort_path = ibu_path.replace(".ibu", ".sort.ibu");
