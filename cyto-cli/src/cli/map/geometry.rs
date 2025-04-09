@@ -1,7 +1,7 @@
 use clap::Parser;
 use cyto::GeometryR1;
 
-#[derive(Parser)]
+#[derive(Parser, Debug, Clone, Copy)]
 #[clap(next_help_heading = "Geometry Configuration")]
 pub struct Geometry {
     #[clap(short = 'B', long, default_value = "16")]

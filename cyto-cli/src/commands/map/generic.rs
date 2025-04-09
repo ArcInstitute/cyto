@@ -16,7 +16,7 @@ use super::{
 #[cfg(feature = "binseq")]
 use super::ibu_map_pairs_binseq;
 
-fn bus(args: ArgsGeneric) -> Result<()> {
+fn bus(args: &ArgsGeneric) -> Result<()> {
     // Load the input files
     let (r1, mut r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -60,7 +60,7 @@ fn bus(args: ArgsGeneric) -> Result<()> {
 }
 
 #[cfg(feature = "binseq")]
-fn bus_binseq(args: ArgsGeneric) -> Result<()> {
+fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
     use super::utils::find_offset_binseq;
 
     let reader = args.binseq.into_reader()?;
@@ -100,7 +100,7 @@ fn bus_binseq(args: ArgsGeneric) -> Result<()> {
     Ok(())
 }
 
-pub fn run(args: ArgsGeneric) -> Result<()> {
+pub fn run(args: &ArgsGeneric) -> Result<()> {
     #[cfg(feature = "binseq")]
     if args.binseq.input.is_some() {
         return bus_binseq(args);

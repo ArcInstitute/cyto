@@ -14,7 +14,7 @@ use crate::io::match_input_transparent;
 type FqReader = fastq::Reader<Box<dyn Read + Send>>;
 type FqReaderPair = (FqReader, FqReader);
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
     #[clap(short = 'i', long, required_unless_present = "input")]
@@ -35,7 +35,7 @@ impl PairedInput {
 }
 
 #[cfg(feature = "binseq")]
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
     #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]

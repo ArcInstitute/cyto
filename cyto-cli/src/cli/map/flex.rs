@@ -6,7 +6,7 @@ use crate::cli::ArgsOutput;
 #[cfg(feature = "binseq")]
 use super::BinseqInput;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct ArgsFlex {
     #[clap(flatten)]
     pub input: PairedInput,
@@ -34,7 +34,7 @@ pub struct ArgsFlex {
     pub output: ArgsOutput,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "FLEX Options")]
 pub struct FlexOptions {
     //// Path to flex GEX library file

@@ -15,7 +15,7 @@ use super::{
 #[cfg(feature = "binseq")]
 use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 
-pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
+pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
 
@@ -25,7 +25,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     let target_mapper =
         CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
     let probe_mapper = ProbeMapper::from_tsv_arc(
-        &args.probe.probes_filepath.unwrap(), // already checked
+        args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
     )?;
 
@@ -62,7 +62,7 @@ pub fn probed_bus(args: ArgsCrispr) -> Result<()> {
     Ok(())
 }
 
-pub fn bus(args: ArgsCrispr) -> Result<()> {
+pub fn bus(args: &ArgsCrispr) -> Result<()> {
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -98,7 +98,7 @@ pub fn bus(args: ArgsCrispr) -> Result<()> {
 }
 
 #[cfg(feature = "binseq")]
-fn bus_binseq(args: ArgsCrispr) -> Result<()> {
+fn bus_binseq(args: &ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_mapper =
@@ -129,13 +129,13 @@ fn bus_binseq(args: ArgsCrispr) -> Result<()> {
 }
 
 #[cfg(feature = "binseq")]
-pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
+pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_mapper =
         CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
     let probe_mapper = ProbeMapper::from_tsv_arc(
-        &args.probe.probes_filepath.unwrap(), // already checked
+        args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
     )?;
 
@@ -166,7 +166,7 @@ pub fn probed_bus_binseq(args: ArgsCrispr) -> Result<()> {
     Ok(())
 }
 
-pub fn run(args: ArgsCrispr) -> Result<()> {
+pub fn run(args: &ArgsCrispr) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         #[cfg(feature = "binseq")]
         if args.binseq.input.is_some() {

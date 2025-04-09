@@ -21,7 +21,7 @@ use input::BinseqInput;
 
 use clap::Subcommand;
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 /// Map sequences to a library
 pub enum MapCommand {
     /// Map sequences to a CRISPR library

@@ -1,6 +1,6 @@
 use clap::Parser;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Output Options")]
 pub struct ArgsOutput {
     #[clap(short = 'o', long, default_value = "./cyto_out")]

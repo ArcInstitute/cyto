@@ -1,9 +1,13 @@
 use clap::Subcommand;
 
-use super::{ArgsView, IbuCommand, MapCommand};
+use super::{ArgsView, IbuCommand, MapCommand, WorkflowCommand};
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Executes a common workflow
+    #[clap(subcommand)]
+    Workflow(WorkflowCommand),
+
     /// Map sequences to a library
     #[clap(subcommand)]
     Map(MapCommand),

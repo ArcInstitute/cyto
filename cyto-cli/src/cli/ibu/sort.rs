@@ -1,6 +1,6 @@
 use super::IbuInput;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct ArgsSort {
     #[clap(flatten)]
     pub input: IbuInput,
@@ -19,4 +19,15 @@ pub struct ArgsSort {
 
     #[clap(short = 't', long, default_value = "1")]
     pub num_threads: usize,
+}
+impl ArgsSort {
+    pub fn from_wf_path(path: &str, output: &str, num_threads: usize) -> Self {
+        let input = IbuInput::from_path(path);
+        Self {
+            input,
+            num_threads,
+            output: Some(output.to_string()),
+            pipe: false,
+        }
+    }
 }

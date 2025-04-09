@@ -1,6 +1,6 @@
 use super::IbuInput;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct ArgsCount {
     #[clap(flatten)]
     pub input: IbuInput,
@@ -22,4 +22,20 @@ pub struct ArgsCount {
     /// If this is provided the index features names will be output instead of their index values
     #[clap(short = 'f', long)]
     pub features: Option<String>,
+}
+impl ArgsCount {
+    pub fn from_wf_path(
+        sort_path: &str,
+        out_path: &str,
+        features_path: &str,
+        num_threads: usize,
+    ) -> Self {
+        Self {
+            input: IbuInput::from_path(sort_path),
+            output: Some(out_path.to_string()),
+            features: Some(features_path.to_string()),
+            compressed: false,
+            num_threads,
+        }
+    }
 }

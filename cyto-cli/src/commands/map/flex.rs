@@ -15,7 +15,7 @@ use super::{
 #[cfg(feature = "binseq")]
 use super::{ibu_map_pairs_binseq, ibu_map_probed_pairs_binseq};
 
-fn probed_bus(args: ArgsFlex) -> Result<()> {
+fn probed_bus(args: &ArgsFlex) -> Result<()> {
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
 
@@ -25,7 +25,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(
-        &args.probe.probes_filepath.unwrap(), // already checked
+        args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
     )?;
 
@@ -60,7 +60,7 @@ fn probed_bus(args: ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-fn bus(args: ArgsFlex) -> Result<()> {
+fn bus(args: &ArgsFlex) -> Result<()> {
     // Load the input files
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -97,7 +97,7 @@ fn bus(args: ArgsFlex) -> Result<()> {
 }
 
 #[cfg(feature = "binseq")]
-fn bus_binseq(args: ArgsFlex) -> Result<()> {
+fn bus_binseq(args: &ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
 
@@ -129,7 +129,7 @@ fn bus_binseq(args: ArgsFlex) -> Result<()> {
 }
 
 #[cfg(feature = "binseq")]
-pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
+pub fn probed_bus_binseq(args: &ArgsFlex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
 
     let start_time = Instant::now();
@@ -140,7 +140,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(
-        &args.probe.probes_filepath.unwrap(), // already checked
+        args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
     )?;
 
@@ -175,7 +175,7 @@ pub fn probed_bus_binseq(args: ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-pub fn run(args: ArgsFlex) -> Result<()> {
+pub fn run(args: &ArgsFlex) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         #[cfg(feature = "binseq")]
         if args.binseq.input.is_some() {

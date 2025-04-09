@@ -2,7 +2,7 @@ use super::IbuInput;
 
 use clap::Parser;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct ArgsCorrect {
     #[clap(flatten)]
     pub input: IbuInput,
@@ -11,7 +11,7 @@ pub struct ArgsCorrect {
     pub options: OptionsCorrect,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct OptionsCorrect {
     /// Path of the whitelist file
     ///
