@@ -7,7 +7,7 @@ use crate::cli::ArgsOutput;
 #[cfg(feature = "binseq")]
 use super::BinseqInput;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct ArgsGeneric {
     #[clap(flatten)]
     pub input: PairedInput,
@@ -32,7 +32,7 @@ pub struct ArgsGeneric {
     pub output: ArgsOutput,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Generic Options")]
 pub struct GenericOptions {
     //// Path to library file

@@ -2,7 +2,7 @@ use clap::Parser;
 
 use super::{Geometry, PairedInput};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct ArgsView {
     #[clap(flatten)]
     pub input: PairedInput,
@@ -14,7 +14,7 @@ pub struct ArgsView {
     pub options: OptionsView,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct OptionsView {
     #[clap(short, long, help = "Output file [default=stdout]")]
     pub output: Option<String>,

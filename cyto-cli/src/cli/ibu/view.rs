@@ -1,6 +1,6 @@
 use super::IbuInput;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct ArgsView {
     #[clap(flatten)]
     pub input: IbuInput,
@@ -9,7 +9,7 @@ pub struct ArgsView {
     pub options: OptionsView,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct OptionsView {
     /// Decode the contents of the IBU library (from 2bit)
     #[clap(short, long)]

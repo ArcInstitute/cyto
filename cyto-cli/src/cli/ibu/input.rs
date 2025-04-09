@@ -1,4 +1,4 @@
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 #[clap(next_help_heading = "IBU Input Options")]
 pub struct IbuInput {
     /// Input ibu file [default=stdin]

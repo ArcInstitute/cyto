@@ -1,6 +1,6 @@
 use clap::Parser;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Probe Options")]
 pub struct ProbeOptions {
     #[clap(short = 'p', long = "probes")]

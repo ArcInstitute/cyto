@@ -1,6 +1,6 @@
 use super::IbuInput;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct ArgsSort {
     #[clap(flatten)]
     pub input: IbuInput,

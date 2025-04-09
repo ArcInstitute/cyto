@@ -1,6 +1,6 @@
 use super::IbuInput;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct ArgsCount {
     #[clap(flatten)]
     pub input: IbuInput,
