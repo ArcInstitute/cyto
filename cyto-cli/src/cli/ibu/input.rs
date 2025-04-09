@@ -5,3 +5,10 @@ pub struct IbuInput {
     #[clap(short = 'i', long)]
     pub input: Option<String>,
 }
+impl IbuInput {
+    pub fn from_path(path: &str) -> Self {
+        Self {
+            input: Some(path.to_string()),
+        }
+    }
+}

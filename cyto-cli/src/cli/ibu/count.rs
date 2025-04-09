@@ -23,3 +23,19 @@ pub struct ArgsCount {
     #[clap(short = 'f', long)]
     pub features: Option<String>,
 }
+impl ArgsCount {
+    pub fn from_wf_path(
+        sort_path: &str,
+        out_path: &str,
+        features_path: &str,
+        num_threads: usize,
+    ) -> Self {
+        Self {
+            input: IbuInput::from_path(sort_path),
+            output: Some(out_path.to_string()),
+            features: Some(features_path.to_string()),
+            compressed: false,
+            num_threads,
+        }
+    }
+}
