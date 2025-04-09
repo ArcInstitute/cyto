@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use bitnuc::{as_2bit, hdist_scalar};
+use bitnuc::as_2bit;
 use ibu::{Reader, Record};
 use parking_lot::Mutex;
 use rayon::prelude::*;
@@ -23,9 +23,10 @@ fn open_whitelist(path: &str) -> Result<Box<dyn Read + Send>> {
     Ok(passthrough)
 }
 
-fn encode_whitelist(reader: Box<dyn Read + Send>) -> Result<(HashSet<u64>, usize)> {
+fn encode_whitelist(reader: Box<dyn Read + Send>) -> Result<(HashSet<u64>, Vec<u64>, usize)> {
     let bufreader = BufReader::new(reader);
     let mut keys = HashSet::new();
+    let mut keys_vec = Vec::new();
     let mut size = 0;
     for line in bufreader.lines() {
         let line = line?;
@@ -36,8 +37,9 @@ fn encode_whitelist(reader: Box<dyn Read + Send>) -> Result<(HashSet<u64>, usize
         }
         let ebuf = as_2bit(line.as_bytes())?;
         keys.insert(ebuf);
+        keys_vec.push(ebuf);
     }
-    Ok((keys, size))
+    Ok((keys, keys_vec, size))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -55,19 +57,25 @@ pub struct Whitelist {
     key_vec: Vec<u64>,
     /// The size of each sequence in the whitelist
     slen: usize,
+    /// The mismatch table for fast correction
+    mismatch_table: bitnuc_mismatch::MismatchTable,
 }
 impl Whitelist {
     pub fn from_path(path: &str) -> Result<Self> {
         let reader = open_whitelist(path)?;
-        let (keys, slen) = encode_whitelist(reader)?;
-        let key_vec = keys.iter().copied().collect();
+        let (keys, key_vec, slen) = encode_whitelist(reader)?;
         if slen > 32 {
             bail!("The whitelist keys must be 32 nucleotides or less");
         }
+
+        // Generate the mismatch table using the bitnuc-mismatch library
+        let mismatch_table = bitnuc_mismatch::build_mismatch_table(&key_vec, slen)?;
+
         Ok(Self {
             keys,
             key_vec,
             slen,
+            mismatch_table,
         })
     }
 
@@ -81,9 +89,32 @@ impl Whitelist {
     /// Will return `None` if no key in the whitelist is within the given hamming distance
     /// or if the key can be corrected to multiple keys in the whitelist.
     pub fn correct_to(&self, key: u64, distance: u32) -> Correction {
+        // If distance is 0, only exact matches are allowed
+        if distance == 0 {
+            return if self.contains(key) {
+                Correction::Unchanged
+            } else {
+                Correction::Ambiguous
+            };
+        }
+
+        // If distance is 1, use the precomputed mismatch table
+        if distance == 1 {
+            // If the key is in the whitelist, return unchanged
+            if self.contains(key) {
+                return Correction::Unchanged;
+            // If the key is in the mismatch table, return the corrected parent
+            } else if let Some(&parent) = self.mismatch_table.get(&key) {
+                return Correction::Corrected(parent);
+            }
+            // The key is not in the mismatch table or whitelist
+            return Correction::Ambiguous;
+        }
+
+        // For distances > 1, fall back to the old method with hdist_scalar
         let mut corrected = None;
         for &k in &self.key_vec {
-            if hdist_scalar(k, key, self.slen).expect("Failure in calculating hdist_scalar")
+            if bitnuc::hdist_scalar(k, key, self.slen).expect("Failure in calculating hdist_scalar")
                 <= distance
             {
                 if corrected.is_some() {
