@@ -8,16 +8,26 @@ use crate::{
 
 #[derive(Default, Debug, Clone)]
 pub struct MapIndexToAlias {
-    map: HashMap<usize, usize>,
-    alias_map: HashMap<usize, ProbeAlias>,
+    /// Maps the Probe Index to the Alias Index (|Alias Index| <= |Probe Index|)
+    pub map: HashMap<usize, usize>,
+    /// Maps the Alias Index to the Probe Alias Identity
+    pub alias_map: HashMap<usize, ProbeAlias>,
+    /// Maps the Probe Alias Identity to the Probe Index
+    pub probe_map: HashMap<ProbeAlias, usize>,
 }
 impl MapIndexToAlias {
     /// Insert an index-alias pairing into the map
     pub fn insert(&mut self, index: usize, alias_nuc: AliasNuc, alias: Alias) {
         let probe_alias = ProbeAlias::new(alias_nuc, alias);
-        let probe_alias_index = self.alias_map.len();
-        self.map.insert(index, probe_alias_index);
-        self.alias_map.insert(probe_alias_index, probe_alias);
+        if !self.probe_map.contains_key(&probe_alias) {
+            let probe_alias_index = self.probe_map.len();
+            self.probe_map
+                .insert(probe_alias.clone(), probe_alias_index);
+            self.alias_map
+                .insert(probe_alias_index, probe_alias.clone());
+        }
+        let probe_alias_index = self.probe_map.get(&probe_alias).unwrap();
+        self.map.insert(index, *probe_alias_index);
     }
 
     /// Get an alias by index
@@ -29,7 +39,7 @@ impl MapIndexToAlias {
             .and_then(|alias_index| self.alias_map.get(alias_index))
     }
 
-    /// Get the index of an alias by index
+    /// Get the index of an alias by probe index
     ///
     /// This is used to the unique index of an alias in the map
     pub fn get_index(&self, index: usize) -> Option<usize> {

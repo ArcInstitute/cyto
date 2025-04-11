@@ -10,12 +10,12 @@ pub fn build_filepath(prefix: &str, name: Option<&str>) -> String {
 }
 
 pub fn build_filepaths(prefix: &str, probe_mapper: &ProbeMapper) -> Result<Vec<String>> {
-    (0..probe_mapper.num_unique_aliases())
-        .map(|index| -> Result<String> {
-            let alias = probe_mapper
-                .get_alias(index)
-                .expect("Alias not found - `build_filepaths`");
-            let alias_str = std::str::from_utf8(&alias.name)?;
+    probe_mapper
+        .index_to_alias
+        .alias_map
+        .values()
+        .map(|alias| -> Result<String> {
+            let alias_str = alias.name_str()?;
             Ok(build_filepath(prefix, Some(alias_str)))
         })
         .collect()

@@ -17,8 +17,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct ProbeMapper {
-    sequence_to_index: MapSequenceToIndex,
-    index_to_alias: MapIndexToAlias,
+    pub sequence_to_index: MapSequenceToIndex,
+    pub index_to_alias: MapIndexToAlias,
     corrected: Disambibyte,
 }
 impl ProbeMapper {

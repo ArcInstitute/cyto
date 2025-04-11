@@ -1,6 +1,6 @@
 [package]
 name = "cyto"
-version = "0.2.11"
+version = "0.2.12"
 edition = "2021"
 
 [dependencies]
@@ -15,7 +15,9 @@ bitnuc = { workspace = true }
 ibu = { workspace = true }
 thiserror = "2.0.8"
 disambiseq = "0.2.1"
-flate2 = { version = "1.0.35", default-features = false, features = ["zlib-ng"] }
+flate2 = { version = "1.0.35", default-features = false, features = [
+    "zlib-ng",
+] }
 
 
 [lints]
