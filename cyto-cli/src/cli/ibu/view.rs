@@ -26,6 +26,12 @@ pub struct OptionsView {
     #[clap(short = 'S', long)]
     pub skip_header: bool,
 
+    /// File containing the index features
+    ///
+    /// If this is provided the index features names will be output instead of their index values
+    #[clap(short = 'f', long)]
+    pub features: Option<String>,
+
     /// Output file [default=stdout]
     #[clap(short, long)]
     pub output: Option<String>,
