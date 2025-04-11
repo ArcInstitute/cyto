@@ -24,13 +24,24 @@ fn write_header<W: Write>(header: Header, writer: &mut W) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn dump_encoded_records<W: Write, R: Read>(
     csv_writer: &mut csv::Writer<W>,
     reader: Reader<R>,
+    features: Option<&[String]>,
 ) -> Result<()> {
     for record in reader {
         let record = record?;
-        csv_writer.serialize(record)?;
+        if let Some(features) = features {
+            let f_record: (u64, u64, &str) = (
+                record.barcode(),
+                record.umi(),
+                &features[record.index() as usize],
+            );
+            csv_writer.serialize(f_record)?;
+        } else {
+            csv_writer.serialize(record)?;
+        }
     }
     csv_writer.flush()?;
     Ok(())
@@ -55,17 +66,25 @@ fn decode_record<'a, 'b>(
     Ok((barcode_str, umi_str, record.index()))
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn dump_decoded_records<W: Write, R: Read>(
     csv_writer: &mut csv::Writer<W>,
     reader: Reader<R>,
     header: Header,
+    features: Option<&[String]>,
 ) -> Result<()> {
     let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
     let mut umi_buffer = Vec::new(); // Reusable buffer for UMI nucleotides
     for record in reader {
         let record = record?;
         let decoded = decode_record(record, header, &mut barcode_buffer, &mut umi_buffer)?;
-        csv_writer.serialize(decoded)?;
+        if let Some(features) = features {
+            let f_decoded: (&str, &str, &str) =
+                (decoded.0, decoded.1, &features[decoded.2 as usize]);
+            csv_writer.serialize(f_decoded)?;
+        } else {
+            csv_writer.serialize(decoded)?;
+        }
 
         barcode_buffer.clear();
         umi_buffer.clear();
@@ -74,10 +93,20 @@ fn dump_decoded_records<W: Write, R: Read>(
     Ok(())
 }
 
+fn load_features(path: Option<&String>) -> Result<Option<Vec<String>>> {
+    if let Some(path) = path {
+        let features = std::fs::read_to_string(path)?;
+        Ok(Some(features.lines().map(String::from).collect()))
+    } else {
+        Ok(None)
+    }
+}
+
 pub fn run(args: &ArgsView) -> Result<()> {
     // Handle IO handles
     let input = match_input(args.input.input.as_ref())?;
     let mut output = match_output(args.options.output.as_ref())?;
+    let features = load_features(args.options.features.as_ref())?;
 
     // Initialize the reader and header
     let reader = Reader::new(input)?;
@@ -98,8 +127,8 @@ pub fn run(args: &ArgsView) -> Result<()> {
 
     // Write the records to the output file
     if args.options.decode {
-        dump_decoded_records(&mut csv_writer, reader, header)
+        dump_decoded_records(&mut csv_writer, reader, header, features.as_deref())
     } else {
-        dump_encoded_records(&mut csv_writer, reader)
+        dump_encoded_records(&mut csv_writer, reader, features.as_deref())
     }
 }
