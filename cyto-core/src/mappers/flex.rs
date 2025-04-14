@@ -45,7 +45,7 @@ impl FlexMapper {
             .into_iter()
             .enumerate()
             .try_for_each(|(index, flex)| -> Result<()> {
-                sequence_to_index.insert(flex.sequence, index)?;
+                sequence_to_index.insert(&flex.sequence, index)?;
                 index_to_name.insert(index, flex.name);
                 Ok(())
             })?;
@@ -67,7 +67,7 @@ impl FlexMapper {
             .enumerate()
             .try_for_each(|(index, flex)| -> Result<()> {
                 correction.insert(&flex.sequence);
-                sequence_to_index.insert(flex.sequence, index)?;
+                sequence_to_index.insert(&flex.sequence, index)?;
                 index_to_name.insert(index, flex.name);
                 Ok(())
             })?;
@@ -100,7 +100,7 @@ impl Mapper for FlexMapper {
             Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
             _ => &seq[..self.sequence_to_index.sequence_size],
         };
-        if let Some(index) = self.sequence_to_index.get(flex_sequence) {
+        if let Some(index) = self.sequence_to_index.match_sequence(flex_sequence) {
             Ok(index)
         } else {
             Err(MappingError::MissingFlexSequence)
@@ -120,7 +120,7 @@ impl Mapper for FlexMapper {
         };
         match self.correction.get_parent(flex_sequence) {
             Some(corrected) => {
-                if let Some(index) = self.sequence_to_index.get(&corrected.0) {
+                if let Some(index) = self.sequence_to_index.match_sequence(&corrected.0) {
                     Ok(index)
                 } else {
                     Err(MappingError::MissingFlexSequence)
