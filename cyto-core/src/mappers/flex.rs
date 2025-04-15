@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use disambiseq::Disambibyte;
 
 use super::{
     mapper::Adjustment,
@@ -19,27 +18,21 @@ use crate::{
 pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
     index_to_name: MapIndexToName,
-    correction: Disambibyte,
 }
 impl FlexMapper {
-    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
+    pub fn from_tsv(filepath: &str) -> Result<Self> {
         let lib = FlexLibrary::from_tsv(filepath.into())?;
-        if exact_match {
-            lib.into_mapper()
-        } else {
-            lib.into_corrected_mapper()
-        }
+        lib.into_mapper()
     }
 
-    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
-        let mapper = Self::from_tsv(filepath, exact_match)?;
+    pub fn from_tsv_arc(filepath: &str) -> Result<Arc<Self>> {
+        let mapper = Self::from_tsv(filepath)?;
         Ok(Arc::new(mapper))
     }
 
     pub fn new(library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_name = MapIndexToName::with_capacity(library.len());
-        let correction = Disambibyte::default();
 
         library
             .into_iter()
@@ -53,29 +46,6 @@ impl FlexMapper {
         Ok(Self {
             sequence_to_index,
             index_to_name,
-            correction,
-        })
-    }
-
-    pub fn new_corrected(library: FlexLibrary) -> Result<Self> {
-        let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::with_capacity(library.len());
-        let mut correction = Disambibyte::default();
-
-        library
-            .into_iter()
-            .enumerate()
-            .try_for_each(|(index, flex)| -> Result<()> {
-                correction.insert(&flex.sequence);
-                sequence_to_index.insert(&flex.sequence, index)?;
-                index_to_name.insert(index, flex.name);
-                Ok(())
-            })?;
-
-        Ok(Self {
-            sequence_to_index,
-            index_to_name,
-            correction,
         })
     }
 
@@ -118,15 +88,13 @@ impl Mapper for FlexMapper {
             Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
             _ => &seq[..self.sequence_to_index.sequence_size],
         };
-        match self.correction.get_parent(flex_sequence) {
-            Some(corrected) => {
-                if let Some(index) = self.sequence_to_index.match_sequence(&corrected.0) {
-                    Ok(index)
-                } else {
-                    Err(MappingError::MissingFlexSequence)
-                }
-            }
-            None => Err(MappingError::MissingFlexSequence),
+        if let Some(index) = self
+            .sequence_to_index
+            .match_corrected_sequence(flex_sequence)
+        {
+            Ok(index)
+        } else {
+            Err(MappingError::MissingFlexSequence)
         }
     }
 

@@ -20,8 +20,7 @@ fn probed_bus(args: &ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper =
-        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
+    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(
@@ -66,8 +65,7 @@ fn bus(args: &ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper =
-        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
+    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -102,8 +100,7 @@ fn bus_binseq(args: &ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper =
-        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
+    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -135,8 +132,7 @@ pub fn probed_bus_binseq(args: &ArgsFlex) -> Result<()> {
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper =
-        FlexMapper::from_tsv_arc(&args.flex.flex_filepath, args.map.exact_matching)?;
+    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(

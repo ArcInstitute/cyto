@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use disambiseq::Disambibyte;
 use hashbrown::HashMap;
 
 use crate::aliases::{Name, SeqRef, Sequence};
@@ -15,6 +16,10 @@ pub struct MapSequenceToIndex {
     left_map: HashMap<Sequence, usize>,
     /// Maps the right half of the sequence to its index
     right_map: HashMap<Sequence, usize>,
+    /// A correction for the left half of the sequence
+    left_correction: Disambibyte,
+    /// A correction for the right half of the sequence
+    right_correction: Disambibyte,
     /// The size of the full sequence
     pub sequence_size: usize,
     /// The size of the left half of the sequence
@@ -41,15 +46,31 @@ impl MapSequenceToIndex {
         self.update_sequence_size(sequence)?;
         self.map.insert(sequence.clone(), index);
         self.seq_map.insert(index, sequence.clone());
+
         let (left_seq, right_seq) = sequence.split_at(self.left_size);
         self.left_map.insert(left_seq.to_owned(), index);
         self.right_map.insert(right_seq.to_owned(), index);
+
+        self.left_correction.insert(left_seq);
+        self.right_correction.insert(right_seq);
+
         Ok(())
     }
 
-    pub fn match_sequence(&self, sequence: SeqRef) -> Option<usize> {
-        let left_idx = self.left_map.get(&sequence[..self.left_size]).copied();
-        let right_idx = self.right_map.get(&sequence[self.left_size..]).copied();
+    /// Determine the target index for a given sequence following the `CellRanger` Flex protocol
+    ///
+    /// 1. if both left and right indices match to the same index, return the index
+    /// 2. if both left and right indices match to differenct indices, return None
+    /// 3. if both left and right indices are None, return None
+    /// 4. if only one index is Some, perform a hamming distance check and return the index if the distance is within the threshold
+    fn determine_target(
+        &self,
+        sequence: SeqRef,
+        left_seq: SeqRef,
+        right_seq: SeqRef,
+    ) -> Option<usize> {
+        let left_idx = self.left_map.get(left_seq).copied();
+        let right_idx = self.right_map.get(right_seq).copied();
         match (left_idx, right_idx) {
             (Some(left), Some(right)) => {
                 if left == right {
@@ -60,7 +81,6 @@ impl MapSequenceToIndex {
             }
             (None, None) => None,
             (Some(t), None) | (None, Some(t)) => {
-                eprintln!("Running alignment");
                 let expected_seq = self.seq_map.get(&t).unwrap();
                 if within_hdist(sequence, expected_seq, MAXIMUM_DISTANCE) {
                     Some(t)
@@ -68,6 +88,31 @@ impl MapSequenceToIndex {
                     None
                 }
             }
+        }
+    }
+
+    pub fn match_sequence(&self, sequence: SeqRef) -> Option<usize> {
+        let left_seq = &sequence[..self.left_size];
+        let right_seq = &sequence[self.left_size..];
+        self.determine_target(sequence, left_seq, right_seq)
+    }
+
+    pub fn match_corrected_sequence(&self, sequence: SeqRef) -> Option<usize> {
+        let left_seq = &sequence[..self.left_size];
+        let right_seq = &sequence[self.left_size..];
+
+        let left_parent = self.left_correction.get_parent(left_seq);
+        let right_parent = self.right_correction.get_parent(right_seq);
+
+        match (left_parent, right_parent) {
+            (Some(left_parent), Some(right_parent)) => {
+                self.determine_target(sequence, &left_parent.0, &right_parent.0)
+            }
+            (Some(left_parent), None) => self.determine_target(sequence, &left_parent.0, right_seq),
+            (None, Some(right_parent)) => {
+                self.determine_target(sequence, left_seq, &right_parent.0)
+            }
+            (None, None) => self.determine_target(sequence, left_seq, right_seq),
         }
     }
 
