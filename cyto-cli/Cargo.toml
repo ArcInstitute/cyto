@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.2.27"
+version = "0.2.28"
 edition = "2021"
 
 [dependencies]
@@ -16,7 +16,7 @@ rayon = "1.10.0"
 num_cpus = "1.16.0"
 niffler = "3.0.0"
 parking_lot = "0.12.3"
-paraseq = "0.1.2"
+paraseq = "0.1.4"
 indicatif = "0.17.11"
 glob = "0.3.2"
 bitnuc-mismatch = "0.1.1"
