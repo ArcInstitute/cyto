@@ -257,7 +257,14 @@ pub fn run(args: &ArgsCorrect) -> Result<()> {
         // Case where barcode is in the whitelist without error
         match whitelist.correct_to(barcode, args.options.distance) {
             Correction::Ambiguous => {
-                second_pass.push(record); // Record is ambiguous - will try to resolve in second pass
+                if args.options.skip_second_pass {
+                    stats.ambiguous += 1;
+                    if args.options.include {
+                        record.write_bytes(&mut output)?;
+                    }
+                } else {
+                    second_pass.push(record); // Record is ambiguous - will try to resolve in second pass
+                }
             }
             Correction::Unchanged => {
                 stats.matched += 1;
@@ -275,27 +282,29 @@ pub fn run(args: &ArgsCorrect) -> Result<()> {
         }
     }
 
-    eprintln!("Starting second pass (ambiguous subset)...");
-    for record in second_pass {
-        match whitelist.ambiguously_correct_to_(record.barcode()) {
-            Correction::Ambiguous => {
-                stats.ambiguous += 1;
-                // Write ambiguous unless user wants to remove
-                if !args.options.remove {
+    if !second_pass.is_empty() {
+        eprintln!("Starting second pass (ambiguous subset)...");
+        for record in second_pass {
+            match whitelist.ambiguously_correct_to_(record.barcode()) {
+                Correction::Ambiguous => {
+                    stats.ambiguous += 1;
+                    // Write ambiguous unless user wants to remove
+                    if args.options.include {
+                        record.write_bytes(&mut output)?;
+                    }
+                }
+                Correction::Unchanged => {
+                    stats.matched += 1;
+                    stats.unchanged += 1;
                     record.write_bytes(&mut output)?;
                 }
-            }
-            Correction::Unchanged => {
-                stats.matched += 1;
-                stats.unchanged += 1;
-                record.write_bytes(&mut output)?;
-            }
-            Correction::Corrected(corrected) => {
-                stats.matched += 1;
-                stats.corrected += 1;
-                stats.corrected_via_counts += 1;
-                let new_record = Record::new(corrected, record.umi(), record.index());
-                new_record.write_bytes(&mut output)?;
+                Correction::Corrected(corrected) => {
+                    stats.matched += 1;
+                    stats.corrected += 1;
+                    stats.corrected_via_counts += 1;
+                    let new_record = Record::new(corrected, record.umi(), record.index());
+                    new_record.write_bytes(&mut output)?;
+                }
             }
         }
     }
