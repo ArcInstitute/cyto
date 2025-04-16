@@ -36,12 +36,6 @@ pub struct OptionsCorrect {
     #[clap(short = 'r', long)]
     pub remove: bool,
 
-    /// Number of threads to use
-    ///
-    /// If zero will set to maximum number of threads.
-    #[clap(short = 'T', long, default_value = "0")]
-    pub num_threads: usize,
-
     /// Output file to write to [default=stdout]
     #[clap(short, long)]
     pub output: Option<String>,

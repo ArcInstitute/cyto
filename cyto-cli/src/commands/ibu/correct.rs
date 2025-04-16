@@ -1,16 +1,13 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Read},
     ops::Add,
-    sync::Arc,
 };
 
 use anyhow::{bail, Result};
 use bitnuc::as_2bit;
 use ibu::{Reader, Record};
-use parking_lot::Mutex;
-use rayon::prelude::*;
 
 use crate::{
     cli::ibu::ArgsCorrect,
@@ -23,9 +20,11 @@ fn open_whitelist(path: &str) -> Result<Box<dyn Read + Send>> {
     Ok(passthrough)
 }
 
-fn encode_whitelist(reader: Box<dyn Read + Send>) -> Result<(HashSet<u64>, Vec<u64>, usize)> {
+fn encode_whitelist(
+    reader: Box<dyn Read + Send>,
+) -> Result<(HashMap<u64, usize>, Vec<u64>, usize)> {
     let bufreader = BufReader::new(reader);
-    let mut keys = HashSet::new();
+    let mut keys = HashMap::new();
     let mut keys_vec = Vec::new();
     let mut size = 0;
     for line in bufreader.lines() {
@@ -36,7 +35,7 @@ fn encode_whitelist(reader: Box<dyn Read + Send>) -> Result<(HashSet<u64>, Vec<u
             bail!("All keys in the whitelist must be the same length");
         }
         let ebuf = as_2bit(line.as_bytes())?;
-        keys.insert(ebuf);
+        keys.insert(ebuf, 0);
         keys_vec.push(ebuf);
     }
     Ok((keys, keys_vec, size))
@@ -51,14 +50,16 @@ pub enum Correction {
 
 #[derive(Debug, Clone)]
 pub struct Whitelist {
-    /// The set of keys in the whitelist
-    keys: HashSet<u64>,
+    /// The set of keys in the whitelist and their abundances
+    keys: HashMap<u64, usize>,
     /// A vector of keys in the whitelist (identical to `keys` but in a different format)
     key_vec: Vec<u64>,
     /// The size of each sequence in the whitelist
     slen: usize,
     /// The mismatch table for fast correction
     mismatch_table: bitnuc_mismatch::MismatchTable,
+    /// The ambiguous mismatch table for fast identification of ambiguous parents
+    ambiguous_table: bitnuc_mismatch::AmbiguousMismatchTable,
 }
 impl Whitelist {
     pub fn from_path(path: &str) -> Result<Self> {
@@ -69,19 +70,27 @@ impl Whitelist {
         }
 
         // Generate the mismatch table using the bitnuc-mismatch library
-        let mismatch_table = bitnuc_mismatch::build_mismatch_table(&key_vec, slen)?;
+        eprintln!("Building mismatch table...");
+        let (mismatch_table, ambiguous_table) =
+            bitnuc_mismatch::build_mismatch_table_with_ambiguous(&key_vec, slen)?;
 
         Ok(Self {
             keys,
             key_vec,
             slen,
             mismatch_table,
+            ambiguous_table,
         })
     }
 
     /// Checks if the whitelist contains the given key
     pub fn contains(&self, key: u64) -> bool {
-        self.keys.contains(&key)
+        self.keys.contains_key(&key)
+    }
+
+    /// Increments the abundance of the given key in the whitelist
+    pub fn increment(&mut self, key: u64) {
+        *self.keys.get_mut(&key).unwrap() += 1;
     }
 
     /// Corrects the given key to a key in the whitelist if the key is within the given hamming distance.
@@ -126,6 +135,28 @@ impl Whitelist {
 
         corrected.map_or(Correction::Unchanged, Correction::Corrected)
     }
+
+    pub fn ambiguously_correct_to_(&self, key: u64) -> Correction {
+        if let Some(parents) = self.ambiguous_table.get(&key) {
+            let parent_counts = parents
+                .iter()
+                .map(|k| (self.keys.get(k).expect("Error in parent lookup"), k))
+                .collect::<HashMap<_, _>>();
+
+            // All parents have the same count (ambiguous)
+            if parent_counts.len() == 1 {
+                Correction::Ambiguous
+            } else {
+                parent_counts
+                    .iter()
+                    .max_by_key(|&(count, _)| count)
+                    .map(|(_, k)| Correction::Corrected(**k))
+                    .expect("Error in finding max count")
+            }
+        } else {
+            Correction::Ambiguous
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -136,6 +167,8 @@ pub struct CorrectStats {
     pub matched: u64,
     /// The number of records that were corrected
     pub corrected: u64,
+    /// The number of records that were corrected via counts
+    pub corrected_via_counts: u64,
     /// The number of records with ambiguous corrections
     pub ambiguous: u64,
     /// The number of records that were not corrected
@@ -151,74 +184,57 @@ impl Add for CorrectStats {
             corrected: self.corrected + rhs.corrected,
             ambiguous: self.ambiguous + rhs.ambiguous,
             unchanged: self.unchanged + rhs.unchanged,
+            corrected_via_counts: self.corrected_via_counts + rhs.corrected_via_counts,
         }
     }
 }
 
-fn set_threads(num_threads: usize) -> Result<()> {
-    let threads = match num_threads {
-        0 => num_cpus::get(),
-        x => num_cpus::get().min(x),
-    };
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build_global()?;
-    Ok(())
-}
-
-fn write_statistics(stats: CorrectStats, remove: bool) {
+fn write_statistics(stats: CorrectStats) {
     let total = stats.total;
     let matched = stats.matched;
     let corrected = stats.corrected;
+    let corrected_via_counts = stats.corrected_via_counts;
     let ambiguous = stats.ambiguous;
     let unchanged = stats.unchanged;
-    let written = if remove {
-        total - ambiguous - unchanged
-    } else {
-        total
-    };
 
     let frac_matched = matched as f64 / total as f64;
     let frac_corrected = corrected as f64 / total as f64;
+    let frac_corrected_via_counts = corrected_via_counts as f64 / total as f64;
     let frac_ambiguous = ambiguous as f64 / total as f64;
     let frac_unchanged = unchanged as f64 / total as f64;
-    let frac_written = written as f64 / total as f64;
 
-    eprintln!("Total records: {total}");
+    eprintln!("Total records:        {total}");
     eprintln!(
-        "Matched records: {} ({:.2}%)",
+        "Matched records:      {} ({:.2}%)",
         matched,
         frac_matched * 100.0
     );
     eprintln!(
-        "Corrected records: {} ({:.2}%)",
-        corrected,
-        frac_corrected * 100.0
-    );
-    eprintln!(
-        "Ambiguous records: {} ({:.2}%)",
-        ambiguous,
-        frac_ambiguous * 100.0
-    );
-    eprintln!(
-        "Unchanged records: {} ({:.2}%)",
+        "Perfect records:      {} ({:.2}%)",
         unchanged,
         frac_unchanged * 100.0
     );
     eprintln!(
-        "Written records: {} ({:.2}%)",
-        written,
-        frac_written * 100.0
+        "Corrected records:    {} ({:.2}%)",
+        corrected,
+        frac_corrected * 100.0
+    );
+    eprintln!(
+        "Corrected via counts: {} ({:.2}%)",
+        corrected_via_counts,
+        frac_corrected_via_counts * 100.0
+    );
+    eprintln!(
+        "Ambiguous records:    {} ({:.2}%)",
+        ambiguous,
+        frac_ambiguous * 100.0
     );
 }
 
 pub fn run(args: &ArgsCorrect) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
-    let whitelist = Whitelist::from_path(&args.options.whitelist)?;
-
-    // Set the number of threads for parallel processing
-    set_threads(args.options.num_threads)?;
+    let mut whitelist = Whitelist::from_path(&args.options.whitelist)?;
 
     // Initialize the reader and header
     let reader = Reader::new(input)?;
@@ -228,65 +244,66 @@ pub fn run(args: &ArgsCorrect) -> Result<()> {
     let mut output = match_output(args.options.output.as_ref())?;
     header.write_bytes(&mut output)?;
 
-    // Process the records in parallel
-    let stats = Mutex::new(CorrectStats::default());
-    let output = Arc::new(Mutex::new(output));
-    reader
-        .into_iter()
-        .par_bridge()
-        .filter_map(|record| -> Option<Result<Record>> {
-            let record = match record {
-                Ok(record) => record,
-                Err(why) => {
-                    return Some(Err(anyhow::Error::new(why)));
-                }
-            };
-            let barcode = record.barcode();
+    // Process the records sequentially
+    let mut stats = CorrectStats::default();
+    let mut second_pass = Vec::new();
 
-            stats.lock().total += 1;
+    eprintln!("Starting first pass...");
+    for record in reader {
+        let record = record?;
+        let barcode = record.barcode();
+        stats.total += 1;
 
-            if whitelist.contains(barcode) {
-                stats.lock().matched += 1;
-                Some(Ok(record))
-            } else {
-                match whitelist.correct_to(barcode, args.options.distance) {
-                    Correction::Ambiguous => {
-                        stats.lock().ambiguous += 1;
-                        if args.options.remove {
-                            None
-                        } else {
-                            Some(Ok(record))
-                        }
-                    }
-                    Correction::Unchanged => {
-                        stats.lock().unchanged += 1;
-                        if args.options.remove {
-                            None
-                        } else {
-                            Some(Ok(record))
-                        }
-                    }
-                    Correction::Corrected(bc) => {
-                        stats.lock().corrected += 1;
-                        Some(Ok(Record::new(bc, record.umi(), record.index())))
-                    }
+        // Case where barcode is in the whitelist without error
+        match whitelist.correct_to(barcode, args.options.distance) {
+            Correction::Ambiguous => {
+                second_pass.push(record); // Record is ambiguous - will try to resolve in second pass
+            }
+            Correction::Unchanged => {
+                stats.matched += 1;
+                stats.unchanged += 1;
+                whitelist.increment(barcode);
+                record.write_bytes(&mut output)?;
+            }
+            Correction::Corrected(corrected) => {
+                stats.matched += 1;
+                stats.corrected += 1;
+                whitelist.increment(corrected);
+                let new_record = Record::new(corrected, record.umi(), record.index());
+                new_record.write_bytes(&mut output)?;
+            }
+        }
+    }
+
+    eprintln!("Starting second pass (ambiguous subset)...");
+    for record in second_pass {
+        match whitelist.ambiguously_correct_to_(record.barcode()) {
+            Correction::Ambiguous => {
+                stats.ambiguous += 1;
+                // Write ambiguous unless user wants to remove
+                if !args.options.remove {
+                    record.write_bytes(&mut output)?;
                 }
             }
-        })
-        .try_for_each(|record| -> Result<()> {
-            let record = record?;
-            {
-                let mut lock = output.lock();
-                record.write_bytes(&mut lock.as_mut())?;
+            Correction::Unchanged => {
+                stats.matched += 1;
+                stats.unchanged += 1;
+                record.write_bytes(&mut output)?;
             }
-            Ok(())
-        })?;
+            Correction::Corrected(corrected) => {
+                stats.matched += 1;
+                stats.corrected += 1;
+                stats.corrected_via_counts += 1;
+                let new_record = Record::new(corrected, record.umi(), record.index());
+                new_record.write_bytes(&mut output)?;
+            }
+        }
+    }
 
     // Flush the output
-    output.lock().flush()?;
+    output.flush()?;
 
     // Write the statistics to stderr
-    let stats = stats.into_inner();
-    write_statistics(stats, args.options.remove);
+    write_statistics(stats);
     Ok(())
 }
