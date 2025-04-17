@@ -10,8 +10,23 @@ pub struct ArgsCorrect {
     #[clap(flatten)]
     pub options: OptionsCorrect,
 }
+impl ArgsCorrect {
+    pub fn from_wf_path(input_path: &str, output_path: &str, whitelist: &str) -> Self {
+        Self {
+            input: IbuInput::from_path(input_path),
+            options: OptionsCorrect {
+                whitelist: whitelist.to_string(),
+                distance: 1,
+                skip_second_pass: false,
+                include: false,
+                output: Some(output_path.to_string()),
+            },
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
+#[clap(next_help_heading = "Barcode Correction Options")]
 pub struct OptionsCorrect {
     /// Path of the whitelist file
     ///
