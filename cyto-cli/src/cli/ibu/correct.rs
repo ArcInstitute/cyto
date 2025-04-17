@@ -27,20 +27,20 @@ pub struct OptionsCorrect {
     #[clap(short = 'd', long, default_value = "1")]
     pub distance: u32,
 
-    /// Remove ambiguous or non-whitelist sequences
+    /// Skip second pass correction
+    ///
+    /// Second pass correction is enabled by default and collapses cell barcodes into the maximum abundance ambiguous parent
+    #[clap(short = 's', long)]
+    pub skip_second_pass: bool,
+
+    /// Include ambiguous or non-whitelist sequences
     ///
     /// If this flag is present, sequences that are
     /// not within the distance threshold of a whitelist sequence
     /// or are ambiguously distant from multiple whitelist sequences
-    /// will be removed from the output.
-    #[clap(short = 'r', long)]
-    pub remove: bool,
-
-    /// Number of threads to use
-    ///
-    /// If zero will set to maximum number of threads.
-    #[clap(short = 'T', long, default_value = "0")]
-    pub num_threads: usize,
+    /// will be included in the output.
+    #[clap(short = 'I', long)]
+    pub include: bool,
 
     /// Output file to write to [default=stdout]
     #[clap(short, long)]
