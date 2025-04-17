@@ -21,6 +21,7 @@ fn main() -> Result<()> {
             IbuCommand::Sort(args) => ibu_commands::sort::run(&args),
             IbuCommand::Count(args) => ibu_commands::count::run(&args),
             IbuCommand::Correct(args) => ibu_commands::correct::run(&args),
+            IbuCommand::Umi(args) => ibu_commands::umi::run(&args),
         },
         Commands::Workflow(workflow) => match workflow {
             WorkflowCommand::FlexMapping(args) => workflow_commands::flex::run(&args),
