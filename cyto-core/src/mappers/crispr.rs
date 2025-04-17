@@ -116,7 +116,7 @@ impl CrisprMapper {
                         return Ok((*anchor_size, sequence_map));
                     }
                 }
-                None => continue,
+                None => {} // continue
             }
         }
         Err(MappingError::MissingAnchor)
@@ -180,11 +180,11 @@ impl Mapper for CrisprMapper {
     /// Maps an input sequence to a guide name.
     ///
     /// 1. Hash the anchor sequence at the precomputed offset.
-    ///     a. If found continue
-    ///     b. If not found, return None
+    ///     - If found continue
+    ///     - If not found, return None
     /// 2. Hash the sequence to the expected guides for the anchor.
-    ///     a. If found continue
-    ///     b. If not found, return None
+    ///     - If found continue
+    ///     - If not found, return None
     /// 3. Map the guide index to the guide name.
     /// 4. Return the guide name.
     fn map_inner(
