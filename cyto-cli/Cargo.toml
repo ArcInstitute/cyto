@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.2.29"
+version = "0.2.30"
 edition = "2021"
 
 [dependencies]
@@ -20,6 +20,7 @@ paraseq = "0.1.4"
 indicatif = "0.17.11"
 glob = "0.3.2"
 bitnuc-mismatch = "0.1.2"
+petgraph = "0.8.1"
 
 [features]
 default = ["binseq"]
