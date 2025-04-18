@@ -231,10 +231,10 @@ fn write_statistics(stats: CorrectStats) {
     );
 }
 
-pub fn run(args: &ArgsCorrect) -> Result<()> {
+/// Prebuild whitelist so multiple threads deduplicate work in building mismatch table.
+pub fn run_with_prebuilt_whitelist(args: &ArgsCorrect, mut whitelist: Whitelist) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
-    let mut whitelist = Whitelist::from_path(&args.options.whitelist)?;
 
     // Initialize the reader and header
     let reader = Reader::new(input)?;
@@ -315,4 +315,9 @@ pub fn run(args: &ArgsCorrect) -> Result<()> {
     // Write the statistics to stderr
     write_statistics(stats);
     Ok(())
+}
+
+pub fn run(args: &ArgsCorrect) -> Result<()> {
+    let whitelist = Whitelist::from_path(args.options.whitelist.as_ref())?;
+    run_with_prebuilt_whitelist(args, whitelist)
 }

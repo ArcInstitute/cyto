@@ -10,6 +10,17 @@ pub struct ArgsUmi {
     #[clap(flatten)]
     pub options: OptionsCorrect,
 }
+impl ArgsUmi {
+    pub fn from_wf_path(sort_path: &str, umi_path: &str) -> Self {
+        let input = IbuInput::from_path(sort_path);
+        Self {
+            input,
+            options: OptionsCorrect {
+                output: Some(umi_path.to_string()),
+            },
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 pub struct OptionsCorrect {
