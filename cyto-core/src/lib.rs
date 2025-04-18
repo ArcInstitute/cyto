@@ -13,6 +13,5 @@ pub use counters::{
 };
 pub use deduplicate::{deduplicate_umis, BarcodeIndexCount, BarcodeIndexCounts, DeduplicateError};
 pub use geometry::{Bus, GeometryR1};
-pub use io::PairedReader;
 pub use mappers::Mapper;
 pub use statistics::MappingStatistics;
