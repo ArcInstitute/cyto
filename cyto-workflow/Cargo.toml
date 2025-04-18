@@ -1,0 +1,18 @@
+[package]
+name = "cyto-workflow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-ibu-barcode-correct = { workspace = true }
+cyto-ibu-count = { workspace = true }
+cyto-ibu-sort = { workspace = true }
+cyto-ibu-umi-correct = { workspace = true }
+cyto-map = { workspace = true }
+rayon = "1.10.0"
+glob = "0.3.2"
+
+[lints]
+workspace = true

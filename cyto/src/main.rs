@@ -1,0 +1,26 @@
+use anyhow::Result;
+use clap::Parser;
+use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
+
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    match args.command {
+        Commands::View(args) => cyto_view::run(&args),
+        Commands::Map(map) => match map {
+            MapCommand::Crispr(args) => cyto_map::crispr::run(&args),
+            MapCommand::Flex(args) => cyto_map::flex::run(&args),
+            MapCommand::Generic(args) => cyto_map::generic::run(&args),
+        },
+        Commands::Ibu(ibu) => match ibu {
+            IbuCommand::View(args) => cyto_ibu_view::run(&args),
+            IbuCommand::Sort(args) => cyto_ibu_sort::run(&args),
+            IbuCommand::Count(args) => cyto_ibu_count::run(&args),
+            IbuCommand::Correct(args) => cyto_ibu_barcode_correct::run(&args),
+            IbuCommand::Umi(args) => cyto_ibu_umi_correct::run(&args),
+        },
+        Commands::Workflow(workflow) => match workflow {
+            WorkflowCommand::FlexMapping(args) => cyto_workflow::flex::run(&args),
+            WorkflowCommand::CrisprMapping(args) => cyto_workflow::crispr::run(&args),
+        },
+    }
+}

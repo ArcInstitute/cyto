@@ -1,0 +1,20 @@
+[package]
+name = "cyto"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-ibu-umi-correct = { workspace = true }
+cyto-ibu-view = { workspace = true }
+cyto-ibu-barcode-correct = { workspace = true }
+cyto-ibu-count = { workspace = true }
+cyto-ibu-sort = { workspace = true }
+cyto-map = { workspace = true }
+cyto-view = { workspace = true }
+cyto-workflow = { workspace = true }
+clap = { version = "4.5.20", features = ["derive"] }
+
+[lints]
+workspace = true

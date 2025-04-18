@@ -1,0 +1,12 @@
+[package]
+name = "cyto-io"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+niffler = { workspace = true }
+cyto-core = { workspace = true }
+
+[lints]
+workspace = true

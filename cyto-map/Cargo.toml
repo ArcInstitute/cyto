@@ -1,22 +1,24 @@
 [package]
-name = "cyto-cli"
-version = "0.2.31"
-edition = "2021"
+name = "cyto-map"
+version = "0.1.0"
+edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.20", features = ["derive"] }
-cyto-core = { workspace = true }
-cyto-io = { workspace = true }
 anyhow = { workspace = true }
+bitnuc = { workspace = true }
+cyto-core = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-io = { workspace = true }
+ibu = { workspace = true }
 binseq = { version = "0.5.4", optional = true }
-ibu = { workspace = true, features = ["serde"] }
-num_cpus = "1.16.0"
 paraseq = "0.1.4"
+parking_lot = "0.12"
+indicatif = "0.17"
+
 
 [features]
 default = ["binseq"]
 binseq = ["dep:binseq"]
-benchmarking = []
 
 [lints]
 workspace = true

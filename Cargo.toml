@@ -1,11 +1,36 @@
 [workspace]
-members = ["cyto-cli", "cyto-core"]
+members = [
+    "cyto",
+    "cyto-cli",
+    "cyto-core",
+    "cyto-ibu-barcode-correct",
+    "cyto-ibu-count",
+    "cyto-ibu-sort",
+    "cyto-ibu-umi-correct",
+    "cyto-ibu-view",
+    "cyto-io",
+    "cyto-map",
+    "cyto-view",
+    "cyto-workflow",
+]
 resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.93"
 bitnuc = "0.2.10"
 ibu = "0.1.0"
+cyto-ibu-umi-correct = { path = "./cyto-ibu-umi-correct" }
+cyto-ibu-barcode-correct = { path = "./cyto-ibu-barcode-correct" }
+cyto-ibu-count = { path = "./cyto-ibu-count" }
+cyto-ibu-sort = { path = "./cyto-ibu-sort" }
+cyto-ibu-view = { path = "./cyto-ibu-view" }
+cyto-core = { path = "./cyto-core" }
+cyto-cli = { path = "./cyto-cli" }
+cyto-view = { path = "./cyto-view" }
+cyto-io = { path = "./cyto-io" }
+cyto-map = { path = "./cyto-map" }
+cyto-workflow = { path = "./cyto-workflow" }
+niffler = { version = "3.0.0", features = ["gz"] }
 
 [profile.release]
 debug = true

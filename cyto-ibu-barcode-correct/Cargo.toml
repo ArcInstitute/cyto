@@ -1,0 +1,16 @@
+[package]
+name = "cyto-ibu-barcode-correct"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+bitnuc = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-io = { workspace = true }
+ibu = { workspace = true }
+niffler = { workspace = true }
+bitnuc-mismatch = "0.1.2"
+
+[lints]
+workspace = true

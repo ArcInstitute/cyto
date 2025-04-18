@@ -1,0 +1,15 @@
+[package]
+name = "cyto-ibu-umi-correct"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cyto-cli = { workspace = true }
+cyto-io = { workspace = true }
+ibu = { workspace = true }
+anyhow = { workspace = true }
+bitnuc = { workspace = true }
+petgraph = "0.8.1"
+
+[lints]
+workspace = true
