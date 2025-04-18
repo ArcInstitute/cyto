@@ -15,9 +15,19 @@ type FqReaderPair = (FqReader, FqReader);
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Paired Input Options")]
 pub struct PairedInput {
-    #[clap(short = 'i', long, required_unless_present = "input")]
+    #[clap(
+        short = 'i',
+        long,
+        conflicts_with = "input",
+        required_unless_present = "input"
+    )]
     pub r1: Option<String>,
-    #[clap(short = 'I', long, required_unless_present = "input")]
+    #[clap(
+        short = 'I',
+        long,
+        conflicts_with = "input",
+        required_unless_present = "input"
+    )]
     pub r2: Option<String>,
 }
 impl PairedInput {
@@ -35,7 +45,7 @@ impl PairedInput {
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
-    #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]
+    #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"], required_unless_present_all = ["r1", "r2"])]
     pub input: Option<String>,
 }
 impl BinseqInput {

@@ -7,7 +7,4 @@ pub struct ArgsOutput {
     pub prefix: String,
     #[clap(short = 'H', long)]
     pub with_header: bool,
-    #[cfg(feature = "benchmarking")]
-    #[clap(long)]
-    pub skip_output: bool,
 }
