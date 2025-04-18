@@ -1,6 +1,6 @@
 [package]
 name = "cyto-view"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [dependencies]
@@ -8,6 +8,8 @@ anyhow = { workspace = true }
 cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
+paraseq = { workspace = true }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true
