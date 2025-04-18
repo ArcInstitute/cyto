@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use bitnuc::as_2bit;
-use cyto_cli::ibu::ArgsCorrect;
+use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output};
 use ibu::{Reader, Record};
 
@@ -229,7 +229,7 @@ fn write_statistics(stats: CorrectStats) {
 }
 
 /// Prebuild whitelist so multiple threads deduplicate work in building mismatch table.
-pub fn run_with_prebuilt_whitelist(args: &ArgsCorrect, mut whitelist: Whitelist) -> Result<()> {
+pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
 
@@ -314,7 +314,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsCorrect, mut whitelist: Whitelist)
     Ok(())
 }
 
-pub fn run(args: &ArgsCorrect) -> Result<()> {
+pub fn run(args: &ArgsBarcode) -> Result<()> {
     let whitelist = Whitelist::from_path(args.options.whitelist.as_ref())?;
     run_with_prebuilt_whitelist(args, whitelist)
 }

@@ -1,11 +1,11 @@
-mod correct;
+mod barcode;
 mod count;
 mod input;
 mod sort;
 mod umi;
 mod view;
 
-pub use correct::ArgsCorrect;
+pub use barcode::ArgsBarcode;
 pub use count::ArgsCount;
 pub use input::IbuInput;
 pub use sort::ArgsSort;
@@ -25,7 +25,9 @@ pub enum IbuCommand {
     Count(ArgsCount),
 
     /// Correct barcode errors in an IBU library
-    Correct(ArgsCorrect),
+    ///
+    /// Does not require a sorted IBU library as input
+    Barcode(ArgsBarcode),
 
     /// Correct UMI errors in an IBU library
     ///

@@ -3,7 +3,7 @@ use anyhow::bail;
 use glob::glob;
 
 use cyto_cli::{
-    ibu::{ArgsCorrect, ArgsCount, ArgsSort, ArgsUmi},
+    ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
     workflow::ArgsWorkflow,
 };
 use cyto_ibu_barcode_correct::Whitelist;
@@ -38,7 +38,7 @@ pub fn ibu_steps(
 
     if !wf_args.skip_barcode {
         let bc_path = sort_path.replace(".sort.ibu", ".barcode.ibu");
-        let barcode_args = ArgsCorrect::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist);
+        let barcode_args = ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist);
         let Some(whitelist) = whitelist else {
             bail!("Whitelist is required for barcode correction");
         };
