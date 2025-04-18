@@ -10,8 +10,8 @@ cyto-io = { workspace = true }
 anyhow = { workspace = true }
 binseq = { version = "0.5.4", optional = true }
 ibu = { workspace = true, features = ["serde"] }
+paraseq = { workspace = true }
 num_cpus = "1.16.0"
-paraseq = "0.1.4"
 
 [features]
 default = ["binseq"]

@@ -31,6 +31,7 @@ cyto-io = { path = "./cyto-io" }
 cyto-map = { path = "./cyto-map" }
 cyto-workflow = { path = "./cyto-workflow" }
 niffler = { version = "3.0.0", features = ["gz"] }
+paraseq = "0.1.4"
 
 [profile.release]
 debug = true

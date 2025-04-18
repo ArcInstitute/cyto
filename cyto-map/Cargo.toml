@@ -10,8 +10,8 @@ cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+paraseq = { workspace = true }
 binseq = { version = "0.5.4", optional = true }
-paraseq = "0.1.4"
 parking_lot = "0.12"
 indicatif = "0.17"
 
