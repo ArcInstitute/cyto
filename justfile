@@ -11,12 +11,8 @@ FLEX_FASTQ_R2 := "./data/flex_R2.fastq.gz"
 CRISPR_FASTQ_R1 := "./data/crispr_R1.fastq.gz"
 CRISPR_FASTQ_R2 := "./data/crispr_R2.fastq.gz"
 
-
-install-dev:
-    cargo install --path cyto-cli -F benchmarking
-
 install:
-    cargo install --path cyto-cli
+    cargo install --path cyto
 
 run-crispr-probe: install
     time cyto map crispr \
