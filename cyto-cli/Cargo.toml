@@ -7,7 +7,6 @@ edition = "2021"
 clap = { version = "4.5.20", features = ["derive"] }
 cyto = { path = "../cyto-core" }
 anyhow = { workspace = true }
-serde = { workspace = true }
 bitnuc = { workspace = true }
 binseq = { version = "0.5.4", optional = true }
 ibu = { workspace = true, features = ["serde"] }
