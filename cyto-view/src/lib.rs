@@ -84,6 +84,9 @@ pub fn run(args: &ArgsView) -> Result<()> {
     let r1_handle = match_input_transparent(args.input.r1.as_ref())?;
     let r2_handle = match_input_transparent(args.input.r2.as_ref())?;
 
+    // Determine number of threads
+    let num_threads = args.options.threads.max(1);
+
     // Open output file
     let writer = match_output(args.options.output.as_ref())?;
 
@@ -99,7 +102,7 @@ pub fn run(args: &ArgsView) -> Result<()> {
     );
 
     // Process records in parallel
-    r1_reader.process_parallel_paired(r2_reader, processor, 1)?;
+    r1_reader.process_parallel_paired(r2_reader, processor, num_threads)?;
 
     Ok(())
 }

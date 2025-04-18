@@ -16,6 +16,10 @@ pub struct ArgsView {
 
 #[derive(Parser, Debug)]
 pub struct OptionsView {
+    /// Number of threads to use
+    #[clap(short = 'T', long, default_value = "1")]
+    pub threads: usize,
+
     #[clap(short, long, help = "Output file [default=stdout]")]
     pub output: Option<String>,
 }
