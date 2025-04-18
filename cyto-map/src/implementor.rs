@@ -5,12 +5,14 @@ use std::{
 };
 
 use anyhow::{Result, bail};
+use binseq::{MmapReader, ParallelProcessor};
 use bitnuc::encode;
 use cyto_core::{
     GeometryR1, Mapper, MappingStatistics,
     mappers::{Adjustment, MapperOffset, MappingError},
     statistics::{LibraryCombination, RuntimeStatistics, Statistics},
 };
+use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use paraseq::{
     fastq::Reader,
@@ -18,11 +20,6 @@ use paraseq::{
     parallel::{PairedParallelProcessor, PairedParallelReader},
 };
 use parking_lot::Mutex;
-
-use cyto_io::open_file_handle;
-
-#[cfg(feature = "binseq")]
-use binseq::{MmapReader, ParallelProcessor};
 
 #[derive(Clone)]
 pub struct MappingImplementor<M: Mapper> {
@@ -39,7 +36,6 @@ pub struct MappingImplementor<M: Mapper> {
     umi_buf: Vec<u64>,
 
     // Temporary decoding buffer for R2 sequences (binseq)
-    #[cfg(feature = "binseq")]
     dbuf: Vec<u8>,
 
     // Temporary buffer for output
@@ -98,7 +94,6 @@ impl<M: Mapper> MappingImplementor<M> {
             global_stats,
             barcode_buf: Vec::new(),
             umi_buf: Vec::new(),
-            #[cfg(feature = "binseq")]
             dbuf: Vec::new(),
             local_output_buf: Vec::new(),
             file,
@@ -143,7 +138,6 @@ impl<M: Mapper> MappingImplementor<M> {
         Ok(true)
     }
 
-    #[cfg(feature = "binseq")]
     fn split_r1(&mut self, record: &binseq::RefRecord) -> Result<()> {
         let config = record.config();
 
@@ -166,7 +160,6 @@ impl<M: Mapper> MappingImplementor<M> {
         Ok(())
     }
 
-    #[cfg(feature = "binseq")]
     fn decode_r2(&mut self, record: &binseq::RefRecord) -> Result<()> {
         self.dbuf.clear();
         record.decode_x(&mut self.dbuf)?;
@@ -297,7 +290,6 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     }
 }
 
-#[cfg(feature = "binseq")]
 impl<M: Mapper> ParallelProcessor for MappingImplementor<M> {
     fn process_record(&mut self, pair: binseq::RefRecord) -> Result<(), binseq::Error> {
         // Split R1 into barcode and UMI
@@ -385,7 +377,6 @@ where
     Ok(implementor.statistics())
 }
 
-#[cfg(feature = "binseq")]
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_binseq<M>(
     reader: MmapReader,

@@ -6,12 +6,10 @@ use cyto_core::mappers::GenericMapper;
 use cyto_io::{write_features, write_statistics};
 
 use super::{
+    ibu_map_pairs_binseq,
     implementor::ibu_map_pairs_paraseq,
     utils::{build_filepath, delete_empty_path, find_offset_paraseq},
 };
-
-#[cfg(feature = "binseq")]
-use super::ibu_map_pairs_binseq;
 
 fn bus(args: &ArgsGeneric) -> Result<()> {
     // Load the input files
@@ -56,7 +54,6 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "binseq")]
 fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
     use super::utils::find_offset_binseq;
 
@@ -98,7 +95,6 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
 }
 
 pub fn run(args: &ArgsGeneric) -> Result<()> {
-    #[cfg(feature = "binseq")]
     if args.binseq.input.is_some() {
         return bus_binseq(args);
     }

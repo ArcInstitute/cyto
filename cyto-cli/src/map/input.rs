@@ -3,9 +3,7 @@ use std::io::Read;
 use anyhow::Result;
 use clap::Parser;
 
-#[cfg(feature = "binseq")]
 pub use anyhow::bail;
-#[cfg(feature = "binseq")]
 pub use binseq::MmapReader;
 use paraseq::fastq;
 
@@ -34,14 +32,12 @@ impl PairedInput {
     }
 }
 
-#[cfg(feature = "binseq")]
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
     #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"])]
     pub input: Option<String>,
 }
-#[cfg(feature = "binseq")]
 impl BinseqInput {
     #[allow(clippy::wrong_self_convention)]
     pub fn into_reader(&self) -> Result<MmapReader> {

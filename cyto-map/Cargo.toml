@@ -1,10 +1,11 @@
 [package]
 name = "cyto-map"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+binseq = { workspace = true }
 bitnuc = { workspace = true }
 cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
@@ -12,13 +13,7 @@ cyto-io = { workspace = true }
 ibu = { workspace = true }
 paraseq = { workspace = true }
 parking_lot = { workspace = true }
-binseq = { version = "0.5.4", optional = true }
 indicatif = "0.17"
-
-
-[features]
-default = ["binseq"]
-binseq = ["dep:binseq"]
 
 [lints]
 workspace = true

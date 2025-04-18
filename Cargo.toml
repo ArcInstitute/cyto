@@ -33,6 +33,7 @@ cyto-workflow = { path = "./cyto-workflow" }
 niffler = { version = "3.0.0", features = ["gz"] }
 paraseq = "0.1.4"
 parking_lot = "0.12"
+binseq = { version = "0.5.4" }
 
 [profile.release]
 debug = true

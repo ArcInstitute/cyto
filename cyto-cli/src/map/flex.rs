@@ -3,7 +3,6 @@ use clap::Parser;
 use super::{Geometry, MapOptions, PairedInput, ProbeOptions, RuntimeOptions};
 use crate::ArgsOutput;
 
-#[cfg(feature = "binseq")]
 use super::BinseqInput;
 
 #[derive(Parser, Debug)]
@@ -11,7 +10,6 @@ pub struct ArgsFlex {
     #[clap(flatten)]
     pub input: PairedInput,
 
-    #[cfg(feature = "binseq")]
     #[clap(flatten)]
     pub binseq: BinseqInput,
 

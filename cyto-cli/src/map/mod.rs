@@ -16,7 +16,6 @@ pub use map::MapOptions;
 pub use probe::ProbeOptions;
 pub use runtime::RuntimeOptions;
 
-#[cfg(feature = "binseq")]
 use input::BinseqInput;
 
 use clap::Subcommand;

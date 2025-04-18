@@ -1,14 +1,12 @@
 use std::io::Read;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
+use binseq::MmapReader;
 use cyto_core::{
-    mappers::{GenericMapper, MapperOffset},
     Mapper,
+    mappers::{GenericMapper, MapperOffset},
 };
 use paraseq::fastq::{Reader, RecordSet};
-
-#[cfg(feature = "binseq")]
-use binseq::MmapReader;
 
 fn argmax(vec: &[usize]) -> usize {
     let mut max_idx = 0;
@@ -58,7 +56,6 @@ pub fn find_offset_paraseq<R: Read>(
     Ok(MapperOffset::RightOf(max_idx))
 }
 
-#[cfg(feature = "binseq")]
 pub fn find_offset_binseq(
     rdr: &MmapReader,
     mapper: &GenericMapper,
