@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-view"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [dependencies]
@@ -8,7 +8,7 @@ anyhow = { workspace = true }
 bitnuc = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
-ibu = { workspace = true }
+ibu = { workspace = true, features = ["serde"] }
 csv = "1"
 
 [lints]
