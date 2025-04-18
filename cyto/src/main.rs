@@ -1,9 +1,8 @@
 use anyhow::Result;
-use clap::Parser;
 use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
 
 fn main() -> Result<()> {
-    let args = Cli::parse();
+    let args = Cli::new();
     match args.command {
         Commands::View(args) => cyto_view::run(&args),
         Commands::Map(map) => match map {

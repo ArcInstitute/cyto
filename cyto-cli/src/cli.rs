@@ -21,3 +21,9 @@ pub struct Cli {
     #[clap(subcommand)]
     pub command: Commands,
 }
+impl Cli {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self::parse()
+    }
+}
