@@ -3,18 +3,18 @@ use super::IbuInput;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-pub struct ArgsCorrect {
+pub struct ArgsBarcode {
     #[clap(flatten)]
     pub input: IbuInput,
 
     #[clap(flatten)]
-    pub options: OptionsCorrect,
+    pub options: OptionsBarcode,
 }
-impl ArgsCorrect {
+impl ArgsBarcode {
     pub fn from_wf_path(input_path: &str, output_path: &str, whitelist: &str) -> Self {
         Self {
             input: IbuInput::from_path(input_path),
-            options: OptionsCorrect {
+            options: OptionsBarcode {
                 whitelist: whitelist.to_string(),
                 distance: 1,
                 skip_second_pass: false,
@@ -27,7 +27,7 @@ impl ArgsCorrect {
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Barcode Correction Options")]
-pub struct OptionsCorrect {
+pub struct OptionsBarcode {
     /// Path of the whitelist file
     ///
     /// This is a file containing a single nucleotide sequence per line
