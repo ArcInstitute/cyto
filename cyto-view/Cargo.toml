@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 paraseq = { workspace = true }
