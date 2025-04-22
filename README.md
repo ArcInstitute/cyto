@@ -28,14 +28,22 @@ While cyto can be extended for any single-cell protocol with fixed read geometry
 - Flexible mapping strategies for different sequence geometries
 - Support for multiplexed experiments via probe sequences
 
+## Installation
+
+`cyto` can be installed via cargo:
+
+```bash
+cargo install --path cyto
+```
+
+## Usage
+
 ### Structure
 
 `cyto` is organized into two main components:
 
 1. `cyto map`: Mapping reads to target sequences and generating [IBU files](https://github.com/noamteyssier/ibu)
 2. `cyto ibu`: Processing IBU files to sort and count molecules.
-
-## Usage
 
 ### Mapping reads to target sequences
 
@@ -182,11 +190,3 @@ cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f features.tsv
 ```
 
 **Note:** The features are generated from `cyto map` and are used to map the feature sequences to their numerical index in the count matrix.
-
-## Installation
-
-`cyto` can be installed via cargo:
-
-```bash
-cargo install --path cyto
-```
