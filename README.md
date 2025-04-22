@@ -147,7 +147,6 @@ You can take advantage of multi-threading by specifying the number of threads wi
 By default this is set to 8 threads, but it can be set to the number of available cores on your machine with the `-T0` flag.
 If you're running on a machine with limited resources, you can set the number of threads to 1 with the `-T1` flag.
 
-
 ### Processing IBU files
 
 Once the reads have been mapped to target sequences and an IBU file has been generated, the `cyto ibu` command can be used to process the IBU file.
@@ -189,5 +188,5 @@ cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f features.tsv
 `cyto` can be installed via cargo:
 
 ```bash
-cargo install cyto-cli
+cargo install --path cyto
 ```
