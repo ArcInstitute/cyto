@@ -38,11 +38,11 @@ impl CytoView {
     /// Write the processed data to the local buffer
     fn write_to_local(&mut self, bc: &[u8], umi: &[u8], seq: &[u8]) -> Result<()> {
         self.local_buffer.extend_from_slice(bc);
-        self.local_buffer.write(b"\t")?;
+        self.local_buffer.write_all(b"\t")?;
         self.local_buffer.extend_from_slice(umi);
-        self.local_buffer.write(b"\t")?;
+        self.local_buffer.write_all(b"\t")?;
         self.local_buffer.extend_from_slice(seq);
-        self.local_buffer.write(b"\n")?;
+        self.local_buffer.write_all(b"\n")?;
         Ok(())
     }
 }
