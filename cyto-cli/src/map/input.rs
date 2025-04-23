@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 
 pub use anyhow::bail;
-pub use binseq::MmapReader;
+pub use binseq::bq::MmapReader;
 use paraseq::fastq;
 
 use cyto_io::match_input_transparent;

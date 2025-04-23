@@ -17,8 +17,8 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.93"
-bitnuc = "0.2.10"
-ibu = "0.1.0"
+binseq = "0.6.1"
+bitnuc = "0.2.11"
 cyto-ibu-umi-correct = { path = "./cyto-ibu-umi-correct" }
 cyto-ibu-barcode-correct = { path = "./cyto-ibu-barcode-correct" }
 cyto-ibu-count = { path = "./cyto-ibu-count" }
@@ -30,10 +30,10 @@ cyto-view = { path = "./cyto-view" }
 cyto-io = { path = "./cyto-io" }
 cyto-map = { path = "./cyto-map" }
 cyto-workflow = { path = "./cyto-workflow" }
+ibu = "0.1.0"
 niffler = { version = "3.0.0", features = ["gz"] }
 paraseq = "0.1.4"
 parking_lot = "0.12"
-binseq = { version = "0.5.4" }
 
 [profile.release]
 debug = true
@@ -43,6 +43,7 @@ pedantic = { level = "warn", priority = -1 }
 module_inception = "allow"
 module_name_repetitions = "allow"
 cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
 struct_field_names = "allow"
 must_use_candidate = "allow"
 missing_errors_doc = "allow"
