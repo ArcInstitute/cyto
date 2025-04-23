@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::{
     fs::File,
-    io::{stdin, stdout, BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read, Write, stdin, stdout},
 };
 
 pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read + Send>> {
