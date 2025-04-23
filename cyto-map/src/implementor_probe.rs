@@ -134,9 +134,6 @@ impl<M: Mapper> MappingProbeImplementor<M> {
             return Ok(false);
         }
 
-        encode(seq_bc, &mut self.barcode_buf)?;
-        encode(seq_umi, &mut self.umi_buf)?;
-
         if self.barcode_buf.len() != 1 || self.umi_buf.len() != 1 {
             bail!(
                 "Barcode split assertion length failed - both barcode and UMI must be under 32bp"
