@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use binseq::ParallelProcessor;
+use binseq::{bq, prelude::*};
 use bitnuc::encode;
 use cyto_core::{
     GeometryR1, Mapper, MappingStatistics,
@@ -145,15 +145,14 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         Ok(true)
     }
 
-    fn split_r1(&mut self, record: &binseq::RefRecord) -> Result<()> {
+    fn split_r1<B: BinseqRecord>(&mut self, record: &B) -> Result<()> {
         // Split R1 into barcode and UMI
-        let config = record.config();
-        if config.slen() != self.geometry.barcode + self.geometry.umi {
+        if record.slen() as usize != self.geometry.barcode + self.geometry.umi {
             bail!("R1 sequence length does not match provided geometry");
         }
         bitnuc::split_packed(
             record.sbuf(),
-            config.slen(),
+            record.slen() as usize,
             self.geometry.barcode,
             &mut self.barcode_buf,
             &mut self.umi_buf,
@@ -166,7 +165,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         Ok(())
     }
 
-    fn decode_r2(&mut self, record: &binseq::RefRecord) -> Result<()> {
+    fn decode_r2<B: BinseqRecord>(&mut self, record: &B) -> Result<()> {
         self.dbuf.clear();
         record.decode_x(&mut self.dbuf)?;
         Ok(())
@@ -329,7 +328,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
 
 impl<M: Mapper> ParallelProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record(&mut self, pair: binseq::RefRecord) -> Result<(), binseq::Error> {
+    fn process_record<B: BinseqRecord>(&mut self, pair: B) -> binseq::Result<()> {
         // Split R1 into barcode and UMI
         self.split_r1(&pair)?;
 
@@ -444,7 +443,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
-    reader: binseq::MmapReader,
+    reader: bq::MmapReader,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,

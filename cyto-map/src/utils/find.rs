@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use anyhow::{Result, bail};
-use binseq::MmapReader;
+use binseq::{BinseqRecord, bq::MmapReader};
 use cyto_core::{
     Mapper,
     mappers::{GenericMapper, MapperOffset},
