@@ -101,7 +101,7 @@ cyto map crispr \
 
 The FLEX mode is used to map reads from FLEX barcoding systems to their corresponding barcodes.
 
-The expected structure of the feature table is a 2 column TSV file with the following columns:
+The expected structure of the feature table is a 3 column TSV file with the following columns:
 
 ```text
 1. Name of the barcode
