@@ -1,8 +1,8 @@
-use std::io::Write;
+use std::{collections::HashMap, io::Write};
 
 use anyhow::Result;
 use cyto_cli::ibu::ArgsCount;
-use cyto_core::{BarcodeIndexCount, deduplicate_umis};
+use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
 use cyto_io::{match_input, match_output};
 use ibu::{Header, Reader};
 
@@ -91,18 +91,47 @@ fn dump_decoded_records_features<W: Write>(
     Ok(())
 }
 
-fn load_features(path: Option<&String>) -> Result<Option<Vec<String>>> {
+fn load_features(path: Option<&String>, feature_col: usize) -> Result<Option<Vec<String>>> {
     if let Some(path) = path {
         let features = std::fs::read_to_string(path)?;
-        Ok(Some(features.lines().map(String::from).collect()))
+        Ok(Some(
+            features
+                .lines()
+                .map(|s| {
+                    s.split_whitespace()
+                        .nth(feature_col)
+                        .expect("empty feature file or missing feature column: {feature_col}")
+                })
+                .map(String::from)
+                .collect(),
+        ))
     } else {
         Ok(None)
     }
 }
 
+fn aggregate_unit(counts: BarcodeIndexCounts, features: &[String]) -> BarcodeIndexCounts {
+    let mut aggr_to_uidx = HashMap::new();
+    for f in features {
+        if !aggr_to_uidx.contains_key(f) {
+            aggr_to_uidx.insert(f.to_string(), aggr_to_uidx.len());
+        }
+    }
+
+    let mut agg_counts = BarcodeIndexCounts::with_capacity(counts.get_num_barcodes());
+    for record in counts.iter_counts() {
+        let unit_idx = record.index() as usize;
+        let aggr_name = &features[unit_idx];
+        let aggr_idx = aggr_to_uidx[aggr_name];
+        agg_counts.insert_count(record.barcode(), aggr_idx as u64, record.count());
+    }
+
+    agg_counts
+}
+
 pub fn run(args: &ArgsCount) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
-    let features = load_features(args.features.as_ref())?;
+    let features = load_features(args.features.as_ref(), args.feature_col)?;
     let max_index = if let Some(features) = &features {
         features.len()
     } else {
@@ -111,7 +140,16 @@ pub fn run(args: &ArgsCount) -> Result<()> {
 
     let reader = Reader::new(input)?;
     let header = reader.header();
-    let counts = deduplicate_umis(reader, max_index as u64)?;
+    let mut counts = deduplicate_umis(reader, max_index as u64)?;
+
+    // aggregate the units if features are present
+    if let Some(features) = &features {
+        // skip if feature col is the `unit` column
+        if args.feature_col != 0 {
+            counts = aggregate_unit(counts, features);
+        }
+    }
+
     let output_handle = match_output(args.output.as_ref())?;
 
     let mut writer = csv::WriterBuilder::new()
