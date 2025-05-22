@@ -105,7 +105,8 @@ The expected structure of the feature table is a 2 column TSV file with the foll
 
 ```text
 1. Name of the barcode
-2. Barcode sequence nucleotides
+2. Name of the aggregation (duplicate of barcode if not aggregating genes)
+3. Barcode sequence nucleotides
 ```
 
 **Note:** There should be no header in the feature table.
