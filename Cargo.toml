@@ -1,35 +1,23 @@
 [workspace]
-members = [
-    "cyto",
-    "cyto-cli",
-    "cyto-core",
-    "cyto-ibu-barcode-correct",
-    "cyto-ibu-count",
-    "cyto-ibu-sort",
-    "cyto-ibu-umi-correct",
-    "cyto-ibu-view",
-    "cyto-io",
-    "cyto-map",
-    "cyto-view",
-    "cyto-workflow",
-]
+members = ["crates/*"]
 resolver = "2"
 
 [workspace.dependencies]
+cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct" }
+cyto-ibu-barcode-correct = { path = "crates/cyto-ibu-barcode-correct" }
+cyto-ibu-count = { path = "crates/cyto-ibu-count" }
+cyto-ibu-sort = { path = "crates/cyto-ibu-sort" }
+cyto-ibu-view = { path = "crates/cyto-ibu-view" }
+cyto-core = { path = "crates/cyto-core" }
+cyto-cli = { path = "crates/cyto-cli" }
+cyto-view = { path = "crates/cyto-view" }
+cyto-io = { path = "crates/cyto-io" }
+cyto-map = { path = "crates/cyto-map" }
+cyto-workflow = { path = "crates/cyto-workflow" }
+
 anyhow = "1.0.93"
 binseq = "0.6.1"
 bitnuc = "0.2.11"
-cyto-ibu-umi-correct = { path = "./cyto-ibu-umi-correct" }
-cyto-ibu-barcode-correct = { path = "./cyto-ibu-barcode-correct" }
-cyto-ibu-count = { path = "./cyto-ibu-count" }
-cyto-ibu-sort = { path = "./cyto-ibu-sort" }
-cyto-ibu-view = { path = "./cyto-ibu-view" }
-cyto-core = { path = "./cyto-core" }
-cyto-cli = { path = "./cyto-cli" }
-cyto-view = { path = "./cyto-view" }
-cyto-io = { path = "./cyto-io" }
-cyto-map = { path = "./cyto-map" }
-cyto-workflow = { path = "./cyto-workflow" }
 ibu = "0.1.0"
 niffler = { version = "3.0.0", features = ["gz"] }
 paraseq = "0.1.4"

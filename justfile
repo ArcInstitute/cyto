@@ -12,7 +12,7 @@ CRISPR_FASTQ_R1 := "./data/crispr_R1.fastq.gz"
 CRISPR_FASTQ_R2 := "./data/crispr_R2.fastq.gz"
 
 install:
-    cargo install --path cyto
+    cargo install --path crates/cyto
 
 run-crispr-probe: install
     time cyto map crispr \
