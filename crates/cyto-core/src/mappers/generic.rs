@@ -18,7 +18,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct GenericMapper {
     sequence_to_index: MapSequenceToIndex,
-    index_to_name: MapIndexToName,
+    index_to_unit: MapIndexToName,
+    index_to_aggr: MapIndexToName,
     correction: Disambibyte,
 }
 impl GenericMapper {
@@ -38,7 +39,8 @@ impl GenericMapper {
 
     pub fn new(library: GenericLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let mut index_to_unit = MapIndexToName::with_capacity(library.len());
+        let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
         let correction = Disambibyte::default();
 
         library
@@ -46,20 +48,23 @@ impl GenericMapper {
             .enumerate()
             .try_for_each(|(index, target)| -> Result<()> {
                 sequence_to_index.insert(target.sequence, index)?;
-                index_to_name.insert(index, target.name);
+                index_to_unit.insert(index, target.unit_name);
+                index_to_aggr.insert(index, target.aggr_name);
                 Ok(())
             })?;
 
         Ok(Self {
             sequence_to_index,
-            index_to_name,
+            index_to_unit,
+            index_to_aggr,
             correction,
         })
     }
 
     pub fn new_corrected(library: GenericLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let mut index_to_unit = MapIndexToName::with_capacity(library.len());
+        let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
         let mut correction = Disambibyte::default();
 
         library
@@ -68,19 +73,21 @@ impl GenericMapper {
             .try_for_each(|(index, target)| -> Result<()> {
                 correction.insert(&target.sequence);
                 sequence_to_index.insert(target.sequence, index)?;
-                index_to_name.insert(index, target.name);
+                index_to_unit.insert(index, target.unit_name);
+                index_to_aggr.insert(index, target.aggr_name);
                 Ok(())
             })?;
 
         Ok(Self {
             sequence_to_index,
-            index_to_name,
+            index_to_unit,
+            index_to_aggr,
             correction,
         })
     }
 
     pub fn get_name(&self, index: usize) -> Option<&Name> {
-        self.index_to_name.get(index)
+        self.index_to_unit.get(index)
     }
 
     pub fn get_sequence_size(&self) -> usize {
@@ -193,8 +200,10 @@ impl Mapper for GenericMapper {
 }
 
 impl<'a> FeatureWriter<'a> for GenericMapper {
-    type Record = &'a str;
+    type Record = (&'a str, &'a str);
     fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
-        Box::new(self.index_to_name.iter_records())
+        self.index_to_unit
+            .iter_records()
+            .zip(self.index_to_aggr.iter_records())
     }
 }

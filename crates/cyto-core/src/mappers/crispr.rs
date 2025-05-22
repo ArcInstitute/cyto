@@ -234,8 +234,10 @@ impl Mapper for CrisprMapper {
 }
 
 impl<'a> FeatureWriter<'a> for CrisprMapper {
-    type Record = &'a str;
+    type Record = (&'a str, &'a str);
     fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
-        self.index_to_name.iter_records()
+        self.index_to_name
+            .iter_records()
+            .zip(self.index_to_name.iter_records())
     }
 }

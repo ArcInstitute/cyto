@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Target {
     #[serde(deserialize_with = "string_to_bytes")]
-    pub name: Name,
+    pub unit_name: Name,
+    #[serde(deserialize_with = "string_to_bytes")]
+    pub aggr_name: Name,
     #[serde(deserialize_with = "string_to_bytes")]
     pub sequence: Sequence,
 }
