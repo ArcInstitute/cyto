@@ -17,7 +17,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
-    index_to_name: MapIndexToName,
+    index_to_sgrna: MapIndexToName,
+    index_to_gene: MapIndexToName,
 }
 impl FlexMapper {
     pub fn from_tsv(filepath: &str) -> Result<Self> {
@@ -32,25 +33,29 @@ impl FlexMapper {
 
     pub fn new(library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let mut index_to_sgrna = MapIndexToName::with_capacity(library.len());
+        let mut index_to_gene = MapIndexToName::with_capacity(library.len());
 
         library
             .into_iter()
             .enumerate()
             .try_for_each(|(index, flex)| -> Result<()> {
                 sequence_to_index.insert(&flex.sequence, index)?;
-                index_to_name.insert(index, flex.name);
+                index_to_sgrna.insert(index, flex.sgrna_name);
+                index_to_gene.insert(index, flex.gene_name);
                 Ok(())
             })?;
 
         Ok(Self {
             sequence_to_index,
-            index_to_name,
+            index_to_sgrna,
+            index_to_gene,
         })
     }
 
+    /// Retrieve the sgrna name of the index
     pub fn get_name(&self, index: usize) -> Option<&Name> {
-        self.index_to_name.get(index)
+        self.index_to_sgrna.get(index)
     }
 
     pub fn get_sequence_size(&self) -> usize {
@@ -108,8 +113,15 @@ impl Mapper for FlexMapper {
 }
 
 impl<'a> FeatureWriter<'a> for FlexMapper {
-    type Record = &'a str;
+    type Record = (&'a str, &'a str);
     fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
-        Box::new(self.index_to_name.iter_records())
+        assert_eq!(
+            self.index_to_sgrna.len(),
+            self.index_to_gene.len(),
+            "Error in expected index to * size"
+        );
+        self.index_to_sgrna
+            .iter_records()
+            .zip(self.index_to_gene.iter_records())
     }
 }
