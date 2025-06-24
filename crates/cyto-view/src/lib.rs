@@ -3,11 +3,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use cyto_cli::ArgsView;
-use cyto_io::{match_input_transparent, match_output};
-use paraseq::{
-    fastq,
-    parallel::{PairedParallelProcessor, PairedParallelReader},
-};
+use cyto_io::match_output;
+use paraseq::parallel::{PairedParallelProcessor, PairedParallelReader};
 use parking_lot::Mutex;
 
 type BoxedWriter = Box<dyn Write + Send>;
@@ -80,19 +77,14 @@ impl PairedParallelProcessor for CytoView {
 }
 
 pub fn run(args: &ArgsView) -> Result<()> {
-    // Open input files
-    let r1_handle = match_input_transparent(args.input.r1.as_ref())?;
-    let r2_handle = match_input_transparent(args.input.r2.as_ref())?;
+    // Open readers
+    let (r1_reader, r2_reader) = args.input.to_readers()?;
 
     // Determine number of threads
     let num_threads = args.options.threads.max(1);
 
     // Open output file
     let writer = match_output(args.options.output.as_ref())?;
-
-    // Initialize readers
-    let r1_reader = fastq::Reader::new(r1_handle);
-    let r2_reader = fastq::Reader::new(r2_handle);
 
     // Initialize processor
     let processor = CytoView::new(
