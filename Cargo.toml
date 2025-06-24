@@ -15,12 +15,12 @@ cyto-io = { path = "crates/cyto-io" }
 cyto-map = { path = "crates/cyto-map" }
 cyto-workflow = { path = "crates/cyto-workflow" }
 
-anyhow = "1.0.93"
-binseq = "0.6.1"
+anyhow = "1.0.98"
+binseq = "0.6.4"
 bitnuc = "0.2.11"
 ibu = "0.1.0"
 niffler = { version = "3.0.0", features = ["gz"] }
-paraseq = "0.1.4"
+paraseq = "0.3.3"
 parking_lot = "0.12"
 
 [profile.release]

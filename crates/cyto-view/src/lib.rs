@@ -48,7 +48,7 @@ impl CytoView {
 }
 
 impl PairedParallelProcessor for CytoView {
-    fn process_record_pair<Rf: paraseq::fastx::Record>(
+    fn process_record_pair<Rf: paraseq::Record>(
         &mut self,
         record1: Rf,
         record2: Rf,
@@ -62,7 +62,7 @@ impl PairedParallelProcessor for CytoView {
         self.write_to_local(
             &r1_seq[..self.bc_size],
             &r1_seq[self.bc_size..self.bc_size + self.umi_size],
-            record2.seq(),
+            &record2.seq(),
         )?;
 
         Ok(())

@@ -6,7 +6,7 @@ use cyto_core::{
     Mapper,
     mappers::{GenericMapper, MapperOffset},
 };
-use paraseq::fastq::{Reader, RecordSet};
+use paraseq::{Record, fastx::Reader};
 
 fn argmax(vec: &[usize]) -> usize {
     let mut max_idx = 0;
@@ -24,7 +24,7 @@ pub fn find_offset_paraseq<R: Read>(
     rdr: &mut Reader<R>,
     mapper: &GenericMapper,
 ) -> Result<MapperOffset> {
-    let mut rset = RecordSet::default();
+    let mut rset = rdr.new_record_set();
     if !rset.fill(rdr)? {
         bail!("Empty record set");
     }
@@ -37,7 +37,7 @@ pub fn find_offset_paraseq<R: Read>(
             for record in rset.iter() {
                 let record = record?;
                 if mapper
-                    .map(record.seq(), Some(MapperOffset::RightOf(offset)), None)
+                    .map(&record.seq(), Some(MapperOffset::RightOf(offset)), None)
                     .is_ok()
                 {
                     n_match += 1;
@@ -51,7 +51,7 @@ pub fn find_offset_paraseq<R: Read>(
     eprintln!("Found best matching rate at position: {max_idx}");
 
     // reload the Reader
-    rdr.reload(&mut rset);
+    rdr.reload(&mut rset)?;
 
     Ok(MapperOffset::RightOf(max_idx))
 }

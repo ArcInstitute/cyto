@@ -14,11 +14,7 @@ use cyto_core::{
 };
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use paraseq::{
-    fastq::Reader,
-    fastx::Record,
-    parallel::{PairedParallelProcessor, PairedParallelReader},
-};
+use paraseq::prelude::*;
 use parking_lot::Mutex;
 
 #[derive(Clone)]
@@ -268,7 +264,7 @@ impl<M: Mapper> MappingProbeImplementor<M> {
 }
 impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record_pair<Rf: paraseq::fastx::Record>(
+    fn process_record_pair<Rf: paraseq::Record>(
         &mut self,
         r1: Rf,
         r2: Rf,
@@ -283,7 +279,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
         let umi = self.umi_buf[0];
 
         // Map the sequence
-        match (self.map_target(r2.seq()), self.map_probe(r2.seq())) {
+        match (self.map_target(&r2.seq()), self.map_probe(&r2.seq())) {
             (Ok(t_idx), Ok(p_idx)) => {
                 // Create the record
                 let record = ibu::Record::new(barcode, umi, t_idx as u64);
@@ -323,7 +319,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
     }
 }
 
-impl<M: Mapper> ParallelProcessor for MappingProbeImplementor<M> {
+impl<M: Mapper> binseq::ParallelProcessor for MappingProbeImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
     fn process_record<B: BinseqRecord>(&mut self, pair: B) -> binseq::Result<()> {
         // Split R1 into barcode and UMI
@@ -380,8 +376,8 @@ impl<M: Mapper> ParallelProcessor for MappingProbeImplementor<M> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_paraseq<M, R>(
-    rdr_r1: Reader<R>,
-    rdr_r2: Reader<R>,
+    rdr_r1: paraseq::fastx::Reader<R>,
+    rdr_r2: paraseq::fastx::Reader<R>,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,

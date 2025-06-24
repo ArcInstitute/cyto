@@ -5,12 +5,10 @@ use clap::Parser;
 
 pub use anyhow::bail;
 pub use binseq::bq::MmapReader;
-use paraseq::fastq;
+use paraseq::fastx;
 
-use cyto_io::match_input_transparent;
-
-type FqReader = fastq::Reader<Box<dyn Read + Send>>;
-type FqReaderPair = (FqReader, FqReader);
+type FxReader = fastx::Reader<Box<dyn Read + Send>>;
+type FxReaderPair = (FxReader, FxReader);
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Paired Input Options")]
@@ -31,14 +29,11 @@ pub struct PairedInput {
     pub r2: Option<String>,
 }
 impl PairedInput {
-    pub fn to_readers(&self) -> Result<FqReaderPair> {
-        let h1 = match_input_transparent(self.r1.as_ref())?;
-        let h2 = match_input_transparent(self.r2.as_ref())?;
-
-        let r1 = fastq::Reader::new(h1);
-        let r2 = fastq::Reader::new(h2);
-
-        Ok((r1, r2))
+    pub fn to_readers(&self) -> Result<FxReaderPair> {
+        Ok((
+            fastx::Reader::from_optional_path(self.r1.as_ref())?,
+            fastx::Reader::from_optional_path(self.r2.as_ref())?,
+        ))
     }
 }
 

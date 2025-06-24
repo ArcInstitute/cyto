@@ -10,8 +10,8 @@ cyto-core = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
 paraseq = { workspace = true }
-clap = { version = "4.5.20", features = ["derive"] }
-num_cpus = "1.16.0"
+clap = { version = "4.5.40", features = ["derive"] }
+num_cpus = "1.17.0"
 
 [lints]
 workspace = true
