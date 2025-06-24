@@ -91,10 +91,20 @@ fn dump_decoded_records<W: Write, R: Read>(
     Ok(())
 }
 
-fn load_features(path: Option<&String>) -> Result<Option<Vec<String>>> {
+fn load_features(path: Option<&String>, feature_col: usize) -> Result<Option<Vec<String>>> {
     if let Some(path) = path {
         let features = std::fs::read_to_string(path)?;
-        Ok(Some(features.lines().map(String::from).collect()))
+        Ok(Some(
+            features
+                .lines()
+                .map(|s| {
+                    s.split_whitespace()
+                        .nth(feature_col)
+                        .expect("Empty feature file or missing feature column: {feature_col}")
+                })
+                .map(String::from)
+                .collect(),
+        ))
     } else {
         Ok(None)
     }
@@ -104,7 +114,7 @@ pub fn run(args: &ArgsView) -> Result<()> {
     // Handle IO handles
     let input = match_input(args.input.input.as_ref())?;
     let mut output = match_output(args.options.output.as_ref())?;
-    let features = load_features(args.options.features.as_ref())?;
+    let features = load_features(args.options.features.as_ref(), args.options.feature_col)?;
 
     // Initialize the reader and header
     let reader = Reader::new(input)?;

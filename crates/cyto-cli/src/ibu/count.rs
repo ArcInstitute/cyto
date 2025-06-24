@@ -22,6 +22,10 @@ pub struct ArgsCount {
     /// If this is provided the index features names will be output instead of their index values
     #[clap(short = 'f', long)]
     pub features: Option<String>,
+
+    /// The column in the feature table to aggregate reads over - skips aggregation if this is zero
+    #[clap(short = 'C', long, default_value_t = 1)]
+    pub feature_col: usize,
 }
 impl ArgsCount {
     pub fn from_wf_path(
@@ -35,6 +39,7 @@ impl ArgsCount {
             output: Some(out_path.to_string()),
             features: Some(features_path.to_string()),
             compressed: false,
+            feature_col: 1,
             num_threads,
         }
     }

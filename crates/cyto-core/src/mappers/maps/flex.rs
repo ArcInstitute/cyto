@@ -149,6 +149,10 @@ impl MapIndexToName {
             .iter()
             .map(|name| std::str::from_utf8(name).unwrap())
     }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
 
 fn within_hdist(u: SeqRef, v: SeqRef, max_dist: usize) -> bool {

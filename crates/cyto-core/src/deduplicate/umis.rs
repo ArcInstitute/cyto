@@ -23,6 +23,7 @@ impl BarcodeIndexCount {
 
 #[derive(Debug, Default)]
 pub struct BarcodeIndexCounts {
+    /// Indexed by `barcode` then `index` then `counts`
     inner: HashMap<u64, HashMap<u64, u64>>,
 }
 impl BarcodeIndexCounts {
@@ -32,10 +33,20 @@ impl BarcodeIndexCounts {
         }
     }
 
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            inner: HashMap::with_capacity(capacity),
+        }
+    }
+
     pub fn insert(&mut self, barcode: u64, index: u64) {
+        self.insert_count(barcode, index, 1);
+    }
+
+    pub fn insert_count(&mut self, barcode: u64, index: u64, count: u64) {
         let barcode_map = self.inner.entry(barcode).or_default();
-        let count = barcode_map.entry(index).or_insert(0);
-        *count += 1;
+        let inner_count = barcode_map.entry(index).or_insert(0);
+        *inner_count += count
     }
 
     pub fn iter_counts(&self) -> impl Iterator<Item = BarcodeIndexCount> + '_ {
@@ -64,9 +75,8 @@ impl BarcodeIndexCounts {
         self.inner.get(&barcode).map(HashMap::len)
     }
 
-    /// Used for testing purposes
-    #[allow(dead_code)]
-    fn get_num_barcodes(&self) -> usize {
+    /// Get the total number of barcodes in the map
+    pub fn get_num_barcodes(&self) -> usize {
         self.inner.len()
     }
 }

@@ -17,7 +17,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct FlexMapper {
     sequence_to_index: MapSequenceToIndex,
-    index_to_name: MapIndexToName,
+    index_to_unit: MapIndexToName,
+    index_to_aggr: MapIndexToName,
 }
 impl FlexMapper {
     pub fn from_tsv(filepath: &str) -> Result<Self> {
@@ -32,25 +33,29 @@ impl FlexMapper {
 
     pub fn new(library: FlexLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
-        let mut index_to_name = MapIndexToName::with_capacity(library.len());
+        let mut index_to_unit = MapIndexToName::with_capacity(library.len());
+        let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
 
         library
             .into_iter()
             .enumerate()
             .try_for_each(|(index, flex)| -> Result<()> {
                 sequence_to_index.insert(&flex.sequence, index)?;
-                index_to_name.insert(index, flex.name);
+                index_to_unit.insert(index, flex.unit_name);
+                index_to_aggr.insert(index, flex.aggr_name);
                 Ok(())
             })?;
 
         Ok(Self {
             sequence_to_index,
-            index_to_name,
+            index_to_unit,
+            index_to_aggr,
         })
     }
 
+    /// Retrieve the sub name of the index
     pub fn get_name(&self, index: usize) -> Option<&Name> {
-        self.index_to_name.get(index)
+        self.index_to_unit.get(index)
     }
 
     pub fn get_sequence_size(&self) -> usize {
@@ -108,8 +113,15 @@ impl Mapper for FlexMapper {
 }
 
 impl<'a> FeatureWriter<'a> for FlexMapper {
-    type Record = &'a str;
+    type Record = (&'a str, &'a str);
     fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
-        Box::new(self.index_to_name.iter_records())
+        assert_eq!(
+            self.index_to_unit.len(),
+            self.index_to_aggr.len(),
+            "Error in expected index to * size"
+        );
+        self.index_to_unit
+            .iter_records()
+            .zip(self.index_to_aggr.iter_records())
     }
 }

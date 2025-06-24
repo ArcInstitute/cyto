@@ -32,6 +32,10 @@ pub struct OptionsView {
     #[clap(short = 'f', long)]
     pub features: Option<String>,
 
+    /// The column in the feature file to use (the unit name, aggr name, etc.)
+    #[clap(short = 'C', long, default_value_t = 0)]
+    pub feature_col: usize,
+
     /// Output file [default=stdout]
     #[clap(short, long)]
     pub output: Option<String>,
