@@ -14,11 +14,7 @@ use cyto_core::{
 };
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use paraseq::{
-    fastq::Reader,
-    fastx::Record as FastxRecord,
-    parallel::{PairedParallelProcessor, PairedParallelReader},
-};
+use paraseq::prelude::*;
 use parking_lot::Mutex;
 
 #[derive(Clone)]
@@ -106,7 +102,7 @@ impl<M: Mapper> MappingImplementor<M> {
         }
     }
 
-    fn encode_r1<R: FastxRecord>(&mut self, record: &R) -> Result<bool> {
+    fn encode_r1<R: paraseq::Record>(&mut self, record: &R) -> Result<bool> {
         // clear encoding buffers
         self.barcode_buf.clear();
         self.umi_buf.clear();
@@ -243,7 +239,7 @@ impl<M: Mapper> MappingImplementor<M> {
 }
 impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record_pair<Rf: paraseq::fastx::Record>(
+    fn process_record_pair<Rf: paraseq::Record>(
         &mut self,
         r1: Rf,
         r2: Rf,
@@ -258,7 +254,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
         let umi = self.umi_buf[0];
 
         // Map the sequence
-        match self.map_sequence(r2.seq()) {
+        match self.map_sequence(&r2.seq()) {
             Ok(index) => {
                 // Write the record
                 let record = ibu::Record::new(barcode, umi, index as u64);
@@ -285,7 +281,7 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
     }
 }
 
-impl<M: Mapper> ParallelProcessor for MappingImplementor<M> {
+impl<M: Mapper> binseq::ParallelProcessor for MappingImplementor<M> {
     fn process_record<B: BinseqRecord>(&mut self, pair: B) -> binseq::Result<()> {
         // Split R1 into barcode and UMI
         self.split_r1(&pair)?;
@@ -327,8 +323,8 @@ impl<M: Mapper> ParallelProcessor for MappingImplementor<M> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_paraseq<M, R>(
-    rdr_r1: Reader<R>,
-    rdr_r2: Reader<R>,
+    rdr_r1: paraseq::fastx::Reader<R>,
+    rdr_r2: paraseq::fastx::Reader<R>,
     filename: &str,
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
