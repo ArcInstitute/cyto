@@ -25,7 +25,7 @@ use clap::Subcommand;
 pub enum MapCommand {
     /// Map sequences to a CRISPR library
     Crispr(ArgsCrispr),
-    /// Map sequences to a FLEX library
+    /// Map sequences to a FLEX GEX library
     Flex(ArgsFlex),
     /// Map sequences to a generic library
     Generic(ArgsGeneric),
