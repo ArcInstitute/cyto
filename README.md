@@ -4,11 +4,10 @@ A command-line tool for processing structured single-cell data.
 
 ## Overview
 
-`cyto` is designed to efficiently process and analyze single-cell sequencing data that follows fixed read geometries.
+`cyto` is designed to efficiently process single-cell sequencing data that follows fixed sequence geometries.
 It handles sequencing data where:
 
 - Read 1 (R1) contains a fixed structure with:
-
   - Cell barcode of known length
   - UMI (Unique Molecular Identifier) of known length
 
@@ -23,10 +22,11 @@ While cyto can be extended for any single-cell protocol with fixed read geometry
 ### Key Features
 
 - Fast parsing of structured single-cell data
-- Efficient binary storage format (IBU: Index-Barcode-UMI)
+- [BINSEQ](https://github.com/arcinstitute/binseq) file support
+- Efficient [IBU](https://github.com/noamteyssier/ibu) binary storage format (IBU: Index-Barcode-UMI)
 - UMI-aware molecule counting
 - Flexible mapping strategies for different sequence geometries
-- Support for multiplexed experiments via probe sequences
+- Support for multiplexed [FLEX](https://www.10xgenomics.com/products/flex-gene-expression) experiments via probe sequences
 
 ## Installation
 
@@ -34,6 +34,14 @@ While cyto can be extended for any single-cell protocol with fixed read geometry
 
 ```bash
 cargo install --path cyto
+```
+
+Or from source:
+
+```bash
+git clone github.com:arcinstitute/cyto
+cd cyto
+cargo install --path crates/cyto
 ```
 
 ## Usage
@@ -45,6 +53,10 @@ cargo install --path cyto
 1. `cyto map`: Mapping reads to target sequences and generating [IBU files](https://github.com/noamteyssier/ibu)
 2. `cyto ibu`: Processing IBU files to sort and count molecules.
 
+The internal subcommands of these components are modular and can be used independently for various stages of the analysis pipeline.
+
+However, `cyto` includes built-in pipelines for common workflows with the `workflow` subcommand.
+
 ### Mapping reads to target sequences
 
 `cyto map` is used to map reads to target sequences and generate IBU files.
@@ -52,14 +64,17 @@ cargo install --path cyto
 The general structure of the usage is as follows:
 
 ```bash
+# Map BINSEQ file
+cyto map <mode> -b <BINSEQ> -c <feature_table> -p <probe_file>
+# Map FASTQ files
 cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file>
 ```
 
 Where:
 
-1. `<mode>` is the mapping mode (e.g. `crispr`, `flex`)
-2. `-i <R1>` is the path to the R1 fastq file
-3. `-I <R2>` is the path to the R2 fastq file
+1. `<mode>` is the mapping mode (e.g. `crispr`, `flex`, `generic`)
+3. `-b` is the path to the BINSEQ file
+3. `-i <R1> -I <R2>` are the paths to the R1 and R2 fastq files, respectively
 4. `-c <feature_table>` is a feature table that maps the target sequences to their corresponding barcodes. Each mode has a specific format for the feature table.
 5. `-p <probe_file>` is an **optional probe file** that can be used to demultiplex the reads by probe sequences.
 
@@ -92,8 +107,7 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map crispr \
-    -i sample_R1.fastq.gz \
-    -I sample_R2.fastq.gz \
+    -b sample.bq \
     -c crispr_guides.tsv
 ```
 
@@ -113,8 +127,7 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map flex \
-    -i sample_R1.fastq.gz \
-    -I sample_R2.fastq.gz \
+    -b sample.bq \
     -c flex_barcodes.tsv
 ```
 
@@ -137,15 +150,13 @@ The probe file is a 3 column TSV file with the following columns:
 ```bash
 # Mapping CRISPR - demultiplexing by probe
 cyto map crispr \
-    -i sample_R1.fastq.gz \
-    -I sample_R2.fastq.gz \
+    -b sample.bq \
     -c crispr_guides.tsv \
     -p probes.tsv
 
 # Mapping FLEX - demultiplexing by probe
 cyto map flex \
-    -i sample_R1.fastq.gz \
-    -I sample_R2.fastq.gz \
+    -b sample.bq \
     -c flex_barcodes.tsv \
     -p probes.tsv
 ```
@@ -160,6 +171,8 @@ If you're running on a machine with limited resources, you can set the number of
 
 Once the reads have been mapped to target sequences and an IBU file has been generated, the `cyto ibu` command can be used to process the IBU file.
 
+Many of these commands make use of multi-threading, see each subcommands `--help` for details.
+
 #### Sorting IBU files
 
 The output of `cyto map` is an unsorted IBU file. To sort the IBU file, use the `sort` subcommand:
@@ -167,9 +180,26 @@ The output of `cyto map` is an unsorted IBU file. To sort the IBU file, use the 
 ```bash
 # Sorting an IBU file
 cyto ibu sort -i sample.ibu -o sample.sorted.ibu
+```
 
-# Using multiple threads
-cyto ibu sort -i sample.ibu -o sample.sorted.ibu -t 8
+#### Correcting Cellular Barcodes to a Whitelist
+
+A common operation for single-cell sequencing is to correct observed barcodes that are within a certain Hamming distance of a whitelist of known barcodes.
+This can be done using the `barcode` subcommand:
+
+```bash
+# Correcting cellular barcodes to a whitelist
+cyto ibu barcode -i sample.ibu -o sample.corrected.ibu -w whitelist.txt
+```
+
+#### Correcting Unique Molecular Identifiers (UMIs)
+
+Another common operation is to correct for low-abundance UMIs that are within a minimal Hamming distance to more abundant UMIs within a Cell-Barcode+Transcript.
+This can be done using the `umi` subcommand:
+
+```bash
+# Correcting UMIs to a whitelist
+cyto ibu umi -i sample.ibu -o sample.corrected.ibu
 ```
 
 #### Counting molecules
