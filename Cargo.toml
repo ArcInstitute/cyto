@@ -16,7 +16,7 @@ cyto-map = { path = "crates/cyto-map" }
 cyto-workflow = { path = "crates/cyto-workflow" }
 
 anyhow = "1.0.98"
-binseq = "0.6.4"
+binseq = "0.6.5"
 bitnuc = "0.2.11"
 ibu = "0.1.0"
 niffler = { version = "3.0.0", features = ["gz"] }

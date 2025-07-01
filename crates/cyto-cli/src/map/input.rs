@@ -1,6 +1,7 @@
 use std::io::Read;
 
 use anyhow::Result;
+use binseq::BinseqReader;
 use clap::Parser;
 
 pub use anyhow::bail;
@@ -45,12 +46,17 @@ pub struct BinseqInput {
 }
 impl BinseqInput {
     #[allow(clippy::wrong_self_convention)]
-    pub fn into_reader(&self) -> Result<MmapReader> {
+    pub fn into_reader(&self) -> Result<BinseqReader> {
+        let path = self.path()?;
+        let rdr = BinseqReader::new(path)?;
+        Ok(rdr)
+    }
+
+    pub fn path(&self) -> Result<&str> {
         if let Some(input) = &self.input {
-            let reader = MmapReader::new(input)?;
-            Ok(reader)
+            Ok(input)
         } else {
-            bail!("No input file provided");
+            bail!("No input file provided to BINSEQ input");
         }
     }
 }

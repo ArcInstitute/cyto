@@ -68,7 +68,7 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
     let offset = if let Some(offset) = args.generic.offset() {
         offset
     } else {
-        find_offset_binseq(&reader, &target_mapper, 1024)?
+        find_offset_binseq(args.binseq.path()?, target_mapper.clone(), 1024)?
     };
 
     // Define the file path for the output file

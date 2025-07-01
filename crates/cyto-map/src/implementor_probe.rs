@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use binseq::{bq, prelude::*};
+use binseq::prelude::*;
 use bitnuc::encode;
 use cyto_core::{
     GeometryR1, Mapper, MappingStatistics,
@@ -436,7 +436,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
-    reader: bq::MmapReader,
+    reader: BinseqReader,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,
