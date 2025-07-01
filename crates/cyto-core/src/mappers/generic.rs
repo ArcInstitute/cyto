@@ -99,7 +99,7 @@ impl GenericMapper {
         seq: &'a SeqRef,
         offset: MapperOffset,
         adjustment: Option<Adjustment>,
-    ) -> Option<&'a [u8]> {
+    ) -> Option<Result<&'a [u8], MappingError>> {
         let seq_size = self.sequence_to_index.sequence_size;
         match offset {
             MapperOffset::LeftOf(x) => {
@@ -121,7 +121,7 @@ impl GenericMapper {
                 if x < seq_size || x > seq.len() {
                     return None;
                 }
-                Some(&seq[x - seq_size..x])
+                Some(Ok(&seq[x - seq_size..x]))
             }
             MapperOffset::RightOf(x) => {
                 let x = match adjustment {
@@ -140,9 +140,9 @@ impl GenericMapper {
                     _ => x,
                 };
                 if x + seq_size > seq.len() {
-                    return None;
+                    return Some(Err(MappingError::UnexpectedlyTruncated));
                 }
-                Some(&seq[x..x + seq_size])
+                Some(Ok(&seq[x..x + seq_size]))
             }
         }
     }
@@ -157,8 +157,9 @@ impl Mapper for GenericMapper {
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let Some(target) = self.isolate_sequence(&seq, offset, adjustment) else {
-            return Err(MappingError::MissingTargetSequence);
+        let target = match self.isolate_sequence(&seq, offset, adjustment) {
+            Some(target) => target?,
+            None => return Err(MappingError::MissingTargetSequence),
         };
         if let Some(index) = self.sequence_to_index.get(target) {
             Ok(index)
@@ -175,8 +176,9 @@ impl Mapper for GenericMapper {
     ) -> Result<usize, MappingError> {
         assert!(offset.is_some(), "GenericMapper requires an offset");
         let offset = offset.unwrap();
-        let Some(target) = self.isolate_sequence(&seq, offset, adjustment) else {
-            return Err(MappingError::MissingTargetSequence);
+        let target = match self.isolate_sequence(&seq, offset, adjustment) {
+            Some(target) => target?,
+            None => return Err(MappingError::MissingTargetSequence),
         };
         match self.correction.get_parent(target) {
             Some(corrected) => {
