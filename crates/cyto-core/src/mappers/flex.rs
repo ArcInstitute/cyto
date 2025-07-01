@@ -71,10 +71,13 @@ impl Mapper for FlexMapper {
         adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         let flex_sequence = match adjustment {
-            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size],
+            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size.max(seq.len())],
             Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
-            _ => &seq[..self.sequence_to_index.sequence_size],
+            _ => &seq[..self.sequence_to_index.sequence_size.max(seq.len())],
         };
+        if seq.len() < self.sequence_to_index.sequence_size {
+            return Err(MappingError::UnexpectedlyTruncated);
+        }
         if let Some(index) = self.sequence_to_index.match_sequence(flex_sequence) {
             Ok(index)
         } else {
@@ -89,10 +92,14 @@ impl Mapper for FlexMapper {
         adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         let flex_sequence = match adjustment {
-            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size],
+            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size.max(seq.len())],
             Some(Adjustment::Minus) => return Err(MappingError::MissingFlexSequence), // Cannot map minus adjustment
-            _ => &seq[..self.sequence_to_index.sequence_size],
+            _ => &seq[..self.sequence_to_index.sequence_size.max(seq.len())],
         };
+        if flex_sequence.len() < self.sequence_to_index.sequence_size {
+            return Err(MappingError::UnexpectedlyTruncated);
+        }
+
         if let Some(index) = self
             .sequence_to_index
             .match_corrected_sequence(flex_sequence)

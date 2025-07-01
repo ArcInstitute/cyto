@@ -132,6 +132,9 @@ impl CrisprMapper {
     ) -> Result<usize, MappingError> {
         let lpos = offset + anchor_size;
         let rpos = lpos + self.anchor_to_sequence.sequence_size;
+        if rpos > sequence.len() {
+            return Err(MappingError::UnexpectedlyTruncated);
+        }
         let sequence = &sequence[lpos..rpos];
         if let Some(index) = sequence_map.get(sequence) {
             Ok(*index)
@@ -152,6 +155,9 @@ impl CrisprMapper {
     ) -> Result<usize, MappingError> {
         let lpos = offset + anchor_size;
         let rpos = lpos + self.anchor_to_sequence.sequence_size;
+        if rpos > sequence.len() {
+            return Err(MappingError::UnexpectedlyTruncated);
+        }
         let sequence = &sequence[lpos..rpos];
         match self.guide_corr.get_parent(sequence) {
             Some(guide_corr) => {
