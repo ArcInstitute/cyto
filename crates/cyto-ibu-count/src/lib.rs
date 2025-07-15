@@ -110,12 +110,22 @@ fn load_features(path: Option<&String>, feature_col: usize) -> Result<Option<Vec
     }
 }
 
-fn aggregate_unit(counts: BarcodeIndexCounts, features: &[String]) -> BarcodeIndexCounts {
+fn aggregate_unit(
+    counts: BarcodeIndexCounts,
+    features: &[String],
+) -> (BarcodeIndexCounts, Vec<String>) {
+    // Creates a LUT to map feature names to unique indices
     let mut aggr_to_uidx = HashMap::new();
     for f in features {
         if !aggr_to_uidx.contains_key(f) {
             aggr_to_uidx.insert(f.to_string(), aggr_to_uidx.len());
         }
+    }
+
+    // Creates a vector to store the aggregated feature names
+    let mut agg_features = vec!["".to_string(); aggr_to_uidx.len()];
+    for (feature, idx) in aggr_to_uidx.iter() {
+        agg_features[*idx] = feature.to_string();
     }
 
     let mut agg_counts = BarcodeIndexCounts::with_capacity(counts.get_num_barcodes());
@@ -126,12 +136,12 @@ fn aggregate_unit(counts: BarcodeIndexCounts, features: &[String]) -> BarcodeInd
         agg_counts.insert_count(record.barcode(), aggr_idx as u64, record.count());
     }
 
-    agg_counts
+    (agg_counts, agg_features)
 }
 
 pub fn run(args: &ArgsCount) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
-    let features = load_features(args.features.as_ref(), args.feature_col)?;
+    let mut features = load_features(args.features.as_ref(), args.feature_col)?;
     let max_index = if let Some(features) = &features {
         features.len()
     } else {
@@ -143,10 +153,12 @@ pub fn run(args: &ArgsCount) -> Result<()> {
     let mut counts = deduplicate_umis(reader, max_index as u64)?;
 
     // aggregate the units if features are present
-    if let Some(features) = &features {
+    if let Some(tx_features) = &features {
         // skip if feature col is the `unit` column
         if args.feature_col != 0 {
-            counts = aggregate_unit(counts, features);
+            let (agg_counts, agg_features) = aggregate_unit(counts, tx_features);
+            counts = agg_counts;
+            features = Some(agg_features);
         }
     }
 
