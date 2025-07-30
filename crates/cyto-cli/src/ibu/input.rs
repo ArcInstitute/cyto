@@ -12,3 +12,10 @@ impl IbuInput {
         }
     }
 }
+
+#[derive(clap::Parser, Debug)]
+#[clap(next_help_heading = "IBU Input Options")]
+pub struct MultiIbuInput {
+    #[clap(num_args=1.., required=true)]
+    pub inputs: Vec<String>,
+}

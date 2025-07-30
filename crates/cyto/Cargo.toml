@@ -9,6 +9,7 @@ cyto-cli = { workspace = true }
 cyto-ibu-umi-correct = { workspace = true }
 cyto-ibu-view = { workspace = true }
 cyto-ibu-barcode-correct = { workspace = true }
+cyto-ibu-cat = { workspace = true }
 cyto-ibu-count = { workspace = true }
 cyto-ibu-sort = { workspace = true }
 cyto-map = { workspace = true }
