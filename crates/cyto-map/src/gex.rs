@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 use anyhow::Result;
-use cyto_cli::ArgsFlex;
-use cyto_core::mappers::{FlexMapper, MapperOffset, ProbeMapper};
+use cyto_cli::ArgsGex;
+use cyto_core::mappers::{GexMapper, MapperOffset, ProbeMapper};
 use cyto_io::{write_features, write_statistics};
 
 use super::{
@@ -11,12 +11,12 @@ use super::{
     utils::{build_filepath, build_filepaths, delete_empty_path, delete_empty_paths},
 };
 
-fn probed_bus(args: &ArgsFlex) -> Result<()> {
+fn probed_bus(args: &ArgsGex) -> Result<()> {
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
+    let target_mapper = GexMapper::from_tsv_arc(&args.gex.gex_filepath)?;
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(
@@ -25,7 +25,7 @@ fn probed_bus(args: &ArgsFlex) -> Result<()> {
     )?;
 
     // The expected start position of the probe sequence in the bus sequence
-    let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
+    let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.gex.spacer);
 
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
@@ -55,13 +55,13 @@ fn probed_bus(args: &ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-fn bus(args: &ArgsFlex) -> Result<()> {
+fn bus(args: &ArgsGex) -> Result<()> {
     // Load the input files
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
+    let target_mapper = GexMapper::from_tsv_arc(&args.gex.gex_filepath)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -90,12 +90,12 @@ fn bus(args: &ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-fn bus_binseq(args: &ArgsFlex) -> Result<()> {
+fn bus_binseq(args: &ArgsGex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
+    let target_mapper = GexMapper::from_tsv_arc(&args.gex.gex_filepath)?;
 
     // Define the file path for the output file
     let output_filepath = build_filepath(&args.output.prefix, None);
@@ -120,13 +120,13 @@ fn bus_binseq(args: &ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-pub fn probed_bus_binseq(args: &ArgsFlex) -> Result<()> {
+pub fn probed_bus_binseq(args: &ArgsGex) -> Result<()> {
     let reader = args.binseq.into_reader()?;
 
     let start_time = Instant::now();
 
     // Load the target library
-    let target_mapper = FlexMapper::from_tsv_arc(&args.flex.flex_filepath)?;
+    let target_mapper = GexMapper::from_tsv_arc(&args.gex.gex_filepath)?;
 
     // Load the probe library
     let probe_mapper = ProbeMapper::from_tsv_arc(
@@ -135,7 +135,7 @@ pub fn probed_bus_binseq(args: &ArgsFlex) -> Result<()> {
     )?;
 
     // The expected start position of the probe sequence in the bus sequence
-    let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.flex.spacer);
+    let probe_offset = MapperOffset::RightOf(target_mapper.get_sequence_size() + args.gex.spacer);
 
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
@@ -165,7 +165,7 @@ pub fn probed_bus_binseq(args: &ArgsFlex) -> Result<()> {
     Ok(())
 }
 
-pub fn run(args: &ArgsFlex) -> Result<()> {
+pub fn run(args: &ArgsGex) -> Result<()> {
     if args.probe.probes_filepath.is_some() {
         if args.binseq.input.is_some() {
             return probed_bus_binseq(args);

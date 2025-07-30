@@ -7,7 +7,7 @@ fn main() -> Result<()> {
         Commands::View(args) => cyto_view::run(&args),
         Commands::Map(map) => match map {
             MapCommand::Crispr(args) => cyto_map::crispr::run(&args),
-            MapCommand::Flex(args) => cyto_map::flex::run(&args),
+            MapCommand::Gex(args) => cyto_map::gex::run(&args),
             MapCommand::Generic(args) => cyto_map::generic::run(&args),
         },
         Commands::Ibu(ibu) => match ibu {
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
             IbuCommand::Umi(args) => cyto_ibu_umi_correct::run(&args),
         },
         Commands::Workflow(workflow) => match workflow {
-            WorkflowCommand::FlexMapping(args) => cyto_workflow::flex::run(&args),
+            WorkflowCommand::GexMapping(args) => cyto_workflow::gex::run(&args),
             WorkflowCommand::CrisprMapping(args) => cyto_workflow::crispr::run(&args),
         },
     }

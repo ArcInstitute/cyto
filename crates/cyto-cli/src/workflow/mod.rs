@@ -1,12 +1,12 @@
 use clap::{Parser, Subcommand};
 
-use super::{ArgsCrispr, ArgsFlex};
+use super::{ArgsCrispr, ArgsGex};
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
-    /// Executes a flex mapping workflow (map => sort => barcode => sort => umi => sort => count)
-    #[clap(name = "flex")]
-    FlexMapping(FlexMappingCommand),
+    /// Executes a gex mapping workflow (map => sort => barcode => sort => umi => sort => count)
+    #[clap(name = "gex")]
+    GexMapping(GexMappingCommand),
 
     /// Executes a crispr mapping workflow (map => sort => barcode => sort => umi => sort => count)
     #[clap(name = "crispr")]
@@ -14,9 +14,9 @@ pub enum WorkflowCommand {
 }
 
 #[derive(Parser, Debug)]
-pub struct FlexMappingCommand {
+pub struct GexMappingCommand {
     #[clap(flatten)]
-    pub flex_args: ArgsFlex,
+    pub gex_args: ArgsGex,
 
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,

@@ -55,7 +55,7 @@ impl Add for MappingStatistics {
 
 #[derive(Debug, Default, Serialize, Clone, Copy)]
 pub struct MappingErrorStatistics {
-    pub missing_flex_sequence: usize,
+    pub missing_gex_sequence: usize,
     pub missing_anchor: usize,
     pub missing_protospacer: usize,
     pub missing_probe: usize,
@@ -65,7 +65,7 @@ pub struct MappingErrorStatistics {
 impl MappingErrorStatistics {
     pub fn increment(&mut self, error: MappingError) {
         match error {
-            MappingError::MissingFlexSequence => self.missing_flex_sequence += 1,
+            MappingError::MissingGexSequence => self.missing_gex_sequence += 1,
             MappingError::MissingAnchor => self.missing_anchor += 1,
             MappingError::MissingProtospacer => self.missing_protospacer += 1,
             MappingError::MissingProbe => self.missing_probe += 1,
@@ -78,7 +78,7 @@ impl Add for MappingErrorStatistics {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self {
-            missing_flex_sequence: self.missing_flex_sequence + other.missing_flex_sequence,
+            missing_gex_sequence: self.missing_gex_sequence + other.missing_gex_sequence,
             missing_anchor: self.missing_anchor + other.missing_anchor,
             missing_protospacer: self.missing_protospacer + other.missing_protospacer,
             missing_probe: self.missing_probe + other.missing_probe,
