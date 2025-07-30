@@ -16,8 +16,8 @@ It handles sequencing data where:
 While cyto can be extended for any single-cell protocol with fixed read geometry, it includes built-in support for:
 
 1. CRISPR screens (with anchor + protospacer structure)
-2. FLEX barcoding systems
-3. Probe-based multiplexing
+2. GEX systems
+3. Flex Probe-based multiplexing
 
 ### Key Features
 
@@ -72,7 +72,7 @@ cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file>
 
 Where:
 
-1. `<mode>` is the mapping mode (e.g. `crispr`, `flex`, `generic`)
+1. `<mode>` is the mapping mode (e.g. `crispr`, `gex`, `generic`)
 3. `-b` is the path to the BINSEQ file
 3. `-i <R1> -I <R2>` are the paths to the R1 and R2 fastq files, respectively
 4. `-c <feature_table>` is a feature table that maps the target sequences to their corresponding barcodes. Each mode has a specific format for the feature table.
@@ -111,9 +111,9 @@ cyto map crispr \
     -c crispr_guides.tsv
 ```
 
-#### FLEX processing
+#### GEX processing
 
-The FLEX mode is used to map reads from FLEX barcoding systems to their corresponding barcodes.
+The GEX mode is used to map reads from GEX systems to their corresponding barcodes.
 
 The expected structure of the feature table is a 3 column TSV file with the following columns:
 
@@ -126,9 +126,9 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 **Note:** There should be no header in the feature table.
 
 ```bash
-cyto map flex \
+cyto map gex \
     -b sample.bq \
-    -c flex_barcodes.tsv
+    -c gex_barcodes.tsv
 ```
 
 #### Probe-based processing
@@ -154,10 +154,10 @@ cyto map crispr \
     -c crispr_guides.tsv \
     -p probes.tsv
 
-# Mapping FLEX - demultiplexing by probe
-cyto map flex \
+# Mapping GEX - demultiplexing by probe
+cyto map gex \
     -b sample.bq \
-    -c flex_barcodes.tsv \
+    -c gex_barcodes.tsv \
     -p probes.tsv
 ```
 
