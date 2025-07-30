@@ -6,7 +6,7 @@ mod output;
 mod view;
 pub mod workflow;
 
-pub use map::{ArgsCrispr, ArgsFlex, Geometry, PairedInput};
+pub use map::{ArgsCrispr, ArgsGex, Geometry, PairedInput};
 
 pub use cli::Cli;
 pub use commands::Commands;

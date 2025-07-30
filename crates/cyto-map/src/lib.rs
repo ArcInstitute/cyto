@@ -1,6 +1,6 @@
 pub mod crispr;
-pub mod flex;
 pub mod generic;
+pub mod gex;
 mod implementor;
 mod implementor_probe;
 mod utils;

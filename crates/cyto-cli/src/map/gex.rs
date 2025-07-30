@@ -1,12 +1,11 @@
 use clap::Parser;
 
-use super::{Geometry, MapOptions, PairedInput, ProbeOptions, RuntimeOptions};
 use crate::ArgsOutput;
 
-use super::BinseqInput;
+use super::{BinseqInput, Geometry, MapOptions, PairedInput, ProbeOptions, RuntimeOptions};
 
 #[derive(Parser, Debug)]
-pub struct ArgsFlex {
+pub struct ArgsGex {
     #[clap(flatten)]
     pub input: PairedInput,
 
@@ -17,7 +16,7 @@ pub struct ArgsFlex {
     pub geometry: Geometry,
 
     #[clap(flatten)]
-    pub flex: FlexOptions,
+    pub gex: GexOptions,
 
     #[clap(flatten)]
     pub map: MapOptions,
@@ -33,11 +32,11 @@ pub struct ArgsFlex {
 }
 
 #[derive(Parser, Debug)]
-#[clap(next_help_heading = "FLEX Options")]
-pub struct FlexOptions {
-    //// Path to flex GEX library file
-    #[clap(short = 'c', long = "flex")]
-    pub flex_filepath: String,
+#[clap(next_help_heading = "Flex GEX Options")]
+pub struct GexOptions {
+    //// Path to Flex GEX library file
+    #[clap(short = 'c', long = "gex")]
+    pub gex_filepath: String,
 
     /// Spacer sequence length
     #[clap(short = 's', long, default_value = "18")]

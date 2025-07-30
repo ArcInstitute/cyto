@@ -20,7 +20,7 @@ pub enum LibraryCombination {
 pub enum Library {
     Probe(ProbeLibraryStatistics),
     Crispr(CrisprLibraryStatistics),
-    Flex(FlexLibraryStatistics),
+    Gex(GexLibraryStatistics),
     Generic(GenericLibraryStatistics),
 }
 
@@ -43,9 +43,9 @@ pub struct CrisprLibraryStatistics {
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
-pub struct FlexLibraryStatistics {
-    pub num_flex_sequences: usize,
-    pub flex_sequence_size: usize,
+pub struct GexLibraryStatistics {
+    pub num_gex_sequences: usize,
+    pub gex_sequence_size: usize,
 }
 
 #[derive(Debug, Default, Serialize, Clone)]

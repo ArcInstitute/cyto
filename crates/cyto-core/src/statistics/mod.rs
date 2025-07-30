@@ -5,7 +5,7 @@ mod runtime;
 mod statistics;
 
 pub use library::{
-    CrisprLibraryStatistics, FlexLibraryStatistics, GenericLibraryStatistics, Library,
+    CrisprLibraryStatistics, GenericLibraryStatistics, GexLibraryStatistics, Library,
     LibraryCombination, LibraryStatistics, ProbeLibraryStatistics,
 };
 pub use mapping_statistics::MappingStatistics;

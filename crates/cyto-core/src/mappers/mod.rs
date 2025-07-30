@@ -1,14 +1,14 @@
 mod crispr;
 mod errors;
-mod flex;
 mod generic;
+mod gex;
 mod mapper;
 mod maps;
 mod probe;
 
 pub use crispr::CrisprMapper;
 pub use errors::MappingError;
-pub use flex::FlexMapper;
 pub use generic::GenericMapper;
+pub use gex::GexMapper;
 pub use mapper::{Adjustment, Mapper, MapperOffset};
 pub use probe::ProbeMapper;

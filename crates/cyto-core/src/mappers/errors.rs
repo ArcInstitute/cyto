@@ -7,8 +7,8 @@ pub enum MappingError {
     MissingProtospacer,
     /// The probe sequence is missing - used in `ProbeMapper` - can be an error for all probe-based mappers.
     MissingProbe,
-    /// The flex sequence is missing - used in `FlexMapper`.
-    MissingFlexSequence,
+    /// The gex sequence is missing - used in `GexMapper`.
+    MissingGexSequence,
     /// The generic target sequence is missing - used in `GenericMapper`.
     MissingTargetSequence,
     /// The sequence is unexpectedly truncated - used in all mappers.

@@ -1,4 +1,4 @@
 pub mod crispr;
-pub mod flex;
 pub mod generic;
+pub mod gex;
 pub mod probe;

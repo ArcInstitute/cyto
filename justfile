@@ -2,12 +2,12 @@
 
 # Metadata
 CRISPR_GUIDES := "./data/crispr_guides.tsv"
-FLEX_PROBES := "./data/flex_probes.tsv"
+GEX_PROBES := "./data/gex_probes.tsv"
 PROBE_BARCODES := "./data/probe-barcodes-fixed-rna-profiling.txt"
 
 # Input Sequences
-FLEX_FASTQ_R1 := "./data/flex_R1.fastq.gz"
-FLEX_FASTQ_R2 := "./data/flex_R2.fastq.gz"
+GEX_FASTQ_R1 := "./data/gex_R1.fastq.gz"
+GEX_FASTQ_R2 := "./data/gex_R2.fastq.gz"
 CRISPR_FASTQ_R1 := "./data/crispr_R1.fastq.gz"
 CRISPR_FASTQ_R2 := "./data/crispr_R2.fastq.gz"
 
@@ -27,18 +27,18 @@ run-crispr: install
         -I {{CRISPR_FASTQ_R2}} \
         -c {{CRISPR_GUIDES}}
 
-run-flex-probe: install
-    time cyto map flex \
-        -i {{FLEX_FASTQ_R1}} \
-        -I {{FLEX_FASTQ_R2}} \
-        -c {{FLEX_PROBES}} \
+run-gex-probe: install
+    time cyto map gex \
+        -i {{GEX_FASTQ_R1}} \
+        -I {{GEX_FASTQ_R2}} \
+        -c {{GEX_PROBES}} \
         -p {{PROBE_BARCODES}}
 
-run-flex: install
-    time cyto map flex \
-        -i {{FLEX_FASTQ_R1}} \
-        -I {{FLEX_FASTQ_R2}} \
-        -c {{FLEX_PROBES}}
+run-gex: install
+    time cyto map gex \
+        -i {{GEX_FASTQ_R1}} \
+        -I {{GEX_FASTQ_R2}} \
+        -c {{GEX_PROBES}}
 
 clean:
     rm -v cyto_out.*

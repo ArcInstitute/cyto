@@ -50,12 +50,12 @@ impl ProcessedMappingStatistics {
 
 #[derive(Debug, Default, Serialize, Clone, Copy)]
 pub struct ProcessedMappingErrorStatistics {
-    pub missing_flex_sequence: usize,
+    pub missing_gex_sequence: usize,
     pub missing_anchor: usize,
     pub missing_protospacer: usize,
     pub missing_probe: usize,
 
-    pub fraction_missing_flex_sequence: f64,
+    pub fraction_missing_gex_sequence: f64,
     pub fraction_missing_anchor: f64,
     pub fraction_missing_protospacer: f64,
     pub fraction_missing_probe: f64,
@@ -63,12 +63,12 @@ pub struct ProcessedMappingErrorStatistics {
 impl ProcessedMappingErrorStatistics {
     pub fn new(mes: MappingErrorStatistics, unmapped_reads: usize) -> Self {
         Self {
-            missing_flex_sequence: mes.missing_flex_sequence,
+            missing_gex_sequence: mes.missing_gex_sequence,
             missing_anchor: mes.missing_anchor,
             missing_protospacer: mes.missing_protospacer,
             missing_probe: mes.missing_probe,
 
-            fraction_missing_flex_sequence: fraction(mes.missing_flex_sequence, unmapped_reads),
+            fraction_missing_gex_sequence: fraction(mes.missing_gex_sequence, unmapped_reads),
             fraction_missing_anchor: fraction(mes.missing_anchor, unmapped_reads),
             fraction_missing_protospacer: fraction(mes.missing_protospacer, unmapped_reads),
             fraction_missing_probe: fraction(mes.missing_probe, unmapped_reads),
