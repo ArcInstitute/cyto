@@ -1,0 +1,13 @@
+[package]
+name = "cyto-ibu-cat"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+ibu = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-io = { workspace = true }
+
+[lints]
+workspace = true

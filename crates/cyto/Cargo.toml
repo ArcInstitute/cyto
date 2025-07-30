@@ -1,6 +1,6 @@
 [package]
 name = "cyto"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 
 [dependencies]
@@ -9,6 +9,7 @@ cyto-cli = { workspace = true }
 cyto-ibu-umi-correct = { workspace = true }
 cyto-ibu-view = { workspace = true }
 cyto-ibu-barcode-correct = { workspace = true }
+cyto-ibu-cat = { workspace = true }
 cyto-ibu-count = { workspace = true }
 cyto-ibu-sort = { workspace = true }
 cyto-map = { workspace = true }
