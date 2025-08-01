@@ -9,6 +9,15 @@ pub struct ArgsCount {
     #[clap(short, long)]
     pub output: Option<String>,
 
+    /// Output mtx format.
+    /// Will treat `output` as a directory and create 3 files:
+    ///
+    /// (1) barcodes.txt.gz
+    /// (2) features.txt.gz
+    /// (3) matrix.mtx.gz
+    #[clap(long, requires = "output")]
+    pub mtx: bool,
+
     /// Number of threads to use in counting
     #[clap(short = 't', long, default_value = "1")]
     pub num_threads: usize,
@@ -38,6 +47,7 @@ impl ArgsCount {
             input: IbuInput::from_path(sort_path),
             output: Some(out_path.to_string()),
             features: Some(features_path.to_string()),
+            mtx: false,
             compressed: false,
             feature_col: 1,
             num_threads,
