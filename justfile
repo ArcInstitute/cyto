@@ -41,4 +41,4 @@ run-gex: install
         -c {{GEX_PROBES}}
 
 clean:
-    rm -v cyto_out.*
+    rm -rfv cyto_out/

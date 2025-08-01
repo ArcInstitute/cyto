@@ -1,4 +1,4 @@
 /target
 
-cyto_out.*
 Cargo.lock
+cyto_out/*
