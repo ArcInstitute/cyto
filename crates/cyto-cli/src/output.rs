@@ -8,4 +8,7 @@ pub struct ArgsOutput {
     pub outdir: String,
     #[clap(short = 'H', long)]
     pub with_header: bool,
+    /// Force overwrite of existing output directory
+    #[clap(short = 'f', long)]
+    pub force: bool,
 }

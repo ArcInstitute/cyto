@@ -3,7 +3,7 @@ use std::time::Instant;
 use anyhow::Result;
 use cyto_cli::ArgsGex;
 use cyto_core::mappers::{GexMapper, MapperOffset, ProbeMapper};
-use cyto_io::{write_features, write_statistics};
+use cyto_io::{validate_output_directory, write_features, write_statistics};
 
 use super::{
     ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
@@ -12,6 +12,9 @@ use super::{
 };
 
 fn probed_bus(args: &ArgsGex) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
 
@@ -56,6 +59,9 @@ fn probed_bus(args: &ArgsGex) -> Result<()> {
 }
 
 fn bus(args: &ArgsGex) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     // Load the input files
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -91,6 +97,9 @@ fn bus(args: &ArgsGex) -> Result<()> {
 }
 
 fn bus_binseq(args: &ArgsGex) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
 
@@ -121,6 +130,9 @@ fn bus_binseq(args: &ArgsGex) -> Result<()> {
 }
 
 pub fn probed_bus_binseq(args: &ArgsGex) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     let reader = args.binseq.into_reader()?;
 
     let start_time = Instant::now();
