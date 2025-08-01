@@ -47,8 +47,8 @@ def get_paths(input_path: str) -> tuple[str, str, str]:
 
 
 def main():
-    import anndata as ad
-    import pandas as pd
+    import anndata as ad  # type: ignore
+    import pandas as pd  # type: ignore
 
     if len(sys.argv) != 3:
         print("Usage: mtx_to_h5ad.py <input_directory / input_mtx> <output_path>")
