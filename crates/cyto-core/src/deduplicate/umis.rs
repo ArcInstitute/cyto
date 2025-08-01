@@ -53,7 +53,7 @@ impl BarcodeIndexCounts {
         if *inner_count == 0 {
             self.nnz += 1;
         }
-        *inner_count += count
+        *inner_count += count;
     }
 
     pub fn iter_counts(&self) -> impl Iterator<Item = BarcodeIndexCount> + '_ {
