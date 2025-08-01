@@ -218,6 +218,20 @@ cyto ibu sort -i sample.ibu -p | cyto ibu count -o sample.counts.tsv
 # Including the feature names in the output
 # This is useful for downstream analyses
 cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f features.tsv
+
+# Write counts as mtx (will be written to a subdirectory)
+cyto ibu count -i sample.sorted.ibu -f features.tsv -o cyto_out
 ```
 
 **Note:** The features are generated from `cyto map` and are used to map the feature sequences to their numerical index in the count matrix.
+
+To convert the MTX to an [h5ad](https://anndata.readthedocs.io/en/latest/) file, see attached `scripts/mtx_to_h5ad`.
+Dependencies and runtime of script is managed by the python package manager [uv](https://docs.astral.sh/uv/).
+
+```bash
+# make script executable
+chmod +x ./scripts/mtx_to_h5ad.py
+
+# Convert the mtx directory to h5ad
+./scripts/mtx_to_h5ad.py <your_mtx_dir> output.h5ad
+```
