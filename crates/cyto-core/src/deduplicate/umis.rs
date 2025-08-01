@@ -25,17 +25,21 @@ impl BarcodeIndexCount {
 pub struct BarcodeIndexCounts {
     /// Indexed by `barcode` then `index` then `counts`
     inner: HashMap<u64, HashMap<u64, u64>>,
+    /// Tracks the number of non-zero entries
+    nnz: usize,
 }
 impl BarcodeIndexCounts {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            nnz: 0,
         }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: HashMap::with_capacity(capacity),
+            nnz: 0,
         }
     }
 
@@ -46,6 +50,9 @@ impl BarcodeIndexCounts {
     pub fn insert_count(&mut self, barcode: u64, index: u64, count: u64) {
         let barcode_map = self.inner.entry(barcode).or_default();
         let inner_count = barcode_map.entry(index).or_insert(0);
+        if *inner_count == 0 {
+            self.nnz += 1;
+        }
         *inner_count += count
     }
 
@@ -78,6 +85,11 @@ impl BarcodeIndexCounts {
     /// Get the total number of barcodes in the map
     pub fn get_num_barcodes(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Return the number of non-zero entries in the map
+    pub fn get_nnz(&self) -> usize {
+        self.nnz
     }
 }
 

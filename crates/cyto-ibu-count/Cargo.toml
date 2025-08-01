@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-count"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 
 [dependencies]
@@ -10,7 +10,9 @@ cyto-cli = { workspace = true }
 cyto-core = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+hashbrown = { workspace = true }
 csv = "1"
+gzp = "1.0.1"
 
 [lints]
 workspace = true

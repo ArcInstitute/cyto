@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Read, Write, stdin, stdout},
+    path::Path,
 };
 
 pub fn match_input(filepath: Option<&String>) -> Result<Box<dyn Read + Send>> {
@@ -20,7 +21,7 @@ pub fn match_input_transparent(filepath: Option<&String>) -> Result<Box<dyn Read
     Ok(Box::new(pass))
 }
 
-pub fn match_output(filepath: Option<&String>) -> Result<Box<dyn Write + Send>> {
+pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
     if let Some(filepath) = filepath {
         let handle = File::create(filepath).map(BufWriter::new)?;
         Ok(Box::new(handle))
