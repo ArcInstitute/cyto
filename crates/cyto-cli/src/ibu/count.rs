@@ -15,7 +15,7 @@ pub struct ArgsCount {
     /// (1) barcodes.txt.gz
     /// (2) features.txt.gz
     /// (3) matrix.mtx.gz
-    #[clap(long, requires = "output")]
+    #[clap(long, requires = "output", requires = "features")]
     pub mtx: bool,
 
     /// Number of threads to use in counting

@@ -12,6 +12,7 @@ cyto-io = { workspace = true }
 ibu = { workspace = true }
 hashbrown = { workspace = true }
 csv = "1"
+gzp = "1.0.1"
 
 [lints]
 workspace = true
