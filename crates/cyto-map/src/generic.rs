@@ -28,10 +28,10 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
     };
 
     // Define the file path for the output file
-    let output_filepath = build_filepath(&args.output.prefix, None);
+    let output_filepath = build_filepath(&args.output.outdir, None);
 
     // Write the features to the output file
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     let statistics = ibu_map_pairs_paraseq(
         r1,
@@ -50,7 +50,7 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
     delete_empty_path(&output_filepath)?;
 
     // Write the statistics to the output file
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 
@@ -72,10 +72,10 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
     };
 
     // Define the file path for the output file
-    let output_filepath = build_filepath(&args.output.prefix, None);
+    let output_filepath = build_filepath(&args.output.outdir, None);
 
     // Write the features to the output file
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
@@ -90,7 +90,7 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
         start_time,
     )?;
 
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 

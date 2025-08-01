@@ -19,21 +19,21 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
     // Need to handle multiple output IBU files
     if args.gex_args.probe.probes_filepath.is_some() {
         // Identify all output IBU files
-        let ibu_files = identify_ibu_files(&args.gex_args.output.prefix)?;
+        let ibu_files = identify_ibu_files(&args.gex_args.output.outdir)?;
 
         ibu_files.par_iter().try_for_each(|path| -> Result<()> {
             ibu_steps(
                 path,
-                &args.gex_args.output.prefix,
+                &args.gex_args.output.outdir,
                 &args.wf_args,
                 whitelist.clone(),
             )
         })?;
     } else {
-        let ibu_file = format!("{}.ibu", args.gex_args.output.prefix);
+        let ibu_file = format!("{}/ibu/output.ibu", args.gex_args.output.outdir);
         ibu_steps(
             &ibu_file,
-            &args.gex_args.output.prefix,
+            &args.gex_args.output.outdir,
             &args.wf_args,
             whitelist,
         )?;

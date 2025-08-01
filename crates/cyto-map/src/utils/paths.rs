@@ -1,19 +1,19 @@
 use anyhow::Result;
 use cyto_core::mappers::ProbeMapper;
 
-pub fn build_filepath(prefix: &str, name: Option<&str>) -> String {
+pub fn build_filepath(outdir: &str, name: Option<&str>) -> String {
     if let Some(name) = name {
-        format!("{prefix}.{name}.ibu")
+        format!("{outdir}/ibu/{name}.ibu")
     } else {
-        format!("{prefix}.ibu")
+        format!("{outdir}/ibu/output.ibu")
     }
 }
 
-pub fn build_filepaths(prefix: &str, probe_mapper: &ProbeMapper) -> Result<Vec<String>> {
+pub fn build_filepaths(outdir: &str, probe_mapper: &ProbeMapper) -> Result<Vec<String>> {
     let mut filepaths = Vec::new();
     for aid in 0..probe_mapper.index_to_alias.num_unique_aliases() {
         let alias_str = probe_mapper.index_to_alias.alias_map[&aid].name_str()?;
-        let filepath = build_filepath(prefix, Some(alias_str));
+        let filepath = build_filepath(outdir, Some(alias_str));
         filepaths.push(filepath);
     }
     Ok(filepaths)
