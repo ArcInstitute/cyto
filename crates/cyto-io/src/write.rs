@@ -7,9 +7,9 @@ use std::{
 };
 
 /// Convenience function to open a file handle, creating directories as needed
-pub fn open_file_handle(output_path: &str) -> Result<Box<dyn Write + Send>> {
+pub fn open_file_handle<P: AsRef<Path>>(output_path: P) -> Result<Box<dyn Write + Send>> {
     // Create parent directories if they don't exist
-    if let Some(parent) = Path::new(output_path).parent() {
+    if let Some(parent) = output_path.as_ref().parent() {
         fs::create_dir_all(parent)?;
     }
     let buffer = File::create(output_path).map(BufWriter::new)?;
@@ -17,9 +17,9 @@ pub fn open_file_handle(output_path: &str) -> Result<Box<dyn Write + Send>> {
 }
 
 /// Writes the mapping statistics to a file
-pub fn write_statistics(outdir: &str, statistics: &Statistics) -> Result<()> {
+pub fn write_statistics<P: AsRef<Path>>(outdir: P, statistics: &Statistics) -> Result<()> {
     // Designate the output path
-    let output_path = format!("{outdir}/stats/mapping.json");
+    let output_path = outdir.as_ref().join("stats").join("mapping.json");
 
     // Open the output file
     let output_handle = open_file_handle(&output_path)?;
@@ -30,9 +30,12 @@ pub fn write_statistics(outdir: &str, statistics: &Statistics) -> Result<()> {
     Ok(())
 }
 
-pub fn write_features<'a, F: FeatureWriter<'a>>(outdir: &str, collection: &'a F) -> Result<()> {
+pub fn write_features<'a, P: AsRef<Path>, F: FeatureWriter<'a>>(
+    outdir: P,
+    collection: &'a F,
+) -> Result<()> {
     // Designate the output path
-    let output_path = format!("{outdir}/metadata/features.tsv");
+    let output_path = outdir.as_ref().join("metadata").join("features.tsv");
 
     // Open the output file
     let output_handle = open_file_handle(&output_path)?;
