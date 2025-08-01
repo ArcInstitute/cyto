@@ -1,9 +1,10 @@
-use std::{collections::HashMap, io::Write};
+use std::{io::Write, path::Path};
 
 use anyhow::Result;
 use cyto_cli::ibu::ArgsCount;
 use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
 use cyto_io::{match_input, match_output};
+use hashbrown::HashMap;
 use ibu::{Header, Reader};
 
 fn dump_encoded_records<W: Write>(
@@ -139,6 +140,31 @@ fn aggregate_unit(
     (agg_counts, agg_features)
 }
 
+fn write_counts_tsv<P: AsRef<Path>>(
+    path: Option<P>,
+    counts: &BarcodeIndexCounts,
+    features: Option<Vec<String>>,
+    header: Header,
+    twobit_compressed: bool,
+) -> Result<()> {
+    let output_handle = match_output(path)?;
+
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'\t')
+        .from_writer(output_handle);
+
+    match (features, twobit_compressed) {
+        (Some(features), true) => {
+            dump_encoded_records_features(&mut writer, counts.iter_counts(), &features)
+        }
+        (Some(features), false) => {
+            dump_decoded_records_features(&mut writer, counts.iter_counts(), header, &features)
+        }
+        (None, true) => dump_encoded_records(&mut writer, counts.iter_counts()),
+        (None, false) => dump_decoded_records(&mut writer, counts.iter_counts(), header),
+    }
+}
+
 pub fn run(args: &ArgsCount) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
     let mut features = load_features(args.features.as_ref(), args.feature_col)?;
@@ -162,20 +188,11 @@ pub fn run(args: &ArgsCount) -> Result<()> {
         }
     }
 
-    let output_handle = match_output(args.output.as_ref())?;
-
-    let mut writer = csv::WriterBuilder::new()
-        .delimiter(b'\t')
-        .from_writer(output_handle);
-
-    match (features, args.compressed) {
-        (Some(features), true) => {
-            dump_encoded_records_features(&mut writer, counts.iter_counts(), &features)
-        }
-        (Some(features), false) => {
-            dump_decoded_records_features(&mut writer, counts.iter_counts(), header, &features)
-        }
-        (None, true) => dump_encoded_records(&mut writer, counts.iter_counts()),
-        (None, false) => dump_decoded_records(&mut writer, counts.iter_counts(), header),
-    }
+    write_counts_tsv(
+        args.output.as_ref(),
+        &counts,
+        features,
+        header,
+        args.compressed,
+    )
 }

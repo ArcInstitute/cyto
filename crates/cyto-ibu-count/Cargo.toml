@@ -10,6 +10,7 @@ cyto-cli = { workspace = true }
 cyto-core = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+hashbrown = { workspace = true }
 csv = "1"
 
 [lints]
