@@ -80,7 +80,21 @@ pub fn ibu_steps(
     }
 
     let feature_path = format!("{outdir}/metadata/features.tsv");
-    let count_path = sort_path.replace(".sort.ibu", ".counts.tsv");
+
+    // Extract the base name from the IBU file path for the counts directory
+    let base_name = std::path::Path::new(&sort_path)
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .replace(".sort.ibu", "");
+
+    let count_path = format!("{outdir}/counts/{base_name}.counts.tsv");
+
+    // Create the counts directory if it doesn't exist
+    let counts_dir = format!("{outdir}/counts");
+    std::fs::create_dir_all(&counts_dir)?;
+
     let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
 
     eprintln!(">> Counting {sort_path} -> {count_path}");
