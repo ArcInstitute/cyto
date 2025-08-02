@@ -13,11 +13,12 @@ pub fn validate_output_directory<P: AsRef<Path>>(outdir: P, force: bool) -> Resu
         if force {
             // Remove existing directory if force is enabled
             fs::remove_dir_all(outdir.as_ref())?;
+        } else {
+            bail!(
+                "Output directory '{}' already exists. Use --force to overwrite.",
+                outdir.as_ref().display()
+            );
         }
-        bail!(
-            "Output directory '{}' already exists. Use --force to overwrite.",
-            outdir.as_ref().display()
-        );
     }
 
     Ok(())
