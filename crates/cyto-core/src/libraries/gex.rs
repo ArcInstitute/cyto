@@ -1,7 +1,8 @@
-use anyhow::Result;
+use std::path::Path;
+
+use anyhow::{Context, Result};
 use csv::ReaderBuilder;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 use crate::{mappers::GexMapper, metadata::Gex};
 
@@ -10,11 +11,12 @@ pub struct GexLibrary {
     collection: Vec<Gex>,
 }
 impl GexLibrary {
-    pub fn from_tsv(path: PathBuf) -> Result<Self> {
+    pub fn from_tsv<P: AsRef<Path>>(ref path: P) -> Result<Self> {
         let mut reader = ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b'\t')
-            .from_path(path)?;
+            .from_path(path)
+            .context(format!("Missing file: {}", path.as_ref().display()))?;
 
         let collection = reader
             .deserialize()

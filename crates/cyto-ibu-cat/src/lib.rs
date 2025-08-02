@@ -17,7 +17,7 @@ pub fn run(args: &ArgsCat) -> Result<()> {
 
     // Validate all headers are the same
     let mut og_header = None;
-    for reader in inputs.iter_mut() {
+    for reader in &mut inputs {
         if let Some(og_header) = og_header {
             if og_header != reader.header() {
                 bail!("IBU headers do not match!");
@@ -32,7 +32,7 @@ pub fn run(args: &ArgsCat) -> Result<()> {
     header.write_bytes(&mut output)?;
 
     // Dump all records into the output
-    for reader in inputs.iter_mut() {
+    for reader in &mut inputs {
         for record in reader {
             record?.write_bytes(&mut output)?;
         }

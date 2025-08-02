@@ -65,9 +65,9 @@ The general structure of the usage is as follows:
 
 ```bash
 # Map BINSEQ file
-cyto map <mode> -b <BINSEQ> -c <feature_table> -p <probe_file>
+cyto map <mode> -b <BINSEQ> -c <feature_table> -p <probe_file> -o <output_dir>
 # Map FASTQ files
-cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file>
+cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file> -o <output_dir>
 ```
 
 Where:
@@ -77,18 +77,21 @@ Where:
 3. `-i <R1> -I <R2>` are the paths to the R1 and R2 fastq files, respectively
 4. `-c <feature_table>` is a feature table that maps the target sequences to their corresponding barcodes. Each mode has a specific format for the feature table.
 5. `-p <probe_file>` is an **optional probe file** that can be used to demultiplex the reads by probe sequences.
+6. `-o <output_dir>` is the output directory where results will be written (defaults to `./cyto_out`)
 
-The output of `cyto map` is either a single `IBU` file, or a collection `IBU` files (one per probe) depending on the presence of the probe argument, as well as statistics and a feature index.
+The output of `cyto map` creates a structured directory containing IBU files, statistics, and metadata organized as follows:
 
 ```text
-Outputs
--------
-- <prefix>.ibu: IBU file containing the mapped reads
-    ** or **
-- <prefix>.<probe>.ibu: IBU file containing the mapped reads for a specific probe
-
-- <prefix>.stats.json: Statistics on the mapping process
-- <prefix>.features.tsv: Feature index for the target sequences
+Output Directory Structure
+--------------------------
+<output_dir>/
+├── metadata/
+│   └── features.tsv          # Feature index for the target sequences
+├── stats/
+│   └── mapping.json         # Statistics on the mapping process
+└── ibu/
+    ├── output.ibu           # IBU file (single output mode)
+    └── <probe_name>.ibu     # IBU files (one per probe when using probe demultiplexing)
 ```
 
 #### CRISPR processing
@@ -107,8 +110,9 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map crispr \
-    -b sample.bq \
-    -c crispr_guides.tsv
+    -b data/sequencing/sample.bq \
+    -c data/libraries/crispr_guides.tsv \
+    -o output_directory
 ```
 
 #### GEX processing
@@ -127,8 +131,9 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map gex \
-    -b sample.bq \
-    -c gex_barcodes.tsv
+    -b data/sequencing/sample.bq \
+    -c data/libraries/gex_barcodes.tsv \
+    -o output_directory
 ```
 
 #### Probe-based processing
@@ -150,15 +155,17 @@ The probe file is a 3 column TSV file with the following columns:
 ```bash
 # Mapping CRISPR - demultiplexing by probe
 cyto map crispr \
-    -b sample.bq \
-    -c crispr_guides.tsv \
-    -p probes.tsv
+    -b data/sequencing/sample.bq \
+    -c data/libraries/crispr_guides.tsv \
+    -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+    -o output_directory
 
 # Mapping GEX - demultiplexing by probe
 cyto map gex \
-    -b sample.bq \
-    -c gex_barcodes.tsv \
-    -p probes.tsv
+    -b data/sequencing/sample.bq \
+    -c data/libraries/gex_barcodes.tsv \
+    -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+    -o output_directory
 ```
 
 ### Multi-threading
@@ -189,7 +196,7 @@ This can be done using the `barcode` subcommand:
 
 ```bash
 # Correcting cellular barcodes to a whitelist
-cyto ibu barcode -i sample.ibu -o sample.corrected.ibu -w whitelist.txt
+cyto ibu barcode -i sample.ibu -o sample.corrected.ibu -w data/metadata/737K-fixed-rna-profiling.txt.gz
 ```
 
 #### Correcting Unique Molecular Identifiers (UMIs)
@@ -217,13 +224,49 @@ cyto ibu sort -i sample.ibu -p | cyto ibu count -o sample.counts.tsv
 
 # Including the feature names in the output
 # This is useful for downstream analyses
-cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f features.tsv
+cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f output_directory/metadata/features.tsv
 
 # Write counts as mtx (will be written to a subdirectory)
-cyto ibu count -i sample.sorted.ibu -f features.tsv -o cyto_out
+cyto ibu count -i sample.sorted.ibu -f output_directory/metadata/features.tsv -o cyto_out_mtx
 ```
 
-**Note:** The features are generated from `cyto map` and are used to map the feature sequences to their numerical index in the count matrix.
+**Note:** The features are generated from `cyto map` and are located in the `metadata/features.tsv` file within the output directory. These are used to map the feature sequences to their numerical index in the count matrix.
+
+### Workflow Commands
+
+`cyto` includes automated workflow commands that combine mapping and IBU processing steps. These workflows automatically handle the directory structure and process all IBU files (including probe-demultiplexed files) through the complete pipeline:
+
+```bash
+# Complete CRISPR workflow: map → sort → barcode correction → UMI correction → count
+cyto workflow crispr \
+    -b sample.bq \
+    -c crispr_guides.tsv \
+    -w whitelist.txt \
+    -o workflow_output
+
+# Complete GEX workflow: map → sort → barcode correction → UMI correction → count
+cyto workflow gex \
+    -b sample.bq \
+    -c gex_barcodes.tsv \
+    -w whitelist.txt \
+    -o workflow_output
+```
+
+The workflow commands create an extended directory structure:
+
+```text
+Workflow Output Directory Structure
+-----------------------------------
+<output_dir>/
+├── metadata/
+│   └── features.tsv          # Feature index
+├── stats/
+│   └── mapping.json         # Mapping statistics
+├── ibu/
+│   └── *.sort.ibu           # Final processed IBU files
+└── counts/
+    └── *.counts.tsv         # Count matrices (one per sample/probe)
+```
 
 To convert the MTX to an [h5ad](https://anndata.readthedocs.io/en/latest/) file, see attached `scripts/mtx_to_h5ad`.
 Dependencies and runtime of script is managed by the python package manager [uv](https://docs.astral.sh/uv/).

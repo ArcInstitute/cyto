@@ -129,8 +129,8 @@ fn aggregate_unit(
     }
 
     // Creates a vector to store the aggregated feature names
-    let mut agg_features = vec!["".to_string(); aggr_to_uidx.len()];
-    for (feature, idx) in aggr_to_uidx.iter() {
+    let mut agg_features = vec![String::new(); aggr_to_uidx.len()];
+    for (feature, idx) in &aggr_to_uidx {
         agg_features[*idx] = feature.to_string();
     }
 
@@ -206,7 +206,7 @@ fn write_counts_mtx<P: AsRef<Path>>(
 
     // write the features file
     for feature in features {
-        writeln!(features_handle, "{}", feature)?;
+        writeln!(features_handle, "{feature}")?;
     }
     features_handle.finish()?;
     eprintln!("Features file done");

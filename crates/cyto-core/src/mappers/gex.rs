@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
 
@@ -21,12 +21,12 @@ pub struct GexMapper {
     index_to_aggr: MapIndexToName,
 }
 impl GexMapper {
-    pub fn from_tsv(filepath: &str) -> Result<Self> {
-        let lib = GexLibrary::from_tsv(filepath.into())?;
+    pub fn from_tsv<P: AsRef<Path>>(filepath: P) -> Result<Self> {
+        let lib = GexLibrary::from_tsv(filepath)?;
         lib.into_mapper()
     }
 
-    pub fn from_tsv_arc(filepath: &str) -> Result<Arc<Self>> {
+    pub fn from_tsv_arc<P: AsRef<Path>>(filepath: P) -> Result<Arc<Self>> {
         let mapper = Self::from_tsv(filepath)?;
         Ok(Arc::new(mapper))
     }

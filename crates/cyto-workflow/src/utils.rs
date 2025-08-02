@@ -8,8 +8,8 @@ use cyto_cli::{
 };
 use cyto_ibu_barcode_correct::Whitelist;
 
-pub fn identify_ibu_files(prefix: &str) -> Result<Vec<String>> {
-    let ibu_files = glob(&format!("{prefix}*.ibu"))?
+pub fn identify_ibu_files(outdir: &str) -> Result<Vec<String>> {
+    let ibu_files = glob(&format!("{outdir}/ibu/*.ibu"))?
         .map(|path| {
             path.expect("Path is not valid")
                 .into_os_string()
@@ -23,7 +23,7 @@ pub fn identify_ibu_files(prefix: &str) -> Result<Vec<String>> {
 
 pub fn ibu_steps(
     ibu_path: &str,
-    prefix: &str,
+    outdir: &str,
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
 ) -> Result<()> {
@@ -79,8 +79,22 @@ pub fn ibu_steps(
         std::fs::remove_file(&umi_path)?;
     }
 
-    let feature_path = format!("{prefix}.features.tsv");
-    let count_path = sort_path.replace(".sort.ibu", ".counts.tsv");
+    let feature_path = format!("{outdir}/metadata/features.tsv");
+
+    // Extract the base name from the IBU file path for the counts directory
+    let base_name = std::path::Path::new(&sort_path)
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .replace(".sort.ibu", "");
+
+    let count_path = format!("{outdir}/counts/{base_name}.counts.tsv");
+
+    // Create the counts directory if it doesn't exist
+    let counts_dir = format!("{outdir}/counts");
+    std::fs::create_dir_all(&counts_dir)?;
+
     let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
 
     eprintln!(">> Counting {sort_path} -> {count_path}");

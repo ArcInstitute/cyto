@@ -3,7 +3,7 @@ use std::time::Instant;
 use anyhow::Result;
 use cyto_cli::ArgsCrispr;
 use cyto_core::mappers::{CrisprMapper, MapperOffset, ProbeMapper};
-use cyto_io::{write_features, write_statistics};
+use cyto_io::{validate_output_directory, write_features, write_statistics};
 
 use super::{
     ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
@@ -12,6 +12,9 @@ use super::{
 };
 
 pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
 
@@ -30,10 +33,10 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
     // Define the file path for each probe
-    let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
+    let filepaths = build_filepaths(&args.output.outdir, &probe_mapper)?;
 
     // Write the features to the output file
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     // map the reads and write the results to the probe files
     let statistics = ibu_map_probed_pairs_paraseq(
@@ -54,11 +57,14 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     // Delete the probe files if there are no mapped reads
     delete_empty_paths(&filepaths)?;
 
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 
 pub fn bus(args: &ArgsCrispr) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     // Load the input readers
     let (r1, r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -67,10 +73,10 @@ pub fn bus(args: &ArgsCrispr) -> Result<()> {
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
-    let output_filepath = build_filepath(&args.output.prefix, None);
+    let output_filepath = build_filepath(&args.output.outdir, None);
 
     // Write the features to the output file
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     // map the reads and write the results to the output file
     let statistics = ibu_map_pairs_paraseq(
@@ -89,11 +95,14 @@ pub fn bus(args: &ArgsCrispr) -> Result<()> {
     // Delete the output file if there are no mapped reads
     delete_empty_path(&output_filepath)?;
 
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 
 fn bus_binseq(args: &ArgsCrispr) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_mapper =
@@ -101,10 +110,10 @@ fn bus_binseq(args: &ArgsCrispr) -> Result<()> {
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
 
     // Define the file path for the output file
-    let output_filepath = build_filepath(&args.output.prefix, None);
+    let output_filepath = build_filepath(&args.output.outdir, None);
 
     // Write the features to the output file
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
@@ -119,11 +128,14 @@ fn bus_binseq(args: &ArgsCrispr) -> Result<()> {
         start_time,
     )?;
 
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 
 pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
+    // Validate output directory
+    validate_output_directory(&args.output.outdir, args.output.force)?;
+
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();
     let target_mapper =
@@ -136,9 +148,9 @@ pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
     let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
 
-    let filepaths = build_filepaths(&args.output.prefix, &probe_mapper)?;
+    let filepaths = build_filepaths(&args.output.outdir, &probe_mapper)?;
 
-    write_features(&args.output.prefix, target_mapper.as_ref())?;
+    write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     let statistics = ibu_map_probed_pairs_binseq(
         reader,
@@ -156,7 +168,7 @@ pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
 
     delete_empty_paths(&filepaths)?;
 
-    write_statistics(&args.output.prefix, &statistics)?;
+    write_statistics(&args.output.outdir, &statistics)?;
     Ok(())
 }
 
