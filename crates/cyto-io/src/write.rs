@@ -8,27 +8,16 @@ use anyhow::{Result, bail};
 use cyto_core::{io::FeatureWriter, statistics::Statistics};
 
 /// Validates output directory and handles force flag
-pub fn validate_output_directory(outdir: &str, force: bool) -> Result<()> {
-    let path = Path::new(outdir);
-
-    // make sure path is not `.`
-    let cwd = std::env::current_dir()?;
-    if path.canonicalize()? == cwd {
-        bail!(
-            "Output directory cannot resolve to current working directory: {}",
-            cwd.display()
-        );
-    }
-
-    if path.exists() {
-        if !force {
-            bail!(
-                "Output directory '{}' already exists. Use --force to overwrite.",
-                outdir
-            );
+pub fn validate_output_directory<P: AsRef<Path>>(outdir: P, force: bool) -> Result<()> {
+    if outdir.as_ref().exists() {
+        if force {
+            // Remove existing directory if force is enabled
+            fs::remove_dir_all(outdir.as_ref())?;
         }
-        // Remove existing directory if force is enabled
-        fs::remove_dir_all(path)?;
+        bail!(
+            "Output directory '{}' already exists. Use --force to overwrite.",
+            outdir.as_ref().display()
+        );
     }
 
     Ok(())

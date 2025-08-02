@@ -1,13 +1,17 @@
-use anyhow::Result;
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Read, Write, stdin, stdout},
     path::Path,
 };
 
+use anyhow::{Context, Result};
+
 pub fn match_input<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Read + Send>> {
-    if let Some(filepath) = filepath {
-        let handle = File::open(filepath).map(BufReader::new)?;
+    if let Some(ref filepath) = filepath {
+        let handle = File::open(filepath).map(BufReader::new).context(format!(
+            "Failed to open file for reading: {}",
+            filepath.as_ref().display()
+        ))?;
         Ok(Box::new(handle))
     } else {
         let handle = BufReader::new(stdin());
