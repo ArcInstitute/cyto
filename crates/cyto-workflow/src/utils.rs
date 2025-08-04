@@ -113,12 +113,20 @@ pub fn ibu_steps<P: AsRef<Path>>(
         // Locate the expected feature path
         let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
         // Build the expected count path
-        let count_path = outdir
-            .as_ref()
-            .join("counts")
-            .join(format!("{base_ibu_path}.counts.tsv"));
+        let count_path = if wf_args.mtx {
+            outdir
+                .as_ref()
+                .join("counts")
+                .join(format!("{base_ibu_path}"))
+        } else {
+            outdir
+                .as_ref()
+                .join("counts")
+                .join(format!("{base_ibu_path}.counts.tsv"))
+        };
         // Create the argument struct
-        let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
+        let count_args =
+            ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1, wf_args.mtx);
 
         // Run the counting step
         info!("Counting {sort_path} -> {}", count_path.display());

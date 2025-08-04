@@ -45,4 +45,8 @@ pub struct ArgsWorkflow {
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
+
+    /// Output counts as MTX
+    #[clap(long)]
+    pub mtx: bool,
 }
