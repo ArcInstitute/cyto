@@ -108,25 +108,22 @@ pub fn ibu_steps<P: AsRef<Path>>(
         std::fs::remove_file(&umi_path)?;
     }
 
-    let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
+    // Perform counting
+    {
+        // Locate the expected feature path
+        let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
+        // Build the expected count path
+        let count_path = outdir
+            .as_ref()
+            .join("counts")
+            .join(format!("{base_ibu_path}.counts.tsv"));
+        // Create the argument struct
+        let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
 
-    // Extract the base name from the IBU file path for the counts directory
-    let base_name = std::path::Path::new(&sort_path)
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .replace(".sort.ibu", "");
-
-    // Run counting step
-    let count_path = outdir
-        .as_ref()
-        .join("counts")
-        .join(format!("{base_name}.counts.tsv"));
-    let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
-
-    info!("Counting {sort_path} -> {}", count_path.display());
-    cyto_ibu_count::run(&count_args)?;
+        // Run the counting step
+        info!("Counting {sort_path} -> {}", count_path.display());
+        cyto_ibu_count::run(&count_args)?;
+    }
 
     Ok(())
 }
