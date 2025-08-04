@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::IbuInput;
 
 use clap::Parser;
@@ -11,7 +13,12 @@ pub struct ArgsBarcode {
     pub options: OptionsBarcode,
 }
 impl ArgsBarcode {
-    pub fn from_wf_path(input_path: &str, output_path: &str, whitelist: &str) -> Self {
+    pub fn from_wf_path<P: AsRef<Path>>(
+        input_path: &str,
+        output_path: &str,
+        whitelist: &str,
+        bc_log: P,
+    ) -> Self {
         Self {
             input: IbuInput::from_path(input_path),
             options: OptionsBarcode {
@@ -20,6 +27,7 @@ impl ArgsBarcode {
                 skip_second_pass: false,
                 include: false,
                 output: Some(output_path.to_string()),
+                log: Some(bc_log.as_ref().display().to_string()),
             },
         }
     }
@@ -60,4 +68,10 @@ pub struct OptionsBarcode {
     /// Output file to write to [default=stdout]
     #[clap(short, long)]
     pub output: Option<String>,
+
+    /// Output file to write statistics to [default=stderr]
+    ///
+    /// Will output as json
+    #[clap(short, long)]
+    pub log: Option<String>,
 }

@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
 use disambiseq::Disambibyte;
+use log::info;
 
 use super::{
     mapper::Adjustment,
@@ -22,8 +23,8 @@ pub struct ProbeMapper {
     corrected: Disambibyte,
 }
 impl ProbeMapper {
-    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
-        let lib = ProbeLibrary::from_tsv(filepath.into())?;
+    pub fn from_tsv<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Self> {
+        let lib = ProbeLibrary::from_tsv(filepath)?;
         if exact_match {
             lib.into_mapper()
         } else {
@@ -31,7 +32,7 @@ impl ProbeMapper {
         }
     }
 
-    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
+    pub fn from_tsv_arc<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Arc<Self>> {
         let mapper = Self::from_tsv(filepath, exact_match)?;
         Ok(Arc::new(mapper))
     }
@@ -39,6 +40,8 @@ impl ProbeMapper {
     pub fn new(probe_library: ProbeLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();
+
+        info!("Building exact Flex multiplexing probe mapper");
         probe_library
             .into_iter()
             .enumerate()
@@ -47,6 +50,7 @@ impl ProbeMapper {
                 index_to_alias.insert(index, probe.alias_nuc, probe.alias);
                 Ok(())
             })?;
+
         Ok(Self {
             sequence_to_index,
             index_to_alias,
@@ -58,6 +62,8 @@ impl ProbeMapper {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();
         let mut corrected = Disambibyte::default();
+
+        info!("Building disambiguated one-off Flex multiplexing probe mapper");
         probe_library
             .into_iter()
             .enumerate()
@@ -67,6 +73,8 @@ impl ProbeMapper {
                 index_to_alias.insert(index, probe.alias_nuc, probe.alias);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
+
         Ok(Self {
             sequence_to_index,
             index_to_alias,

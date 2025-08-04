@@ -1,7 +1,15 @@
 use anyhow::Result;
 use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
+use log::info;
 
 fn main() -> Result<()> {
+    env_logger::builder()
+        .format_timestamp_millis()
+        .filter_level(log::LevelFilter::Info)
+        .parse_env("CYTO_LOG")
+        .init();
+
+    info!("Initializing...");
     let args = Cli::new();
     match args.command {
         Commands::View(args) => cyto_view::run(&args),
@@ -22,5 +30,8 @@ fn main() -> Result<()> {
             WorkflowCommand::GexMapping(args) => cyto_workflow::gex::run(&args),
             WorkflowCommand::CrisprMapping(args) => cyto_workflow::crispr::run(&args),
         },
-    }
+    }?;
+    info!("Done!");
+
+    Ok(())
 }

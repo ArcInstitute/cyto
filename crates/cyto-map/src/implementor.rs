@@ -14,6 +14,7 @@ use cyto_core::{
 };
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use log::info;
 use paraseq::prelude::*;
 use parking_lot::Mutex;
 
@@ -359,6 +360,7 @@ where
     );
 
     // Process the records in parallel
+    info!("Beginning mapping with {} threads", num_threads);
     rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
 
     // Finalize the progress bar
@@ -404,6 +406,7 @@ where
     );
 
     // Process the records in parallel
+    info!("Beginning mapping with {} threads", num_threads);
     reader.process_parallel(implementor.clone(), num_threads)?;
 
     // Complete the progress bar

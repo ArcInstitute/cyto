@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
 use disambiseq::Disambibyte;
+use log::info;
 
 use super::{
     mapper::{Adjustment, MapperOffset},
@@ -23,8 +24,8 @@ pub struct CrisprMapper {
     guide_corr: Disambibyte,
 }
 impl CrisprMapper {
-    pub fn from_tsv(filepath: &str, exact_match: bool) -> Result<Self> {
-        let lib = CrisprLibrary::from_tsv(filepath.into())?;
+    pub fn from_tsv<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Self> {
+        let lib = CrisprLibrary::from_tsv(filepath)?;
         if exact_match {
             lib.into_mapper()
         } else {
@@ -32,7 +33,7 @@ impl CrisprMapper {
         }
     }
 
-    pub fn from_tsv_arc(filepath: &str, exact_match: bool) -> Result<Arc<Self>> {
+    pub fn from_tsv_arc<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Arc<Self>> {
         let mapper = Self::from_tsv(filepath, exact_match)?;
         Ok(Arc::new(mapper))
     }
@@ -41,6 +42,7 @@ impl CrisprMapper {
         let mut anchor_to_sequence = MapAnchorToSequence::default();
         let mut index_to_name = MapIndexToName::with_capacity(guide_library.len());
 
+        info!("Building exact CRISPR probe map");
         guide_library
             .into_iter()
             .enumerate()
@@ -64,6 +66,7 @@ impl CrisprMapper {
         let mut anchor_corr = Disambibyte::default();
         let mut guide_corr = Disambibyte::default();
 
+        info!("Building disambiguated one-off CRISPR probe map");
         guide_library
             .into_iter()
             .enumerate()
@@ -74,6 +77,7 @@ impl CrisprMapper {
                 index_to_name.insert(index, guide.name);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
 
         Ok(Self {
             anchor_to_sequence,

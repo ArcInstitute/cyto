@@ -1,6 +1,6 @@
 [package]
 name = "cyto-map"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 
 [dependencies]
@@ -11,6 +11,7 @@ cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+log = { workspace = true }
 paraseq = { workspace = true }
 parking_lot = { workspace = true }
 

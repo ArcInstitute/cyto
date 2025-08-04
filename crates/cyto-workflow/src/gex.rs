@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use super::utils::{ibu_steps, identify_ibu_files};
@@ -6,7 +7,7 @@ use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
 pub fn run(args: &GexMappingCommand) -> Result<()> {
-    eprintln!(">> Running Flex Mapping Command");
+    info!("Running GEX Mapping Workflow");
     cyto_map::gex::run(&args.gex_args)?;
 
     let whitelist = if args.wf_args.skip_barcode {

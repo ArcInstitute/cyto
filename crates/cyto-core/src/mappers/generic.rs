@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use disambiseq::Disambibyte;
+use log::info;
 
 use super::{
     mapper::Adjustment,
@@ -43,6 +44,7 @@ impl GenericMapper {
         let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
         let correction = Disambibyte::default();
 
+        info!("Building exact generic sequence mapper");
         library
             .into_iter()
             .enumerate()
@@ -67,6 +69,7 @@ impl GenericMapper {
         let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
         let mut correction = Disambibyte::default();
 
+        info!("Building disambiguated one-off generic sequence mapper");
         library
             .into_iter()
             .enumerate()
@@ -77,6 +80,7 @@ impl GenericMapper {
                 index_to_aggr.insert(index, target.aggr_name);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
 
         Ok(Self {
             sequence_to_index,

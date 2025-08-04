@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-barcode-correct"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 
 [dependencies]
@@ -9,7 +9,11 @@ bitnuc = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+log = { workspace = true }
 niffler = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
 bitnuc-mismatch = "0.1.2"
 
 [lints]
