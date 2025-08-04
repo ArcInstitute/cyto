@@ -118,7 +118,7 @@ fn load_features(path: Option<&String>, feature_col: usize) -> Result<Option<Vec
 }
 
 fn aggregate_unit(
-    counts: BarcodeIndexCounts,
+    counts: &BarcodeIndexCounts,
     features: &[String],
 ) -> (BarcodeIndexCounts, Vec<String>) {
     // Creates a LUT to map feature names to unique indices
@@ -147,13 +147,13 @@ fn aggregate_unit(
 }
 
 fn write_counts_tsv<P: AsRef<Path>>(
-    path: Option<P>,
+    path: Option<&P>,
     counts: &BarcodeIndexCounts,
     features: Option<Vec<String>>,
     header: Header,
     twobit_compressed: bool,
 ) -> Result<()> {
-    if let Some(ref path) = path {
+    if let Some(path) = path {
         if path.as_ref().exists() && path.as_ref().is_dir() {
             error!(
                 "Output path already exists and is a directory. Only `--mtx` can accept a directory.",
@@ -299,7 +299,7 @@ pub fn run(args: &ArgsCount) -> Result<()> {
     if let Some(tx_features) = &features {
         // skip if feature col is the `unit` column
         if args.feature_col != 0 {
-            let (agg_counts, agg_features) = aggregate_unit(counts, tx_features);
+            let (agg_counts, agg_features) = aggregate_unit(&counts, tx_features);
             counts = agg_counts;
             features = Some(agg_features);
         }
