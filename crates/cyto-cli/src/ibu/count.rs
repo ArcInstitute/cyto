@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::IbuInput;
 
 #[derive(clap::Parser, Debug)]
@@ -37,16 +39,16 @@ pub struct ArgsCount {
     pub feature_col: usize,
 }
 impl ArgsCount {
-    pub fn from_wf_path(
+    pub fn from_wf_path<P: AsRef<Path>>(
         sort_path: &str,
-        out_path: &str,
-        features_path: &str,
+        out_path: P,
+        features_path: P,
         num_threads: usize,
     ) -> Self {
         Self {
             input: IbuInput::from_path(sort_path),
-            output: Some(out_path.to_string()),
-            features: Some(features_path.to_string()),
+            output: Some(out_path.as_ref().to_str().unwrap().to_string()),
+            features: Some(features_path.as_ref().to_str().unwrap().to_string()),
             mtx: false,
             compressed: false,
             feature_col: 1,

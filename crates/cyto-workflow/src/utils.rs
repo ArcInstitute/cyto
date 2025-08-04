@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 use anyhow::bail;
 use glob::glob;
@@ -7,9 +9,10 @@ use cyto_cli::{
     workflow::ArgsWorkflow,
 };
 use cyto_ibu_barcode_correct::Whitelist;
+use log::info;
 
-pub fn identify_ibu_files(outdir: &str) -> Result<Vec<String>> {
-    let ibu_files = glob(&format!("{outdir}/ibu/*.ibu"))?
+pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
+    let ibu_files = glob(&format!("{}/ibu/*.ibu", outdir.as_ref().display()))?
         .map(|path| {
             path.expect("Path is not valid")
                 .into_os_string()
@@ -21,19 +24,19 @@ pub fn identify_ibu_files(outdir: &str) -> Result<Vec<String>> {
     Ok(ibu_files)
 }
 
-pub fn ibu_steps(
+pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
-    outdir: &str,
+    outdir: P,
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
 ) -> Result<()> {
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
     let sort_args = ArgsSort::from_wf_path(ibu_path, &sort_path, 1);
 
-    eprintln!(">> Sorting {ibu_path} -> {sort_path}");
+    info!("Sorting {ibu_path} -> {sort_path}");
     cyto_ibu_sort::run(&sort_args)?;
 
-    eprintln!(">> Removing unsorted file: {ibu_path}");
+    info!("Removing unsorted file: {ibu_path}");
     std::fs::remove_file(ibu_path)?;
 
     if !wf_args.skip_barcode {
@@ -43,19 +46,19 @@ pub fn ibu_steps(
             bail!("Whitelist is required for barcode correction");
         };
 
-        eprintln!(">> Barcode Correcting {sort_path} -> {bc_path}");
+        info!("Barcode Correcting {sort_path} -> {bc_path}");
         cyto_ibu_barcode_correct::run_with_prebuilt_whitelist(&barcode_args, whitelist)?;
 
-        eprintln!(">> Removing uncorrected file: {sort_path}");
+        info!("Removing uncorrected file: {sort_path}");
         std::fs::remove_file(&sort_path)?;
 
         sort_path = bc_path.replace(".barcode.ibu", ".barcode.sort.ibu");
-        eprintln!(">> Sorting corrected file: {bc_path} -> {sort_path}");
+        info!("Sorting corrected file: {bc_path} -> {sort_path}");
 
         let sort_args = ArgsSort::from_wf_path(&bc_path, &sort_path, 1);
         cyto_ibu_sort::run(&sort_args)?;
 
-        eprintln!(">> Removing unsorted file: {bc_path}");
+        info!("Removing unsorted file: {bc_path}");
         std::fs::remove_file(&bc_path)?;
     }
 
@@ -63,23 +66,23 @@ pub fn ibu_steps(
         let umi_path = sort_path.replace(".sort.ibu", ".umi.ibu");
         let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path);
 
-        eprintln!(">> UMI Correcting {sort_path} -> {umi_path}");
+        info!("UMI Correcting {sort_path} -> {umi_path}");
         cyto_ibu_umi_correct::run(&umi_args)?;
 
-        eprintln!(">> Removing uncorrected file: {sort_path}");
+        info!("Removing uncorrected file: {sort_path}");
         std::fs::remove_file(&sort_path)?;
 
         sort_path = umi_path.replace(".umi.ibu", ".umi.sort.ibu");
-        eprintln!(">> Sorting corrected file: {umi_path} -> {sort_path}");
+        info!("Sorting corrected file: {umi_path} -> {sort_path}");
 
         let sort_args = ArgsSort::from_wf_path(&umi_path, &sort_path, 1);
         cyto_ibu_sort::run(&sort_args)?;
 
-        eprintln!(">> Removing unsorted file: {umi_path}");
+        info!("Removing unsorted file: {umi_path}");
         std::fs::remove_file(&umi_path)?;
     }
 
-    let feature_path = format!("{outdir}/metadata/features.tsv");
+    let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
 
     // Extract the base name from the IBU file path for the counts directory
     let base_name = std::path::Path::new(&sort_path)
@@ -89,15 +92,18 @@ pub fn ibu_steps(
         .unwrap()
         .replace(".sort.ibu", "");
 
-    let count_path = format!("{outdir}/counts/{base_name}.counts.tsv");
+    let count_path = outdir
+        .as_ref()
+        .join("counts")
+        .join(format!("{base_name}.counts.tsv"));
 
     // Create the counts directory if it doesn't exist
-    let counts_dir = format!("{outdir}/counts");
-    std::fs::create_dir_all(&counts_dir)?;
+    let counts_dir = outdir.as_ref().join("counts");
+    std::fs::create_dir_all(counts_dir)?;
 
     let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
 
-    eprintln!(">> Counting {sort_path} -> {count_path}");
+    info!("Counting {sort_path} -> {}", count_path.display());
     cyto_ibu_count::run(&count_args)?;
 
     Ok(())

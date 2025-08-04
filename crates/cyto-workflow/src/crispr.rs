@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use super::utils::{ibu_steps, identify_ibu_files};
@@ -6,7 +7,7 @@ use cyto_cli::workflow::CrisprMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
 pub fn run(args: &CrisprMappingCommand) -> Result<()> {
-    eprintln!(">> Running CRISPR Mapping Command");
+    info!("Running CRISPR Mapping Workflow");
     cyto_map::crispr::run(&args.crispr_args)?;
 
     let whitelist = if args.wf_args.skip_barcode {
