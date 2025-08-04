@@ -85,7 +85,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     if !wf_args.skip_umi {
         let umi_path = sort_path.replace(".sort.ibu", ".umi.ibu");
-        let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path);
+        let umi_log = outdir
+            .as_ref()
+            .join("stats")
+            .join("umi")
+            .join(&format!("{}.umi.json", base_ibu_path));
+
+        let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path, umi_log);
 
         info!("UMI Correcting {sort_path} -> {umi_path}");
         cyto_ibu_umi_correct::run(&umi_args)?;

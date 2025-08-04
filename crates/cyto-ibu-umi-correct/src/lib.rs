@@ -1,9 +1,28 @@
+use std::path::Path;
+
 use anyhow::{Result, bail};
 use ibu::{Reader, Record};
 use petgraph::{Graph, algo::kosaraju_scc, graph::NodeIndex};
 
 use cyto_cli::ibu::ArgsUmi;
-use cyto_io::{match_input, match_output};
+use cyto_io::{match_input, match_output, match_output_stderr};
+use serde::Serialize;
+
+#[derive(Serialize, Clone, Copy)]
+struct Statistics {
+    total: usize,
+    corrected: usize,
+    fraction_corrected: f64,
+}
+impl Statistics {
+    pub fn new(total: usize, corrected: usize) -> Self {
+        Self {
+            total,
+            corrected,
+            fraction_corrected: corrected as f64 / total as f64,
+        }
+    }
+}
 
 /// Sorts the record set by barcode, index, and UMI.
 fn resort_record_set(record_set: &mut [Record]) {
@@ -132,6 +151,13 @@ fn collapse_barcode_set(
     Ok(n_corrections)
 }
 
+fn write_statistics<P: AsRef<Path>>(log_path: Option<P>, stats: Statistics) -> Result<()> {
+    let mut writer = match_output_stderr(log_path)?;
+    serde_json::to_writer_pretty(&mut writer, &stats)?;
+    writer.flush()?;
+    Ok(())
+}
+
 pub fn run(args: &ArgsUmi) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
@@ -192,13 +218,10 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     for record in corrected_set.drain(..) {
         record.write_bytes(&mut output)?;
     }
+    output.flush()?;
 
-    eprintln!("Total records:          {num_records}");
-    eprintln!("Total corrections:      {num_corrections}");
-    eprintln!(
-        "Percentage corrected:   {:.4}%",
-        (num_corrections as f64 / f64::from(num_records)) * 100.0
-    );
+    let stats = Statistics::new(num_records, num_corrections);
+    write_statistics(args.options.log.as_ref(), stats)?;
 
     Ok(())
 }
