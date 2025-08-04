@@ -2,6 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
 use disambiseq::Disambibyte;
+use log::info;
 
 use super::{
     mapper::Adjustment,
@@ -39,6 +40,8 @@ impl ProbeMapper {
     pub fn new(probe_library: ProbeLibrary) -> Result<Self> {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();
+
+        info!("Building exact Flex multiplexing probe mapper");
         probe_library
             .into_iter()
             .enumerate()
@@ -47,6 +50,7 @@ impl ProbeMapper {
                 index_to_alias.insert(index, probe.alias_nuc, probe.alias);
                 Ok(())
             })?;
+
         Ok(Self {
             sequence_to_index,
             index_to_alias,
@@ -58,6 +62,8 @@ impl ProbeMapper {
         let mut sequence_to_index = MapSequenceToIndex::default();
         let mut index_to_alias = MapIndexToAlias::default();
         let mut corrected = Disambibyte::default();
+
+        info!("Building disambiguated one-off Flex multiplexing probe mapper");
         probe_library
             .into_iter()
             .enumerate()
@@ -67,6 +73,8 @@ impl ProbeMapper {
                 index_to_alias.insert(index, probe.alias_nuc, probe.alias);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
+
         Ok(Self {
             sequence_to_index,
             index_to_alias,

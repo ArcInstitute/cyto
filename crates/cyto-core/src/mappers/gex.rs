@@ -1,6 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
+use log::info;
 
 use super::{
     mapper::Adjustment,
@@ -36,6 +37,7 @@ impl GexMapper {
         let mut index_to_unit = MapIndexToName::with_capacity(library.len());
         let mut index_to_aggr = MapIndexToName::with_capacity(library.len());
 
+        info!("Building disambiguated one-off GEX probe mapper");
         library
             .into_iter()
             .enumerate()
@@ -45,6 +47,7 @@ impl GexMapper {
                 index_to_aggr.insert(index, gex.aggr_name);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
 
         Ok(Self {
             sequence_to_index,

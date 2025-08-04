@@ -42,6 +42,7 @@ impl CrisprMapper {
         let mut anchor_to_sequence = MapAnchorToSequence::default();
         let mut index_to_name = MapIndexToName::with_capacity(guide_library.len());
 
+        info!("Building exact CRISPR probe map");
         guide_library
             .into_iter()
             .enumerate()
@@ -65,6 +66,7 @@ impl CrisprMapper {
         let mut anchor_corr = Disambibyte::default();
         let mut guide_corr = Disambibyte::default();
 
+        info!("Building disambiguated one-off CRISPR probe map");
         guide_library
             .into_iter()
             .enumerate()
@@ -75,6 +77,7 @@ impl CrisprMapper {
                 index_to_name.insert(index, guide.name);
                 Ok(())
             })?;
+        info!("Finished disambiguation");
 
         Ok(Self {
             anchor_to_sequence,
