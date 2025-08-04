@@ -12,7 +12,7 @@ pub struct GexLibrary {
     collection: Vec<Gex>,
 }
 impl GexLibrary {
-    pub fn from_tsv<P: AsRef<Path>>(ref path: P) -> Result<Self> {
+    pub fn from_tsv<P: AsRef<Path>>(path: P) -> Result<Self> {
         debug!("Building GEX library from: {}", path.as_ref().display());
         if !path.as_ref().exists() {
             error!("Missing file: {}", path.as_ref().display());
@@ -20,7 +20,7 @@ impl GexLibrary {
         let mut reader = ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b'\t')
-            .from_path(path)
+            .from_path(&path)
             .context(format!("Unable to open file {}", path.as_ref().display()))?;
 
         let collection = reader
