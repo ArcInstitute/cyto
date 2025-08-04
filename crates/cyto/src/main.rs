@@ -3,6 +3,8 @@ use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
 use log::info;
 
 fn main() -> Result<()> {
+    let args = Cli::new();
+
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
@@ -10,7 +12,6 @@ fn main() -> Result<()> {
         .init();
 
     info!("Initializing...");
-    let args = Cli::new();
     match args.command {
         Commands::View(args) => cyto_view::run(&args),
         Commands::Map(map) => match map {
