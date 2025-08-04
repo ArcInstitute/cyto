@@ -243,12 +243,12 @@ fn write_counts_mtx<P: AsRef<Path>>(
         .from_writer(mtx_handle);
 
     // barcode to index
-    let mut bc2idx = HashMap::new();
+    let mut bc_idx_map = HashMap::new();
     let mut dbuf = Vec::default();
     for record in counts.iter_counts() {
-        let bc_idx = if bc2idx.contains_key(&record.barcode()) {
+        let bc_idx = if bc_idx_map.contains_key(&record.barcode()) {
             // barcode exists already
-            *bc2idx.get(&record.barcode()).unwrap()
+            *bc_idx_map.get(&record.barcode()).unwrap()
         } else {
             // decode the barcode
             dbuf.clear();
@@ -259,8 +259,8 @@ fn write_counts_mtx<P: AsRef<Path>>(
             barcodes_handle.write_all(b"\n")?;
 
             // insert new barcode
-            let bc_idx = bc2idx.len();
-            bc2idx.insert(record.barcode(), bc_idx);
+            let bc_idx = bc_idx_map.len();
+            bc_idx_map.insert(record.barcode(), bc_idx);
             bc_idx
         };
 
