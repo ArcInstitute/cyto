@@ -11,6 +11,7 @@ cyto-core = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
+log = { workspace = true }
 paraseq = { workspace = true }
 parking_lot = { workspace = true }
 
