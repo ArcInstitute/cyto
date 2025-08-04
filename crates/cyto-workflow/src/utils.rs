@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
 use glob::glob;
@@ -24,12 +25,25 @@ pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
     Ok(ibu_files)
 }
 
+fn strip_ibu_basename(ibu_path: &str) -> Result<&str> {
+    let base_ibu = ibu_path
+        .strip_suffix(".ibu")
+        .context(format!("Expected path ({}) to end with .ibu", ibu_path))?;
+    let base_ibu_path = Path::new(base_ibu)
+        .file_name()
+        .context("Expected file name")?
+        .to_str()
+        .context("Expected valid UTF8")?;
+    Ok(base_ibu_path)
+}
+
 pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
     outdir: P,
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
 ) -> Result<()> {
+    let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
     let sort_args = ArgsSort::from_wf_path(ibu_path, &sort_path, 1);
 
@@ -41,7 +55,14 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     if !wf_args.skip_barcode {
         let bc_path = sort_path.replace(".sort.ibu", ".barcode.ibu");
-        let barcode_args = ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist);
+        let bc_log = outdir
+            .as_ref()
+            .join("stats")
+            .join("barcode")
+            .join(&format!("{}.barcode.json", base_ibu_path));
+
+        let barcode_args =
+            ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist, bc_log);
         let Some(whitelist) = whitelist else {
             bail!("Whitelist is required for barcode correction");
         };

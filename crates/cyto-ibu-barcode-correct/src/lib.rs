@@ -9,9 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsBarcode;
-use cyto_io::{match_input, match_output};
+use cyto_io::{match_input, match_output, match_output_stderr};
 use ibu::{Reader, Record};
 use log::{debug, info};
+use serde::Serialize;
 
 fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
     debug!("Opening whitelist file: {}", path.as_ref().display());
@@ -197,46 +198,44 @@ impl Add for CorrectStats {
     }
 }
 
-fn write_statistics(stats: CorrectStats) {
-    let total = stats.total;
-    let matched = stats.matched;
-    let corrected = stats.corrected;
-    let corrected_via_counts = stats.corrected_via_counts;
-    let ambiguous = stats.ambiguous;
-    let unchanged = stats.unchanged;
+#[derive(Serialize)]
+pub struct FormattedStats {
+    total: u64,
+    matched: u64,
+    corrected: u64,
+    corrected_via_counts: u64,
+    ambiguous: u64,
+    unchanged: u64,
+    frac_matched: f64,
+    frac_corrected: f64,
+    frac_corrected_via_counts: f64,
+    frac_ambiguous: f64,
+    frac_unchanged: f64,
+}
+impl FormattedStats {
+    pub fn new(stats: CorrectStats) -> Self {
+        Self {
+            total: stats.total,
+            matched: stats.matched,
+            corrected: stats.corrected,
+            corrected_via_counts: stats.corrected_via_counts,
+            ambiguous: stats.ambiguous,
+            unchanged: stats.unchanged,
+            frac_matched: stats.matched as f64 / stats.total as f64,
+            frac_corrected: stats.corrected as f64 / stats.total as f64,
+            frac_corrected_via_counts: stats.corrected_via_counts as f64 / stats.total as f64,
+            frac_ambiguous: stats.ambiguous as f64 / stats.total as f64,
+            frac_unchanged: stats.unchanged as f64 / stats.total as f64,
+        }
+    }
+}
 
-    let frac_matched = matched as f64 / total as f64;
-    let frac_corrected = corrected as f64 / total as f64;
-    let frac_corrected_via_counts = corrected_via_counts as f64 / total as f64;
-    let frac_ambiguous = ambiguous as f64 / total as f64;
-    let frac_unchanged = unchanged as f64 / total as f64;
-
-    eprintln!("Total records:        {total}");
-    eprintln!(
-        "Matched records:      {} ({:.2}%)",
-        matched,
-        frac_matched * 100.0
-    );
-    eprintln!(
-        "Perfect records:      {} ({:.2}%)",
-        unchanged,
-        frac_unchanged * 100.0
-    );
-    eprintln!(
-        "Corrected records:    {} ({:.2}%)",
-        corrected,
-        frac_corrected * 100.0
-    );
-    eprintln!(
-        "Corrected via counts: {} ({:.2}%)",
-        corrected_via_counts,
-        frac_corrected_via_counts * 100.0
-    );
-    eprintln!(
-        "Ambiguous records:    {} ({:.2}%)",
-        ambiguous,
-        frac_ambiguous * 100.0
-    );
+fn write_statistics<P: AsRef<Path>>(path: Option<P>, stats: CorrectStats) -> Result<()> {
+    let mut writer = match_output_stderr(path)?;
+    let format_stats = FormattedStats::new(stats);
+    serde_json::to_writer_pretty(&mut writer, &format_stats)?;
+    writer.flush()?;
+    Ok(())
 }
 
 /// Prebuild whitelist so multiple threads deduplicate work in building mismatch table.
@@ -321,7 +320,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     output.flush()?;
 
     // Write the statistics to stderr
-    write_statistics(stats);
+    write_statistics(args.options.log.as_ref(), stats)?;
     Ok(())
 }
 

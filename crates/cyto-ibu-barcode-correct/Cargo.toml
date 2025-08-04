@@ -9,8 +9,11 @@ bitnuc = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
-niffler = { workspace = true }
 log = { workspace = true }
+niffler = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
 bitnuc-mismatch = "0.1.2"
 
 [lints]
