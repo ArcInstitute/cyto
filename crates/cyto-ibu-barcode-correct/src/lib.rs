@@ -21,8 +21,8 @@ fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
     let (passthrough, format) = niffler::send::get_reader(Box::new(file))?;
     match format {
         niffler::send::compression::Format::No => {}
-        _ => debug!("Transparent decompression: {:?}", format),
-    };
+        _ => debug!("Transparent decompression: {format:?}"),
+    }
     Ok(passthrough)
 }
 

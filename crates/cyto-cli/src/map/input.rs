@@ -34,7 +34,7 @@ impl PairedInput {
     pub fn to_readers(&self) -> Result<FxReaderPair> {
         match (self.r1.as_ref(), self.r2.as_ref()) {
             (Some(r1), Some(r2)) => {
-                debug!("Opening readers for {} and {}", r1, r2);
+                debug!("Opening readers for {r1} and {r2}");
                 Ok((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?))
             }
             _ => {
@@ -54,10 +54,10 @@ impl BinseqInput {
     #[allow(clippy::wrong_self_convention)]
     pub fn into_reader(&self) -> Result<BinseqReader> {
         let path = self.path()?;
-        debug!("Opening binseq reader for {}", path);
+        debug!("Opening binseq reader for {path}");
         let rdr = BinseqReader::new(path)?;
         if !rdr.is_paired() {
-            error!("Found unpaired BINSEQ file: {}", path);
+            error!("Found unpaired BINSEQ file: {path}");
             bail!("Input BINSEQ file must be paired!");
         }
         Ok(rdr)

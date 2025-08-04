@@ -426,7 +426,7 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {} threads", num_threads);
+    info!("Beginning mapping with {num_threads} threads");
     rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
 
     // Finish the progress bar
@@ -485,7 +485,7 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {} threads", num_threads);
+    info!("Beginning mapping with {num_threads} threads");
     reader.process_parallel(implementor.clone(), num_threads)?;
 
     // Finish the progress bar

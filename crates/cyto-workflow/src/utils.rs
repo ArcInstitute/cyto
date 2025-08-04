@@ -26,7 +26,7 @@ pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
 fn strip_ibu_basename(ibu_path: &str) -> Result<&str> {
     let base_ibu = ibu_path
         .strip_suffix(".ibu")
-        .context(format!("Expected path ({}) to end with .ibu", ibu_path))?;
+        .context(format!("Expected path ({ibu_path}) to end with .ibu"))?;
     let base_ibu_path = Path::new(base_ibu)
         .file_name()
         .context("Expected file name")?
@@ -57,7 +57,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .as_ref()
             .join("stats")
             .join("barcode")
-            .join(&format!("{}.barcode.json", base_ibu_path));
+            .join(format!("{base_ibu_path}.barcode.json"));
 
         let barcode_args =
             ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist, bc_log);
@@ -88,7 +88,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .as_ref()
             .join("stats")
             .join("umi")
-            .join(&format!("{}.umi.json", base_ibu_path));
+            .join(format!("{base_ibu_path}.umi.json"));
 
         let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path, umi_log);
 
@@ -117,7 +117,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             outdir
                 .as_ref()
                 .join("counts")
-                .join(format!("{base_ibu_path}"))
+                .join(base_ibu_path)
         } else {
             outdir
                 .as_ref()

@@ -32,7 +32,7 @@ pub fn match_input_transparent<P: AsRef<Path>>(
     match comp {
         niffler::send::compression::Format::No => {}
         _ => {
-            debug!("Using transparent decompression for: {:?}", comp);
+            debug!("Using transparent decompression for: {comp:?}");
         }
     }
     Ok(Box::new(pass))

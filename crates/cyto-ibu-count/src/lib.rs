@@ -154,16 +154,14 @@ fn write_counts_tsv<P: AsRef<Path>>(
     twobit_compressed: bool,
 ) -> Result<()> {
     if let Some(ref path) = path {
-        if path.as_ref().exists() {
-            if path.as_ref().is_dir() {
-                error!(
-                    "Output path already exists and is a directory. Only `--mtx` can accept a directory.",
-                );
-                bail!(
-                    "Output path already exists and is a directory:\n{}",
-                    path.as_ref().display()
-                )
-            }
+        if path.as_ref().exists() && path.as_ref().is_dir() {
+            error!(
+                "Output path already exists and is a directory. Only `--mtx` can accept a directory.",
+            );
+            bail!(
+                "Output path already exists and is a directory:\n{}",
+                path.as_ref().display()
+            )
         }
     }
 
@@ -188,7 +186,7 @@ fn write_counts_tsv<P: AsRef<Path>>(
         (None, true) => dump_encoded_records(&mut writer, counts.iter_counts()),
         (None, false) => dump_decoded_records(&mut writer, counts.iter_counts(), header),
     }?;
-    info!("Finished writing TSV counts to {}", path_name);
+    info!("Finished writing TSV counts to {path_name}");
 
     Ok(())
 }
