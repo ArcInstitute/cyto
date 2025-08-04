@@ -1,24 +1,15 @@
-use std::{env, str::FromStr};
-
-use log::{LevelFilter, info};
-
 use anyhow::Result;
 use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
+use log::info;
 
 fn main() -> Result<()> {
-    let log_level = if let Ok(var) = env::var("CYTO_LOG_LEVEL") {
-        LevelFilter::from_str(&var).unwrap_or(LevelFilter::Info)
-    } else {
-        LevelFilter::Info
-    };
-
     env_logger::builder()
-        .format_timestamp_secs()
-        .filter_level(log_level)
+        .format_timestamp_millis()
+        .filter_level(log::LevelFilter::Info)
+        .parse_env("CYTO_LOG")
         .init();
 
-    info!("Initializing cyto");
-
+    info!("Initializing...");
     let args = Cli::new();
     match args.command {
         Commands::View(args) => cyto_view::run(&args),
@@ -39,5 +30,8 @@ fn main() -> Result<()> {
             WorkflowCommand::GexMapping(args) => cyto_workflow::gex::run(&args),
             WorkflowCommand::CrisprMapping(args) => cyto_workflow::crispr::run(&args),
         },
-    }
+    }?;
+    info!("Done!");
+
+    Ok(())
 }
