@@ -118,15 +118,11 @@ pub fn ibu_steps<P: AsRef<Path>>(
         .unwrap()
         .replace(".sort.ibu", "");
 
+    // Run counting step
     let count_path = outdir
         .as_ref()
         .join("counts")
         .join(format!("{base_name}.counts.tsv"));
-
-    // Create the counts directory if it doesn't exist
-    let counts_dir = outdir.as_ref().join("counts");
-    std::fs::create_dir_all(counts_dir)?;
-
     let count_args = ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1);
 
     info!("Counting {sort_path} -> {}", count_path.display());
