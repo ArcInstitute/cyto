@@ -1,11 +1,13 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write, stdin, stdout},
+    io::{BufReader, BufWriter, Read, Write, stderr, stdin, stdout},
     path::Path,
 };
 
 use anyhow::{Context, Result};
 use log::debug;
+
+use crate::open_file_handle;
 
 pub fn match_input<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Read + Send>> {
     if let Some(ref filepath) = filepath {
@@ -37,13 +39,21 @@ pub fn match_input_transparent<P: AsRef<Path>>(
 }
 
 pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
-    if let Some(filepath) = filepath {
-        debug!("Opening file for writing: {}", filepath.as_ref().display());
-        let handle = File::create(filepath).map(BufWriter::new)?;
-        Ok(Box::new(handle))
+    if let Some(ref filepath) = filepath {
+        open_file_handle(filepath)
     } else {
         debug!("Opening stdout for writing");
         let handle = BufWriter::new(stdout());
+        Ok(Box::new(handle))
+    }
+}
+
+pub fn match_output_stderr<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
+    if let Some(ref filepath) = filepath {
+        open_file_handle(filepath)
+    } else {
+        debug!("Opening stdout for writing");
+        let handle = BufWriter::new(stderr());
         Ok(Box::new(handle))
     }
 }
