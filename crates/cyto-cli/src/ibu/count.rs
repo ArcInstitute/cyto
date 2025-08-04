@@ -44,12 +44,13 @@ impl ArgsCount {
         out_path: P,
         features_path: P,
         num_threads: usize,
+        mtx: bool,
     ) -> Self {
         Self {
             input: IbuInput::from_path(sort_path),
             output: Some(out_path.as_ref().to_str().unwrap().to_string()),
             features: Some(features_path.as_ref().to_str().unwrap().to_string()),
-            mtx: false,
+            mtx,
             compressed: false,
             feature_col: 1,
             num_threads,
