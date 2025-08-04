@@ -3,17 +3,25 @@ use std::{
     fs::File,
     io::{BufRead, BufReader, Read},
     ops::Add,
+    path::Path,
 };
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output};
 use ibu::{Reader, Record};
+use log::{debug, info};
 
-fn open_whitelist(path: &str) -> Result<Box<dyn Read + Send>> {
-    let file = File::open(path)?;
-    let (passthrough, _format) = niffler::send::get_reader(Box::new(file))?;
+fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
+    debug!("Opening whitelist file: {}", path.as_ref().display());
+    let file =
+        File::open(&path).context(format!("Unable to open path: {}", path.as_ref().display()))?;
+    let (passthrough, format) = niffler::send::get_reader(Box::new(file))?;
+    match format {
+        niffler::send::compression::Format::No => {}
+        _ => debug!("Transparent decompression: {:?}", format),
+    };
     Ok(passthrough)
 }
 
@@ -59,17 +67,20 @@ pub struct Whitelist {
     ambiguous_table: bitnuc_mismatch::AmbiguousMismatchTable,
 }
 impl Whitelist {
-    pub fn from_path(path: &str) -> Result<Self> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let reader = open_whitelist(path)?;
+
+        debug!("bitnuc encoding whitelist");
         let (keys, key_vec, slen) = encode_whitelist(reader)?;
         if slen > 32 {
             bail!("The whitelist keys must be 32 nucleotides or less");
         }
 
         // Generate the mismatch table using the bitnuc-mismatch library
-        eprintln!("Building mismatch table...");
+        info!("Building disambiguated mismatch table from whitelist...");
         let (mismatch_table, ambiguous_table) =
             bitnuc_mismatch::build_mismatch_table_with_ambiguous(&key_vec, slen)?;
+        info!("Finished disambiguation");
 
         Ok(Self {
             keys,
@@ -245,7 +256,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     let mut stats = CorrectStats::default();
     let mut second_pass = Vec::new();
 
-    eprintln!("Starting first pass...");
+    debug!("Starting first pass...");
     for record in reader {
         let record = record?;
         let barcode = record.barcode();
@@ -280,7 +291,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     }
 
     if !second_pass.is_empty() {
-        eprintln!("Starting second pass (ambiguous subset)...");
+        debug!("Starting second pass (ambiguous subset)...");
         for record in second_pass {
             match whitelist.ambiguously_correct_to_(record.barcode()) {
                 Correction::Ambiguous => {
@@ -315,6 +326,6 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
 }
 
 pub fn run(args: &ArgsBarcode) -> Result<()> {
-    let whitelist = Whitelist::from_path(args.options.whitelist.as_ref())?;
+    let whitelist = Whitelist::from_path(&args.options.whitelist)?;
     run_with_prebuilt_whitelist(args, whitelist)
 }
