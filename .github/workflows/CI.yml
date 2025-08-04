@@ -4,7 +4,6 @@ on: push
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_BUILD_JOBS: 0 # use all available cores
 
 jobs:
   ci:
@@ -39,6 +38,32 @@ jobs:
 
   integration:
     name: Integration
+    needs: [integration-map-crispr-fastq]
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Done
+        run: exit 0
+
+  build-binary:
+    name: Build Binary
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build Binary
+        run: cargo build --release -p cyto
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyto-binary-${{ matrix.os }}
+          path: target/release/cyto
+          retention-days: 1
+
+  integration-map-crispr-fastq:
+    name: Integration map CRISPR (fastq)
+    needs: [build-binary]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -46,5 +71,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: taiki-e/install-action@just
-      - name: install cyto
-        run: just install
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary-${{ matrix.os }}
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: add binary to PATH
+        run: export PATH=$PATH:$(pwd)
+      - name: run test
+        run: just run-crispr
