@@ -1,7 +1,9 @@
-use anyhow::Result;
+use std::path::Path;
+
+use anyhow::{Context, Result};
 use csv::ReaderBuilder;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 use crate::{mappers::ProbeMapper, metadata::Probe};
 
@@ -10,11 +12,19 @@ pub struct ProbeLibrary {
     probes: Vec<Probe>,
 }
 impl ProbeLibrary {
-    pub fn from_tsv(path: PathBuf) -> Result<Self> {
+    pub fn from_tsv<P: AsRef<Path>>(path: P) -> Result<Self> {
+        debug!(
+            "Building Flex Demultiplexing Probe library from: {}",
+            path.as_ref().display()
+        );
+        if !path.as_ref().exists() {
+            error!("Missing file: {}", path.as_ref().display());
+        }
         let mut reader = ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b'\t')
-            .from_path(path)?;
+            .from_path(&path)
+            .context(format!("Unable to open file {}", path.as_ref().display()))?;
 
         let probes = reader
             .deserialize()
