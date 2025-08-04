@@ -10,9 +10,9 @@ use log::debug;
 use crate::open_file_handle;
 
 pub fn match_input<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Read + Send>> {
-    if let Some(ref filepath) = filepath {
+    if let Some(filepath) = filepath {
         debug!("Opening filepath: {}", filepath.as_ref().display());
-        let handle = File::open(filepath).map(BufReader::new).context(format!(
+        let handle = File::open(&filepath).map(BufReader::new).context(format!(
             "Failed to open file for reading: {}",
             filepath.as_ref().display()
         ))?;
@@ -39,7 +39,7 @@ pub fn match_input_transparent<P: AsRef<Path>>(
 }
 
 pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
-    if let Some(ref filepath) = filepath {
+    if let Some(filepath) = filepath {
         open_file_handle(filepath)
     } else {
         debug!("Opening stdout for writing");
@@ -49,7 +49,7 @@ pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write
 }
 
 pub fn match_output_stderr<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
-    if let Some(ref filepath) = filepath {
+    if let Some(filepath) = filepath {
         open_file_handle(filepath)
     } else {
         debug!("Opening stdout for writing");
