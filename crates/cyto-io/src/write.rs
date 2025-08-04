@@ -29,7 +29,6 @@ pub fn validate_output_directory<P: AsRef<Path>>(outdir: P, force: bool) -> Resu
 
 /// Convenience function to open a file handle, creating directories as needed
 pub fn open_file_handle<P: AsRef<Path>>(output_path: P) -> Result<Box<dyn Write + Send>> {
-    debug!("Opening file handle for {}", output_path.as_ref().display());
     // Create parent directories if they don't exist
     if let Some(parent) = output_path.as_ref().parent() {
         if !parent.exists() {
@@ -37,6 +36,7 @@ pub fn open_file_handle<P: AsRef<Path>>(output_path: P) -> Result<Box<dyn Write 
             fs::create_dir_all(parent)?;
         }
     }
+    debug!("Opening file handle for {}", output_path.as_ref().display());
     let buffer = File::create(output_path).map(BufWriter::new)?;
     Ok(Box::new(buffer))
 }
@@ -47,7 +47,6 @@ pub fn write_statistics<P: AsRef<Path>>(outdir: P, statistics: &Statistics) -> R
     let output_path = outdir.as_ref().join("stats").join("mapping.json");
 
     // Open the output file
-    debug!("Opening file handle: {}", output_path.display());
     let output_handle = open_file_handle(&output_path)?;
 
     // Write the statistics to the output file
@@ -65,7 +64,6 @@ pub fn write_features<'a, P: AsRef<Path>, F: FeatureWriter<'a>>(
     let output_path = outdir.as_ref().join("metadata").join("features.tsv");
 
     // Open the output file
-    debug!("Opening file handle: {}", output_path.display());
     let output_handle = open_file_handle(&output_path)?;
 
     // Write the features to the output file

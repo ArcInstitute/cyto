@@ -5,15 +5,18 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use log::debug;
 
 pub fn match_input<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Read + Send>> {
     if let Some(ref filepath) = filepath {
+        debug!("Opening filepath: {}", filepath.as_ref().display());
         let handle = File::open(filepath).map(BufReader::new).context(format!(
             "Failed to open file for reading: {}",
             filepath.as_ref().display()
         ))?;
         Ok(Box::new(handle))
     } else {
+        debug!("Reading from stdin");
         let handle = BufReader::new(stdin());
         Ok(Box::new(handle))
     }
@@ -23,15 +26,23 @@ pub fn match_input_transparent<P: AsRef<Path>>(
     filepath: Option<P>,
 ) -> Result<Box<dyn Read + Send>> {
     let handle = match_input(filepath)?;
-    let (pass, _comp) = niffler::send::get_reader(handle)?;
+    let (pass, comp) = niffler::send::get_reader(handle)?;
+    match comp {
+        niffler::send::compression::Format::No => {}
+        _ => {
+            debug!("Using transparent decompression for: {:?}", comp);
+        }
+    }
     Ok(Box::new(pass))
 }
 
 pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
     if let Some(filepath) = filepath {
+        debug!("Opening file for writing: {}", filepath.as_ref().display());
         let handle = File::create(filepath).map(BufWriter::new)?;
         Ok(Box::new(handle))
     } else {
+        debug!("Opening stdout for writing");
         let handle = BufWriter::new(stdout());
         Ok(Box::new(handle))
     }
