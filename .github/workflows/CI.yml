@@ -167,14 +167,14 @@ jobs:
             -i ./data/sequencing/crispr_R1.fastq.gz \
             -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (binseq)
         run: |
           ./cyto workflow crispr \
             -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (fastq-probe)
         run: |
@@ -183,7 +183,7 @@ jobs:
             -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (binseq-probe)
         run: |
@@ -191,7 +191,7 @@ jobs:
             -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
 
   integration-wf-gex:
@@ -214,14 +214,14 @@ jobs:
             -i ./data/sequencing/gex_R1.fastq.gz \
             -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (binseq)
         run: |
           ./cyto workflow gex \
             -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (fastq-probe)
         run: |
@@ -230,7 +230,7 @@ jobs:
             -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
       - name: run test (binseq-probe)
         run: |
@@ -238,5 +238,5 @@ jobs:
             -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             --force
