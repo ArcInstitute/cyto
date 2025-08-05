@@ -75,8 +75,6 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: add binary to PATH
-        run: export PATH=$PATH:$(pwd)
       - name: run test (fastq)
         run: ./cyto map crispr \
           -i ./data/sequencing/crispr_R1.fastq.gz \
@@ -116,8 +114,6 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: add binary to PATH
-        run: export PATH=$PATH:$(pwd)
       - name: run test (fastq)
         run: ./cyto map gex \
           -i ./data/sequencing/gex_R1.fastq.gz \
@@ -157,8 +153,6 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: add binary to PATH
-        run: export PATH=$PATH:$(pwd)
       - name: run test (fastq)
         run: ./cyto workflow crispr \
           -i ./data/sequencing/crispr_R1.fastq.gz \
