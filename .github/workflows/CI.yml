@@ -35,7 +35,13 @@ jobs:
 
   integration:
     name: Integration
-    needs: [integration-map-crispr, integration-map-gex]
+    needs:
+      [
+        integration-map-crispr,
+        integration-map-gex,
+        integration-wf-crispr,
+        integration-wf-gex,
+      ]
     runs-on: "ubuntu-latest"
     steps:
       - name: Done
@@ -72,25 +78,25 @@ jobs:
       - name: add binary to PATH
         run: export PATH=$PATH:$(pwd)
       - name: run test (fastq)
-        run: cyto map crispr \
+        run: ./cyto map crispr \
           -i ./data/sequencing/crispr_R1.fastq.gz \
           -I ./data/sequencing/crispr_R2.fastq.gz \
           -c ./data/libraries/crispr_guides.tsv \
           --force
       - name: run test (binseq)
-        run: cyto map crispr \
+        run: ./cyto map crispr \
           -b ./data/sequencing/crispr.bq \
           -c ./data/libraries/crispr_guides.tsv \
           --force
       - name: run test (fastq-probe)
-        run: cyto map crispr \
+        run: ./cyto map crispr \
           -i ./data/sequencing/crispr_R1.fastq.gz \
           -I ./data/sequencing/crispr_R2.fastq.gz \
           -c ./data/libraries/crispr_guides.tsv \
           -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
           --force
       - name: run test (binseq-probe)
-        run: cyto map crispr \
+        run: ./cyto map crispr \
           -b ./data/sequencing/crispr.bq \
           -c ./data/libraries/crispr_guides.tsv \
           -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
@@ -113,26 +119,114 @@ jobs:
       - name: add binary to PATH
         run: export PATH=$PATH:$(pwd)
       - name: run test (fastq)
-        run: cyto map crispr \
+        run: ./cyto map gex \
           -i ./data/sequencing/gex_R1.fastq.gz \
           -I ./data/sequencing/gex_R2.fastq.gz \
           -c ./data/libraries/gex_probes.tsv \
           --force
       - name: run test (binseq)
-        run: cyto map crispr \
+        run: ./cyto map gex \
           -b ./data/sequencing/gex.bq \
           -c ./data/libraries/gex_probes.tsv \
           --force
       - name: run test (fastq-probe)
-        run: cyto map crispr \
+        run: ./cyto map gex \
           -i ./data/sequencing/gex_R1.fastq.gz \
           -I ./data/sequencing/gex_R2.fastq.gz \
           -c ./data/libraries/gex_probes.tsv \
           -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
           --force
       - name: run test (binseq-probe)
-        run: cyto map crispr \
+        run: ./cyto map gex \
           -b ./data/sequencing/gex.bq \
           -c ./data/libraries/gex_probes.tsv \
           -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+          --force
+
+  integration-wf-crispr:
+    name: Integration workflow CRISPR
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/install-action@just
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: add binary to PATH
+        run: export PATH=$PATH:$(pwd)
+      - name: run test (fastq)
+        run: ./cyto workflow crispr \
+          -i ./data/sequencing/crispr_R1.fastq.gz \
+          -I ./data/sequencing/crispr_R2.fastq.gz \
+          -c ./data/libraries/crispr_guides.tsv \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (binseq)
+        run: ./cyto workflow crispr \
+          -b ./data/sequencing/crispr.bq \
+          -c ./data/libraries/crispr_guides.tsv \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (fastq-probe)
+        run: ./cyto workflow crispr \
+          -i ./data/sequencing/crispr_R1.fastq.gz \
+          -I ./data/sequencing/crispr_R2.fastq.gz \
+          -c ./data/libraries/crispr_guides.tsv \
+          -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (binseq-probe)
+        run: ./cyto workflow crispr \
+          -b ./data/sequencing/crispr.bq \
+          -c ./data/libraries/crispr_guides.tsv \
+          -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+
+  integration-wf-gex:
+    name: Integration workflow GEX
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/install-action@just
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run test (fastq)
+        run: ./cyto workflow gex \
+          -i ./data/sequencing/gex_R1.fastq.gz \
+          -I ./data/sequencing/gex_R2.fastq.gz \
+          -c ./data/libraries/gex_probes.tsv \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (binseq)
+        run: ./cyto workflow gex \
+          -b ./data/sequencing/gex.bq \
+          -c ./data/libraries/gex_probes.tsv \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (fastq-probe)
+        run: ./cyto workflow gex \
+          -i ./data/sequencing/gex_R1.fastq.gz \
+          -I ./data/sequencing/gex_R2.fastq.gz \
+          -c ./data/libraries/gex_probes.tsv \
+          -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
+          --force
+      - name: run test (binseq-probe)
+        run: ./cyto workflow gex \
+          -b ./data/sequencing/gex.bq \
+          -c ./data/libraries/gex_probes.tsv \
+          -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+          -w ./data/metadata/737K-fixed-rna-profiling.txt \
           --force
