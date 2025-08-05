@@ -7,6 +7,8 @@ use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
 pub fn run(args: &GexMappingCommand) -> Result<()> {
+    args.wf_args.validate_requirements()?;
+
     info!("Running GEX Mapping Workflow");
     cyto_map::gex::run(&args.gex_args)?;
 
