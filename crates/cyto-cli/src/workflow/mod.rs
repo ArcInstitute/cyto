@@ -47,6 +47,10 @@ pub struct ArgsWorkflow {
     pub whitelist: String,
 
     /// Output counts as MTX
-    #[clap(long)]
+    #[clap(long, conflicts_with = "h5ad")]
     pub mtx: bool,
+
+    /// Output counts as H5AD
+    #[clap(long, conflicts_with = "mtx")]
+    pub h5ad: bool,
 }
