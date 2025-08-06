@@ -42,6 +42,56 @@ fn strip_ibu_basename(ibu_path: &str) -> Result<&str> {
     Ok(base_ibu_path)
 }
 
+fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
+    info!(
+        "Converting MTX {} -> {}.h5ad",
+        count_path.as_ref().display(),
+        count_path.as_ref().display()
+    );
+    let mut script = NamedTempFile::new()?;
+    std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
+
+    let chmod_output = Command::new("chmod")
+        .arg("+x")
+        .arg(script.path().display().to_string())
+        .output()?;
+    if !chmod_output.status.success() {
+        error!("Unable to make h5ad conversion executable");
+        bail!("Unable to make h5ad conversion executable");
+    }
+
+    let output = Command::new("uv")
+        .arg("run")
+        .arg(script.path().display().to_string())
+        .arg(count_path.as_ref().display().to_string())
+        .arg(format!("{}.h5ad", count_path.as_ref().display()))
+        .output()?;
+    if output.status.success() {
+        debug!(
+            "Successfully converted {} to h5ad",
+            count_path.as_ref().display()
+        );
+        debug!("Removing MTX directory");
+        std::fs::remove_dir_all(&count_path).context(format!(
+            "Unable to remove directory {}",
+            count_path.as_ref().display()
+        ))?;
+    } else {
+        error!(
+            "Unable to run h5ad conversion for {}",
+            count_path.as_ref().display()
+        );
+        error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
+        error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
+        bail!(
+            "Unable to convert {} to h5ad",
+            count_path.as_ref().display()
+        );
+    }
+
+    Ok(())
+}
+
 pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
     outdir: P,
@@ -146,42 +196,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     // Convert to h5ad if required
     if wf_args.h5ad {
-        info!(
-            "Converting MTX {} -> {}.h5ad",
-            count_path.display(),
-            count_path.display()
-        );
-        let mut script = NamedTempFile::new()?;
-        std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
-
-        let chmod_output = Command::new("chmod")
-            .arg("+x")
-            .arg(script.path().display().to_string())
-            .output()?;
-        if !chmod_output.status.success() {
-            error!("Unable to make h5ad conversion executable");
-            bail!("Unable to make h5ad conversion executable");
-        }
-
-        let output = Command::new("uv")
-            .arg("run")
-            .arg(script.path().display().to_string())
-            .arg(count_path.display().to_string())
-            .arg(format!("{}.h5ad", count_path.display()))
-            .output()?;
-        if output.status.success() {
-            debug!("Successfully converted {} to h5ad", count_path.display());
-            debug!("Removing MTX directory");
-            std::fs::remove_dir_all(&count_path).context(format!(
-                "Unable to remove directory {}",
-                count_path.display()
-            ))?;
-        } else {
-            error!("Unable to run h5ad conversion for {}", count_path.display());
-            error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
-            error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
-            bail!("Unable to convert {} to h5ad", count_path.display());
-        }
+        convert_to_h5ad(count_path)?;
     }
 
     Ok(())
