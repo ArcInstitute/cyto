@@ -55,19 +55,14 @@ pub struct ArgsWorkflow {
 }
 impl ArgsWorkflow {
     pub fn validate_requirements(&self) -> Result<()> {
-        match self.format {
-            CountFormat::H5ad => {
-                debug!("Checking if `uv` exists in path");
-                match Command::new("uv").args(["--version"]).output() {
-                    Ok(_) => debug!("Found `uv` in $PATH"),
-                    Err(e) => {
-                        error!("Encountered an unexpected error checking for `uv`: {e}");
-                        bail!("Encountered an unexpected error checking for `uv`: {}", e);
-                    }
+        if let CountFormat::H5ad = self.format {
+            debug!("Checking if `uv` exists in path");
+            match Command::new("uv").args(["--version"]).output() {
+                Ok(_) => debug!("Found `uv` in $PATH"),
+                Err(e) => {
+                    error!("Encountered an unexpected error checking for `uv`: {e}");
+                    bail!("Encountered an unexpected error checking for `uv`: {}", e);
                 }
-            }
-            _ => {
-                // No requirements for other formats
             }
         }
         Ok(())
