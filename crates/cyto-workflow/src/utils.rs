@@ -67,9 +67,7 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         bail!("Unable to make h5ad conversion executable");
     }
 
-    let output = Command::new("uv")
-        .arg("run")
-        .arg(&script_path)
+    let output = Command::new(&format!("{}", script_path.display()))
         .arg(count_path.as_ref().display().to_string())
         .arg(format!("{}.h5ad", count_path.as_ref().display()))
         .output()?;
