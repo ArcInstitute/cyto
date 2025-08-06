@@ -1,4 +1,8 @@
+use std::process::Command;
+
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
+use log::{debug, error};
 
 use super::{ArgsCrispr, ArgsGex};
 
@@ -33,6 +37,7 @@ pub struct CrisprMappingCommand {
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Workflow Options")]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ArgsWorkflow {
     /// Skip barcode correction step
     #[clap(long)]
@@ -47,6 +52,30 @@ pub struct ArgsWorkflow {
     pub whitelist: String,
 
     /// Output counts as MTX
-    #[clap(long)]
-    pub mtx: bool,
+    #[clap(long, conflicts_with = "h5ad")]
+    mtx: bool,
+
+    /// Output counts as H5AD
+    #[clap(long, conflicts_with = "mtx")]
+    pub h5ad: bool,
+}
+impl ArgsWorkflow {
+    pub fn validate_requirements(&self) -> Result<()> {
+        if self.h5ad {
+            debug!("Checking if `uv` exists in path");
+            match Command::new("uv").args(["--version"]).output() {
+                Ok(_) => debug!("Found `uv` in $PATH"),
+                Err(e) => {
+                    error!("Encountered an unexpected error checking for `uv`: {e}");
+                    bail!("Encountered an unexpected error checking for `uv`: {}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn mtx(&self) -> bool {
+        // MTX is enabled if either flag is set
+        self.mtx || self.h5ad
+    }
 }

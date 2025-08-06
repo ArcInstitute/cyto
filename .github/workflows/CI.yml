@@ -7,12 +7,20 @@ env:
 
 jobs:
   ci:
-    needs: [build, test, integration]
+    needs: [build, test, linting, integration]
     name: CI
     runs-on: "ubuntu-latest"
     steps:
       - name: Done
         run: exit 0
+
+  linting:
+    name: Linting
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run linting
+        run: cargo clippy --verbose
 
   build:
     name: Build

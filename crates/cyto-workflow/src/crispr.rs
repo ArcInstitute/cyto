@@ -7,6 +7,8 @@ use cyto_cli::workflow::CrisprMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
 pub fn run(args: &CrisprMappingCommand) -> Result<()> {
+    args.wf_args.validate_requirements()?;
+
     info!("Running CRISPR Mapping Workflow");
     cyto_map::crispr::run(&args.crispr_args)?;
 
