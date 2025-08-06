@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
@@ -9,6 +10,10 @@ use cyto_cli::{
 use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
 use log::{debug, error, info};
+use tempfile::NamedTempFile;
+
+// Embed a python script to convert to mtx
+const MTX_TO_H5AD_SCRIPT: &str = include_str!("../../../scripts/mtx_to_h5ad.py");
 
 pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
     let ibu_files = glob(&format!("{}/ibu/*.ibu", outdir.as_ref().display()))?
@@ -108,29 +113,63 @@ pub fn ibu_steps<P: AsRef<Path>>(
         std::fs::remove_file(&umi_path)?;
     }
 
-    // Perform counting
-    {
-        // Locate the expected feature path
-        let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
-        // Build the expected count path
-        let count_path = if wf_args.mtx {
-            outdir
-                .as_ref()
-                .join("counts")
-                .join(base_ibu_path)
-        } else {
-            outdir
-                .as_ref()
-                .join("counts")
-                .join(format!("{base_ibu_path}.counts.tsv"))
-        };
-        // Create the argument struct
-        let count_args =
-            ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1, wf_args.mtx);
+    // Locate the expected feature path
+    let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
+    // Build the expected count path
+    let count_path = if wf_args.mtx() {
+        outdir.as_ref().join("counts").join(base_ibu_path)
+    } else {
+        outdir
+            .as_ref()
+            .join("counts")
+            .join(format!("{base_ibu_path}.counts.tsv"))
+    };
+    // Create the argument struct
+    let count_args =
+        ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1, wf_args.mtx());
 
-        // Run the counting step
-        info!("Counting {sort_path} -> {}", count_path.display());
-        cyto_ibu_count::run(&count_args)?;
+    // Run the counting step
+    info!("Counting {sort_path} -> {}", count_path.display());
+    cyto_ibu_count::run(&count_args)?;
+
+    // Convert to h5ad if required
+    if wf_args.h5ad {
+        info!(
+            "Converting MTX {} -> {}.h5ad",
+            count_path.display(),
+            count_path.display()
+        );
+        let mut script = NamedTempFile::new()?;
+        std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
+
+        let chmod_output = Command::new("chmod")
+            .arg("+x")
+            .arg(&script.path().display().to_string())
+            .output()?;
+        if !chmod_output.status.success() {
+            error!("Unable to make h5ad conversion executable");
+            bail!("Unable to make h5ad conversion executable");
+        }
+
+        let output = Command::new("uv")
+            .arg("run")
+            .arg(&script.path().display().to_string())
+            .arg(&count_path.display().to_string())
+            .arg(&format!("{}.h5ad", count_path.display()))
+            .output()?;
+        if output.status.success() {
+            debug!("Successfully converted {} to h5ad", count_path.display());
+            debug!("Removing MTX directory");
+            std::fs::remove_dir_all(&count_path).context(format!(
+                "Unable to remove directory {}",
+                count_path.display()
+            ))?;
+        } else {
+            error!("Unable to run h5ad conversion for {}", count_path.display());
+            error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
+            error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
+            bail!("Unable to convert {} to h5ad", count_path.display());
+        }
     }
 
     Ok(())
