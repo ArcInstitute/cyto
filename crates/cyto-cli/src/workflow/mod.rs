@@ -51,31 +51,52 @@ pub struct ArgsWorkflow {
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
 
-    /// Output counts as MTX
-    #[clap(long, conflicts_with = "h5ad")]
-    mtx: bool,
-
-    /// Output counts as H5AD
-    #[clap(long, conflicts_with = "mtx")]
-    pub h5ad: bool,
+    #[clap(short = 'F', long, default_value = "h5ad")]
+    pub format: CountFormat,
 }
 impl ArgsWorkflow {
     pub fn validate_requirements(&self) -> Result<()> {
-        if self.h5ad {
-            debug!("Checking if `uv` exists in path");
-            match Command::new("uv").args(["--version"]).output() {
-                Ok(_) => debug!("Found `uv` in $PATH"),
-                Err(e) => {
-                    error!("Encountered an unexpected error checking for `uv`: {e}");
-                    bail!("Encountered an unexpected error checking for `uv`: {}", e);
+        match self.format {
+            CountFormat::H5ad => {
+                debug!("Checking if `uv` exists in path");
+                match Command::new("uv").args(["--version"]).output() {
+                    Ok(_) => debug!("Found `uv` in $PATH"),
+                    Err(e) => {
+                        error!("Encountered an unexpected error checking for `uv`: {e}");
+                        bail!("Encountered an unexpected error checking for `uv`: {}", e);
+                    }
                 }
+            }
+            _ => {
+                // No requirements for other formats
             }
         }
         Ok(())
     }
 
+    /// Check whether the workflow should output mtx files
+    ///
+    /// This is true if the format is mtx or h5ad but mtx is consumed by h5ad
     pub fn mtx(&self) -> bool {
-        // MTX is enabled if either flag is set
-        self.mtx || self.h5ad
+        match self.format {
+            CountFormat::H5ad | CountFormat::Mtx => true,
+            CountFormat::Tsv => false,
+        }
     }
+
+    /// Check whether the workflow should output h5ad files
+    pub fn to_h5ad(&self) -> bool {
+        match self.format {
+            CountFormat::H5ad => true,
+            CountFormat::Mtx | CountFormat::Tsv => false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default, Debug, clap::ValueEnum)]
+pub enum CountFormat {
+    #[default]
+    H5ad,
+    Mtx,
+    Tsv,
 }

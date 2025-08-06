@@ -195,7 +195,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
     cyto_ibu_count::run(&count_args)?;
 
     // Convert to h5ad if required
-    if wf_args.h5ad {
+    if wf_args.to_h5ad() {
         convert_to_h5ad(count_path)?;
     }
 
