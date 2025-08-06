@@ -6,6 +6,8 @@ use super::utils::{ibu_steps, identify_ibu_files};
 use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
+pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
+
 pub fn run(args: &GexMappingCommand) -> Result<()> {
     args.wf_args.validate_requirements()?;
 
@@ -33,7 +35,10 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             )
         })?;
     } else {
-        let ibu_file = format!("{}/ibu/output.ibu", args.gex_args.output.outdir);
+        let ibu_file = format!(
+            "{}/ibu/{}.ibu",
+            args.gex_args.output.outdir, DEFAULT_OUTPUT_BASENAME
+        );
         ibu_steps(
             &ibu_file,
             &args.gex_args.output.outdir,

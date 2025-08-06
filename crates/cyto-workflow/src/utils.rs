@@ -12,6 +12,8 @@ use glob::glob;
 use log::{debug, error, info};
 use tempfile::NamedTempFile;
 
+use crate::gex::DEFAULT_OUTPUT_BASENAME;
+
 // Embed a python script to convert to mtx
 const MTX_TO_H5AD_SCRIPT: &str = include_str!("../../../scripts/mtx_to_h5ad.py");
 
@@ -125,8 +127,18 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join(format!("{base_ibu_path}.counts.tsv"))
     };
     // Create the argument struct
-    let count_args =
-        ArgsCount::from_wf_path(&sort_path, &count_path, &feature_path, 1, wf_args.mtx());
+    let count_args = ArgsCount::from_wf_path(
+        &sort_path,
+        &count_path,
+        &feature_path,
+        1,
+        wf_args.mtx(),
+        if base_ibu_path == DEFAULT_OUTPUT_BASENAME {
+            None
+        } else {
+            Some(base_ibu_path.to_string())
+        },
+    );
 
     // Run the counting step
     info!("Counting {sort_path} -> {}", count_path.display());
