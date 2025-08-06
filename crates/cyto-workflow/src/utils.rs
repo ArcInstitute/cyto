@@ -11,7 +11,7 @@ use cyto_cli::{
 use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
 use log::{debug, error, info};
-use tempfile::NamedTempFile;
+use tempfile::tempdir;
 
 use crate::gex::DEFAULT_OUTPUT_BASENAME;
 
@@ -49,17 +49,19 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         count_path.as_ref().display(),
         count_path.as_ref().display()
     );
-    let mut script = NamedTempFile::new()?;
+
+    // Create a temporary directory for the script
+    let temp_dir = tempdir()?;
+
+    // Write the script into the temporary directory
+    let script_path = temp_dir.path().join("convert_script.py");
     {
-        std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
-        script.flush()?;
-        script.as_file().sync_all()?;
+        let mut file = std::fs::File::create(&script_path)?;
+        file.write_all(MTX_TO_H5AD_SCRIPT.as_bytes())?;
+        file.sync_all()?;
     }
 
-    let chmod_output = Command::new("chmod")
-        .arg("+x")
-        .arg(script.path().display().to_string())
-        .output()?;
+    let chmod_output = Command::new("chmod").arg("+x").arg(&script_path).output()?;
     if !chmod_output.status.success() {
         error!("Unable to make h5ad conversion executable");
         bail!("Unable to make h5ad conversion executable");
@@ -67,7 +69,7 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
 
     let output = Command::new("uv")
         .arg("run")
-        .arg(script.path().display().to_string())
+        .arg(&script_path)
         .arg(count_path.as_ref().display().to_string())
         .arg(format!("{}.h5ad", count_path.as_ref().display()))
         .output()?;
