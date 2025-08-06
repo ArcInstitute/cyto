@@ -13,6 +13,14 @@ use hashbrown::HashMap;
 use ibu::{Header, Reader};
 use log::{debug, error, info};
 
+/// Extends a barcode buffer with an optional suffix
+fn extend_suffix(buffer: &mut Vec<u8>, suffix: Option<&str>) {
+    if let Some(suffix) = suffix {
+        buffer.push(b'-');
+        buffer.extend_from_slice(suffix.as_bytes());
+    }
+}
+
 fn dump_encoded_records<W: Write>(
     csv_writer: &mut csv::Writer<W>,
     records: impl Iterator<Item = BarcodeIndexCount>,
@@ -77,6 +85,7 @@ fn dump_decoded_records_features<W: Write>(
     records: impl Iterator<Item = BarcodeIndexCount>,
     header: Header,
     features: &[String],
+    suffix: Option<&str>,
 ) -> Result<()> {
     let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
     for record in records {
@@ -85,6 +94,10 @@ fn dump_decoded_records_features<W: Write>(
             header.barcode_len() as usize,
             &mut barcode_buffer,
         )?;
+
+        // handle suffix
+        extend_suffix(&mut barcode_buffer, suffix);
+
         let barcode_str = std::str::from_utf8(&barcode_buffer)?;
         let decoded = (
             barcode_str,
@@ -152,6 +165,7 @@ fn write_counts_tsv<P: AsRef<Path>>(
     features: Option<Vec<String>>,
     header: Header,
     twobit_compressed: bool,
+    suffix: Option<&str>,
 ) -> Result<()> {
     if let Some(path) = path {
         if path.as_ref().exists() && path.as_ref().is_dir() {
@@ -180,9 +194,13 @@ fn write_counts_tsv<P: AsRef<Path>>(
         (Some(features), true) => {
             dump_encoded_records_features(&mut writer, counts.iter_counts(), &features)
         }
-        (Some(features), false) => {
-            dump_decoded_records_features(&mut writer, counts.iter_counts(), header, &features)
-        }
+        (Some(features), false) => dump_decoded_records_features(
+            &mut writer,
+            counts.iter_counts(),
+            header,
+            &features,
+            suffix,
+        ),
         (None, true) => dump_encoded_records(&mut writer, counts.iter_counts()),
         (None, false) => dump_decoded_records(&mut writer, counts.iter_counts(), header),
     }?;
@@ -197,6 +215,7 @@ fn write_counts_mtx<P: AsRef<Path>>(
     features: &[String],
     header: Header,
     zthreads: usize,
+    suffix: Option<&str>,
 ) -> Result<()> {
     // make the output directory
     debug!("Creating output directory: {}", outdir.as_ref().display());
@@ -253,6 +272,9 @@ fn write_counts_mtx<P: AsRef<Path>>(
             // decode the barcode
             dbuf.clear();
             bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize, &mut dbuf)?;
+
+            // handle suffix
+            extend_suffix(&mut dbuf, suffix);
 
             // write barcode to file
             barcodes_handle.write_all(&dbuf)?;
@@ -316,6 +338,7 @@ pub fn run(args: &ArgsCount) -> Result<()> {
                 .as_slice(),
             header,
             args.num_threads,
+            args.suffix.as_deref(),
         )
     } else {
         write_counts_tsv(
@@ -324,6 +347,7 @@ pub fn run(args: &ArgsCount) -> Result<()> {
             features,
             header,
             args.compressed,
+            args.suffix.as_deref(),
         )
     }
 }

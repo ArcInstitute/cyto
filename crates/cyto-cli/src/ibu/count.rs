@@ -37,6 +37,12 @@ pub struct ArgsCount {
     /// The column in the feature table to aggregate reads over - skips aggregation if this is zero
     #[clap(short = 'C', long, default_value_t = 1)]
     pub feature_col: usize,
+
+    /// Suffix to append to cell barcodes
+    ///
+    /// example: {barcode}-{suffix}
+    #[clap(short = 's', long, requires = "features")]
+    pub suffix: Option<String>,
 }
 impl ArgsCount {
     pub fn from_wf_path<P: AsRef<Path>>(
@@ -45,6 +51,7 @@ impl ArgsCount {
         features_path: P,
         num_threads: usize,
         mtx: bool,
+        suffix: Option<String>,
     ) -> Self {
         Self {
             input: IbuInput::from_path(sort_path),
@@ -54,6 +61,7 @@ impl ArgsCount {
             compressed: false,
             feature_col: 1,
             num_threads,
+            suffix,
         }
     }
 }
