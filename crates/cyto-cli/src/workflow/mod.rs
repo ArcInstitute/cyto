@@ -52,7 +52,7 @@ pub struct ArgsWorkflow {
 
     /// Output counts as MTX
     #[clap(long, conflicts_with = "h5ad")]
-    pub mtx: bool,
+    mtx: bool,
 
     /// Output counts as H5AD
     #[clap(long, conflicts_with = "mtx")]
@@ -71,5 +71,10 @@ impl ArgsWorkflow {
             }
         }
         Ok(())
+    }
+
+    pub fn mtx(&self) -> bool {
+        // MTX is enabled if either flag is set
+        self.mtx || self.h5ad
     }
 }
