@@ -37,6 +37,7 @@ pub struct CrisprMappingCommand {
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Workflow Options")]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ArgsWorkflow {
     /// Skip barcode correction step
     #[clap(long)]
