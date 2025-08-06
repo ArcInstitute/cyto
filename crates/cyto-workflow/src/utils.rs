@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
@@ -49,7 +50,11 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         count_path.as_ref().display()
     );
     let mut script = NamedTempFile::new()?;
-    std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
+    {
+        std::fs::write(&mut script, MTX_TO_H5AD_SCRIPT)?;
+        script.flush()?;
+        script.as_file().sync_all()?;
+    }
 
     let chmod_output = Command::new("chmod")
         .arg("+x")
