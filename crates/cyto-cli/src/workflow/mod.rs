@@ -65,7 +65,7 @@ impl ArgsWorkflow {
             match Command::new("uv").args(["--version"]).output() {
                 Ok(_) => debug!("Found `uv` in $PATH"),
                 Err(e) => {
-                    error!("Encountered an unexpected error checking for `uv`: {}", e);
+                    error!("Encountered an unexpected error checking for `uv`: {e}");
                     bail!("Encountered an unexpected error checking for `uv`: {}", e);
                 }
             }

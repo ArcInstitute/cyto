@@ -144,7 +144,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
         let chmod_output = Command::new("chmod")
             .arg("+x")
-            .arg(&script.path().display().to_string())
+            .arg(script.path().display().to_string())
             .output()?;
         if !chmod_output.status.success() {
             error!("Unable to make h5ad conversion executable");
@@ -153,9 +153,9 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
         let output = Command::new("uv")
             .arg("run")
-            .arg(&script.path().display().to_string())
-            .arg(&count_path.display().to_string())
-            .arg(&format!("{}.h5ad", count_path.display()))
+            .arg(script.path().display().to_string())
+            .arg(count_path.display().to_string())
+            .arg(format!("{}.h5ad", count_path.display()))
             .output()?;
         if output.status.success() {
             debug!("Successfully converted {} to h5ad", count_path.display());
