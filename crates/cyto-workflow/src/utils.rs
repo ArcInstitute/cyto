@@ -167,6 +167,8 @@ pub fn assign_guides<P: AsRef<Path>>(
         let stderr_str = std::str::from_utf8(&output.stderr)?;
         if stderr_str.contains("No guides passed the cell threshold") {
             warn!("No guides passed the cell threshold: {}", in_h5ad.display());
+        } else if stderr_str.contains("No cells passed the UMI threshold") {
+            warn!("No cells passed the UMI threshold: {}", in_h5ad.display());
         } else {
             error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
             error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
