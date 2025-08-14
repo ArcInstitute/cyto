@@ -144,6 +144,51 @@ fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Resu
     Ok(())
 }
 
+pub fn assign_guides<P: AsRef<Path>>(
+    count_path: P,
+    assignment_outdir: P,
+    basename: &str,
+) -> Result<()> {
+    let in_h5ad = count_path.as_ref().with_extension("h5ad");
+    let out_tsv = assignment_outdir
+        .as_ref()
+        .join(format!("{}.assignments.tsv", basename));
+
+    info!(
+        "Assigning CRISPR guide identities to: {}",
+        in_h5ad.display()
+    );
+    let output = Command::new("geomux")
+        .arg(&in_h5ad)
+        .arg(&out_tsv)
+        .output()
+        .context("Unable to run geomux")?;
+    if !output.status.success() {
+        let stderr_str = std::str::from_utf8(&output.stderr)?;
+        if stderr_str.contains("No guides passed the cell threshold") {
+            warn!("No guides passed the cell threshold: {}", in_h5ad.display());
+        } else {
+            error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
+            error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
+            bail!(
+                "Unable to assign guides to {}",
+                count_path.as_ref().display()
+            );
+        }
+    }
+
+    if out_tsv.exists() {
+        info!("Guide assignments written to {}", out_tsv.display());
+    } else {
+        warn!(
+            "No guide assignments found for {}; Likely due to insufficient UMIs for barcodes",
+            count_path.as_ref().display()
+        );
+    }
+
+    Ok(())
+}
+
 pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
     outdir: P,
@@ -251,8 +296,20 @@ pub fn ibu_steps<P: AsRef<Path>>(
     if wf_args.to_h5ad() {
         convert_to_h5ad(&count_path)?;
 
-        if wf_mode.should_filter() & !wf_args.no_filter {
-            filter_h5ad(&count_path, wf_args.keep_unfiltered)?;
+        match wf_mode {
+            WorkflowMode::Gex => {
+                if !wf_args.no_filter {
+                    filter_h5ad(&count_path, wf_args.keep_unfiltered)?;
+                }
+            }
+            WorkflowMode::Crispr => {
+                if !wf_args.skip_assignment {
+                    let assignment_outdir = outdir.as_ref().join("assignments");
+                    std::fs::create_dir_all(&assignment_outdir)
+                        .context("Unable to build assignments output directory")?;
+                    assign_guides(&count_path, &assignment_outdir, base_ibu_path)?;
+                }
+            }
         }
     }
 
