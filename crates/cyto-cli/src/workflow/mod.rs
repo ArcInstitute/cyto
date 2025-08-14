@@ -82,6 +82,12 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub keep_unfiltered: bool,
 
+    /// Skip CRISPR-barcode assignment step (CRISPR)
+    ///
+    /// Only used when format is h5ad
+    #[clap(long)]
+    pub skip_assignment: bool,
+
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
@@ -91,7 +97,7 @@ pub struct ArgsWorkflow {
 }
 impl ArgsWorkflow {
     pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
-        if self.format == CountFormat::H5ad || !self.no_filter || mode == WorkflowMode::Gex {
+        if self.format == CountFormat::H5ad || !self.no_filter {
             debug!("Checking if `uv` exists in $PATH");
             match Command::new("uv").args(["--version"]).output() {
                 Ok(_) => debug!("Found `uv` in $PATH"),
@@ -101,8 +107,11 @@ impl ArgsWorkflow {
                 }
             }
         }
-        if !self.no_filter {
+        if mode == WorkflowMode::Gex && !self.no_filter {
             transparent_uv_install("cell-filter")?;
+        }
+        if mode == WorkflowMode::Crispr {
+            transparent_uv_install("geomux")?;
         }
         Ok(())
     }
