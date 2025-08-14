@@ -6,7 +6,7 @@ use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::{
     ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
-    workflow::ArgsWorkflow,
+    workflow::{ArgsWorkflow, WorkflowMode},
 };
 use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
@@ -149,6 +149,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
     outdir: P,
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
+    wf_mode: WorkflowMode,
 ) -> Result<()> {
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
@@ -250,7 +251,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
     if wf_args.to_h5ad() {
         convert_to_h5ad(&count_path)?;
 
-        if !wf_args.no_filter {
+        if wf_mode.should_filter() & !wf_args.no_filter {
             filter_h5ad(&count_path, wf_args.keep_unfiltered)?;
         }
     }

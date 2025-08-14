@@ -25,6 +25,11 @@ pub struct GexMappingCommand {
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
 }
+impl GexMappingCommand {
+    pub fn mode(&self) -> WorkflowMode {
+        WorkflowMode::Gex
+    }
+}
 
 #[derive(Parser, Debug)]
 pub struct CrisprMappingCommand {
@@ -33,6 +38,25 @@ pub struct CrisprMappingCommand {
 
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
+}
+impl CrisprMappingCommand {
+    pub fn mode(&self) -> WorkflowMode {
+        WorkflowMode::Crispr
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkflowMode {
+    Gex,
+    Crispr,
+}
+impl WorkflowMode {
+    pub fn should_filter(&self) -> bool {
+        match self {
+            WorkflowMode::Gex => true,
+            WorkflowMode::Crispr => false,
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -46,13 +70,13 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_umi: bool,
 
-    /// Skip EmptyDrops filtering step
+    /// Skip EmptyDrops filtering step (GEX)
     ///
     /// Only used when format is h5ad
     #[clap(long)]
     pub no_filter: bool,
 
-    /// Keep the unfiltered h5ad file
+    /// Keep the unfiltered h5ad file (GEX)
     ///
     /// Only used when format is h5ad
     #[clap(long)]
@@ -66,8 +90,8 @@ pub struct ArgsWorkflow {
     pub format: CountFormat,
 }
 impl ArgsWorkflow {
-    pub fn validate_requirements(&self) -> Result<()> {
-        if self.format == CountFormat::H5ad || !self.no_filter {
+    pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
+        if self.format == CountFormat::H5ad || !self.no_filter || mode == WorkflowMode::Gex {
             debug!("Checking if `uv` exists in $PATH");
             match Command::new("uv").args(["--version"]).output() {
                 Ok(_) => debug!("Found `uv` in $PATH"),
