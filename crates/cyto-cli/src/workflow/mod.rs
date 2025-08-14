@@ -47,8 +47,16 @@ pub struct ArgsWorkflow {
     pub skip_umi: bool,
 
     /// Skip EmptyDrops filtering step
+    ///
+    /// Only used when format is h5ad
     #[clap(long)]
     pub no_filter: bool,
+
+    /// Keep the unfiltered h5ad file
+    ///
+    /// Only used when format is h5ad
+    #[clap(long)]
+    pub keep_unfiltered: bool,
 
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
