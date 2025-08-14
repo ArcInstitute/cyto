@@ -14,4 +14,4 @@ pub use ibu::IbuCommand;
 pub use map::MapCommand;
 pub use output::ArgsOutput;
 pub use view::ArgsView;
-pub use workflow::WorkflowCommand;
+pub use workflow::{ArgsWorkflow, WorkflowCommand, WorkflowMode};

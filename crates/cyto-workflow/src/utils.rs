@@ -6,11 +6,11 @@ use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::{
     ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
-    workflow::ArgsWorkflow,
+    workflow::{ArgsWorkflow, WorkflowMode},
 };
 use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use tempfile::tempdir;
 
 use crate::gex::DEFAULT_OUTPUT_BASENAME;
@@ -97,11 +97,59 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
     Ok(())
 }
 
+fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Result<()> {
+    let in_h5ad = count_path.as_ref().with_extension("h5ad");
+    let out_h5ad = count_path.as_ref().with_extension("filt.h5ad");
+
+    debug!("Filtering h5ad file: {}", in_h5ad.display());
+    let output = Command::new("cell-filter")
+        .arg(&in_h5ad)
+        .arg(&out_h5ad)
+        .output()
+        .context("Unable to run cell-filter")?;
+    if !output.status.success() {
+        error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
+        error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
+        bail!("Unable to filter {}", count_path.as_ref().display());
+    }
+
+    if out_h5ad.exists() {
+        debug!(
+            "Successfully wrote filtered h5ad file: {}",
+            out_h5ad.display()
+        );
+    } else {
+        warn!(
+            "Missing filtered h5ad file ({}); Likely due to insufficient barcodes or total UMIs",
+            out_h5ad.display()
+        );
+        if !keep_unfiltered {
+            warn!(
+                "Skipping removal of unfiltered h5ad file: {}",
+                in_h5ad.display()
+            );
+        }
+        keep_unfiltered = true;
+    }
+
+    if !keep_unfiltered {
+        // Remove the original h5ad file
+        debug!("Removing unfiltered h5ad file: {}", in_h5ad.display());
+        std::fs::remove_file(&in_h5ad).context(format!(
+            "Unable to remove original h5ad file: {}",
+            in_h5ad.display()
+        ))?;
+    }
+
+    Ok(())
+}
+
 pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
     outdir: P,
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
+    wf_mode: WorkflowMode,
 ) -> Result<()> {
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
@@ -201,7 +249,11 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     // Convert to h5ad if required
     if wf_args.to_h5ad() {
-        convert_to_h5ad(count_path)?;
+        convert_to_h5ad(&count_path)?;
+
+        if wf_mode.should_filter() & !wf_args.no_filter {
+            filter_h5ad(&count_path, wf_args.keep_unfiltered)?;
+        }
     }
 
     Ok(())

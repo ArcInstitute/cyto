@@ -9,7 +9,7 @@ use cyto_ibu_barcode_correct::Whitelist;
 pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
 
 pub fn run(args: &GexMappingCommand) -> Result<()> {
-    args.wf_args.validate_requirements()?;
+    args.wf_args.validate_requirements(args.mode())?;
 
     info!("Running GEX Mapping Workflow");
     cyto_map::gex::run(&args.gex_args)?;
@@ -32,6 +32,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
                 &args.gex_args.output.outdir,
                 &args.wf_args,
                 whitelist.clone(),
+                args.mode(),
             )
         })?;
     } else {
@@ -44,6 +45,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             &args.gex_args.output.outdir,
             &args.wf_args,
             whitelist,
+            args.mode(),
         )?;
     }
 

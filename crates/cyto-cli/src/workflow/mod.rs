@@ -25,6 +25,11 @@ pub struct GexMappingCommand {
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
 }
+impl GexMappingCommand {
+    pub fn mode(&self) -> WorkflowMode {
+        WorkflowMode::Gex
+    }
+}
 
 #[derive(Parser, Debug)]
 pub struct CrisprMappingCommand {
@@ -33,6 +38,25 @@ pub struct CrisprMappingCommand {
 
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
+}
+impl CrisprMappingCommand {
+    pub fn mode(&self) -> WorkflowMode {
+        WorkflowMode::Crispr
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkflowMode {
+    Gex,
+    Crispr,
+}
+impl WorkflowMode {
+    pub fn should_filter(&self) -> bool {
+        match self {
+            WorkflowMode::Gex => true,
+            WorkflowMode::Crispr => false,
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -46,6 +70,18 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_umi: bool,
 
+    /// Skip EmptyDrops filtering step (GEX)
+    ///
+    /// Only used when format is h5ad
+    #[clap(long)]
+    pub no_filter: bool,
+
+    /// Keep the unfiltered h5ad file (GEX)
+    ///
+    /// Only used when format is h5ad
+    #[clap(long)]
+    pub keep_unfiltered: bool,
+
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
@@ -54,9 +90,9 @@ pub struct ArgsWorkflow {
     pub format: CountFormat,
 }
 impl ArgsWorkflow {
-    pub fn validate_requirements(&self) -> Result<()> {
-        if let CountFormat::H5ad = self.format {
-            debug!("Checking if `uv` exists in path");
+    pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
+        if self.format == CountFormat::H5ad || !self.no_filter || mode == WorkflowMode::Gex {
+            debug!("Checking if `uv` exists in $PATH");
             match Command::new("uv").args(["--version"]).output() {
                 Ok(_) => debug!("Found `uv` in $PATH"),
                 Err(e) => {
@@ -64,6 +100,9 @@ impl ArgsWorkflow {
                     bail!("Encountered an unexpected error checking for `uv`: {}", e);
                 }
             }
+        }
+        if !self.no_filter {
+            transparent_uv_install("cell-filter")?;
         }
         Ok(())
     }
@@ -87,10 +126,59 @@ impl ArgsWorkflow {
     }
 }
 
-#[derive(Clone, Copy, Default, Debug, clap::ValueEnum)]
+#[derive(Clone, Copy, Default, Debug, clap::ValueEnum, PartialEq, Eq)]
 pub enum CountFormat {
     #[default]
     H5ad,
     Mtx,
     Tsv,
+}
+
+fn transparent_uv_install(name: &str) -> Result<()> {
+    // Checks if `cell-filter` exists in $PATH
+    debug!("Checking if `{}` exists in $PATH", name);
+    match Command::new(name).arg("--help").output() {
+        Ok(_) => {
+            debug!("Found `{}` in $PATH", name);
+            Ok(())
+        }
+        Err(_) => {
+            debug!("Did not find `{}` in $PATH; Installing...", name);
+            match Command::new("uv")
+                .arg("tool")
+                .arg("install")
+                .arg(name)
+                .output()
+            {
+                Ok(_) => {
+                    debug!("Precompiling `{}`...", name);
+                    match Command::new(name).arg("--help").output() {
+                        Ok(_) => {
+                            debug!("Precompiled `{}`", name);
+                            Ok(())
+                        }
+                        Err(e) => {
+                            error!(
+                                "Encountered an unexpected error precompiling `{}`: {e}",
+                                name
+                            );
+                            bail!(
+                                "Encountered an unexpected error precompiling `{}`: {}",
+                                name,
+                                e
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Encountered an unexpected error installing `{}`: {e}", name);
+                    bail!(
+                        "Encountered an unexpected error installing `{}`: {}",
+                        name,
+                        e
+                    );
+                }
+            }
+        }
+    }
 }
