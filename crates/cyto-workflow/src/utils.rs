@@ -101,7 +101,7 @@ fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Resu
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_h5ad = count_path.as_ref().with_extension("filt.h5ad");
 
-    debug!("Filtering h5ad file: {}", in_h5ad.display());
+    info!("Filtering h5ad file: {}", in_h5ad.display());
     let output = Command::new("cell-filter")
         .arg(&in_h5ad)
         .arg(&out_h5ad)
@@ -114,7 +114,7 @@ fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Resu
     }
 
     if out_h5ad.exists() {
-        debug!(
+        info!(
             "Successfully wrote filtered h5ad file: {}",
             out_h5ad.display()
         );
