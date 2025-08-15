@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
@@ -11,12 +10,8 @@ use cyto_cli::{
 use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
 use log::{debug, error, info, warn};
-use tempfile::tempdir;
 
 use crate::gex::DEFAULT_OUTPUT_BASENAME;
-
-// Embed a python script to convert to mtx
-const MTX_TO_H5AD_SCRIPT: &str = include_str!("../../../scripts/mtx_to_h5ad.py");
 
 pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
     let ibu_files = glob(&format!("{}/ibu/*.ibu", outdir.as_ref().display()))?
@@ -50,24 +45,8 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         count_path.as_ref().display()
     );
 
-    // Create a temporary directory for the script
-    let temp_dir = tempdir()?;
-
-    // Write the script into the temporary directory
-    let script_path = temp_dir.path().join("convert_script.py");
-    {
-        let mut file = std::fs::File::create(&script_path)?;
-        file.write_all(MTX_TO_H5AD_SCRIPT.as_bytes())?;
-        file.sync_all()?;
-    }
-
-    let chmod_output = Command::new("chmod").arg("+x").arg(&script_path).output()?;
-    if !chmod_output.status.success() {
-        error!("Unable to make h5ad conversion executable");
-        bail!("Unable to make h5ad conversion executable");
-    }
-
-    let output = Command::new(&format!("{}", script_path.display()))
+    let output = Command::new("pycyto")
+        .arg("convert")
         .arg(count_path.as_ref().display().to_string())
         .arg(format!("{}.h5ad", count_path.as_ref().display()))
         .output()?;
