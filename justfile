@@ -4,6 +4,7 @@
 CRISPR_GUIDES := "./data/libraries/crispr_guides.tsv"
 GEX_PROBES := "./data/libraries/gex_probes.tsv"
 PROBE_BARCODES := "./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
+BARCODE_LIST := "./data/metadata/737K-fixed-rna-profiling.txt.gz"
 
 # Input Sequences
 GEX_BINSEQ := "./data/sequencing/gex.bq"
@@ -15,6 +16,22 @@ CRISPR_FASTQ_R2 := "./data/sequencing/crispr_R2.fastq.gz"
 
 install:
     cargo install --path crates/cyto
+
+run-wf-crispr:
+    time cyto workflow crispr \
+        -b {{CRISPR_BINSEQ}} \
+        -c {{CRISPR_GUIDES}} \
+        -p {{PROBE_BARCODES}} \
+        -w {{BARCODE_LIST}} \
+        --force
+
+run-wf-gex:
+    time cyto workflow gex \
+        -b {{GEX_BINSEQ}} \
+        -c {{GEX_PROBES}} \
+        -p {{PROBE_BARCODES}} \
+        -w {{BARCODE_LIST}} \
+        --force
 
 run-all: run-crispr-probe-binseq run-crispr-probe-fastq run-crispr-binseq run-crispr-fastq run-gex-probe-binseq run-gex-probe-fastq run-gex-binseq run-gex-fastq
 
