@@ -108,10 +108,10 @@ impl ArgsWorkflow {
             }
         }
         if mode == WorkflowMode::Gex && !self.no_filter {
-            transparent_uv_install("cell-filter")?;
+            transparent_uv_install("cell-filter", "0.1.1")?;
         }
         if mode == WorkflowMode::Crispr {
-            transparent_uv_install("geomux")?;
+            transparent_uv_install("geomux", "0.4.3")?;
         }
         Ok(())
     }
@@ -143,7 +143,7 @@ pub enum CountFormat {
     Tsv,
 }
 
-fn transparent_uv_install(name: &str) -> Result<()> {
+fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
     // Checks if `cell-filter` exists in $PATH
     debug!("Checking if `{}` exists in $PATH", name);
     match Command::new(name).arg("--help").output() {
@@ -156,7 +156,7 @@ fn transparent_uv_install(name: &str) -> Result<()> {
             match Command::new("uv")
                 .arg("tool")
                 .arg("install")
-                .arg(name)
+                .arg(format!("{}@{}", name, version))
                 .output()
             {
                 Ok(_) => {
