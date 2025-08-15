@@ -147,12 +147,14 @@ fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Resu
 pub fn assign_guides<P: AsRef<Path>>(
     count_path: P,
     assignment_outdir: P,
+    stats_outdir: P,
     basename: &str,
 ) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_tsv = assignment_outdir
         .as_ref()
         .join(format!("{}.assignments.tsv", basename));
+    let stats_json = stats_outdir.as_ref().join(format!("{}.json", basename));
 
     info!(
         "Assigning CRISPR guide identities to: {}",
@@ -161,6 +163,8 @@ pub fn assign_guides<P: AsRef<Path>>(
     let output = Command::new("geomux")
         .arg(&in_h5ad)
         .arg(&out_tsv)
+        .arg("--stats")
+        .arg(&stats_json)
         .output()
         .context("Unable to run geomux")?;
     if !output.status.success() {
@@ -307,9 +311,15 @@ pub fn ibu_steps<P: AsRef<Path>>(
             WorkflowMode::Crispr => {
                 if !wf_args.skip_assignment {
                     let assignment_outdir = outdir.as_ref().join("assignments");
+                    let assignment_stats_outdir = outdir.as_ref().join("stats").join("assignments");
                     std::fs::create_dir_all(&assignment_outdir)
                         .context("Unable to build assignments output directory")?;
-                    assign_guides(&count_path, &assignment_outdir, base_ibu_path)?;
+                    assign_guides(
+                        &count_path,
+                        &assignment_outdir,
+                        &assignment_stats_outdir,
+                        base_ibu_path,
+                    )?;
                 }
             }
         }
