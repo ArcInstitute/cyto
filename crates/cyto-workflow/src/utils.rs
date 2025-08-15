@@ -314,6 +314,8 @@ pub fn ibu_steps<P: AsRef<Path>>(
                     let assignment_stats_outdir = outdir.as_ref().join("stats").join("assignments");
                     std::fs::create_dir_all(&assignment_outdir)
                         .context("Unable to build assignments output directory")?;
+                    std::fs::create_dir_all(&assignment_stats_outdir)
+                        .context("Unable to build assignments output directory")?;
                     assign_guides(
                         &count_path,
                         &assignment_outdir,
