@@ -1,6 +1,6 @@
 [package]
 name = "cyto-workflow"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2024"
 
 [dependencies]
@@ -14,7 +14,6 @@ cyto-map = { workspace = true }
 log = { workspace = true }
 rayon = "1.10.0"
 glob = "0.3.2"
-tempfile = "3.20.0"
 
 [lints]
 workspace = true

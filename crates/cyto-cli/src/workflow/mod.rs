@@ -106,6 +106,7 @@ impl ArgsWorkflow {
                     bail!("Encountered an unexpected error checking for `uv`: {}", e);
                 }
             }
+            transparent_uv_install("pycyto", "0.1.0")?;
         }
         if mode == WorkflowMode::Gex && !self.no_filter {
             transparent_uv_install("cell-filter", "0.1.1")?;
