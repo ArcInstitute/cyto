@@ -76,14 +76,22 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
     Ok(())
 }
 
-fn filter_h5ad<P: AsRef<Path>>(count_path: P, mut keep_unfiltered: bool) -> Result<()> {
+fn filter_h5ad<P: AsRef<Path>>(
+    count_path: P,
+    stats_outdir: P,
+    basename: &str,
+    mut keep_unfiltered: bool,
+) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_h5ad = count_path.as_ref().with_extension("filt.h5ad");
+    let logfile = stats_outdir.as_ref().join(format!("{}.log", basename));
 
     info!("Filtering h5ad file: {}", in_h5ad.display());
     let output = Command::new("cell-filter")
         .arg(&in_h5ad)
         .arg(&out_h5ad)
+        .arg("--logfile")
+        .arg(logfile)
         .output()
         .context("Unable to run cell-filter")?;
     if !output.status.success() {
@@ -284,7 +292,15 @@ pub fn ibu_steps<P: AsRef<Path>>(
         match wf_mode {
             WorkflowMode::Gex => {
                 if !wf_args.no_filter {
-                    filter_h5ad(&count_path, wf_args.keep_unfiltered)?;
+                    let filter_stats_outdir = outdir.as_ref().join("stats").join("filtering");
+                    std::fs::create_dir_all(&filter_stats_outdir)
+                        .context("Unable to build filter stats output directory")?;
+                    filter_h5ad(
+                        &count_path,
+                        &filter_stats_outdir,
+                        base_ibu_path,
+                        wf_args.keep_unfiltered,
+                    )?;
                 }
             }
             WorkflowMode::Crispr => {
@@ -294,7 +310,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
                     std::fs::create_dir_all(&assignment_outdir)
                         .context("Unable to build assignments output directory")?;
                     std::fs::create_dir_all(&assignment_stats_outdir)
-                        .context("Unable to build assignments output directory")?;
+                        .context("Unable to build assignments stats output directory")?;
                     assign_guides(
                         &count_path,
                         &assignment_outdir,
