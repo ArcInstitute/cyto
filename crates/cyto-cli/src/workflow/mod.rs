@@ -6,6 +6,10 @@ use log::{debug, error};
 
 use super::{ArgsCrispr, ArgsGex};
 
+pub const VERSION_GEOMUX: &str = "0.4.3";
+pub const VERSION_CELL_FILTER: &str = "0.1.1";
+pub const VERSION_PYCYTO: &str = "0.1.0";
+
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
     /// Executes a gex mapping workflow (map => sort => barcode => sort => umi => sort => count)
@@ -106,13 +110,13 @@ impl ArgsWorkflow {
                     bail!("Encountered an unexpected error checking for `uv`: {}", e);
                 }
             }
-            transparent_uv_install("pycyto", "0.1.0")?;
+            transparent_uv_install("pycyto", VERSION_PYCYTO)?;
         }
         if mode == WorkflowMode::Gex && !self.no_filter {
-            transparent_uv_install("cell-filter", "0.1.1")?;
+            transparent_uv_install("cell-filter", VERSION_CELL_FILTER)?;
         }
         if mode == WorkflowMode::Crispr {
-            transparent_uv_install("geomux", "0.4.3")?;
+            transparent_uv_install("geomux", VERSION_GEOMUX)?;
         }
         Ok(())
     }
@@ -145,50 +149,40 @@ pub enum CountFormat {
 }
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
-    // Checks if `cell-filter` exists in $PATH
-    debug!("Checking if `{}` exists in $PATH", name);
-    match Command::new(name).arg("--help").output() {
+    debug!("Installing `{}@{}` if necessary...", name, version);
+    match Command::new("uv")
+        .arg("tool")
+        .arg("install")
+        .arg(format!("{}@{}", name, version))
+        .output()
+    {
         Ok(_) => {
-            debug!("Found `{}` in $PATH", name);
-            Ok(())
-        }
-        Err(_) => {
-            debug!("Did not find `{}` in $PATH; Installing...", name);
-            match Command::new("uv")
-                .arg("tool")
-                .arg("install")
-                .arg(format!("{}@{}", name, version))
-                .output()
-            {
+            debug!("Precompiling `{}`...", name);
+            match Command::new(name).arg("--help").output() {
                 Ok(_) => {
-                    debug!("Precompiling `{}`...", name);
-                    match Command::new(name).arg("--help").output() {
-                        Ok(_) => {
-                            debug!("Precompiled `{}`", name);
-                            Ok(())
-                        }
-                        Err(e) => {
-                            error!(
-                                "Encountered an unexpected error precompiling `{}`: {e}",
-                                name
-                            );
-                            bail!(
-                                "Encountered an unexpected error precompiling `{}`: {}",
-                                name,
-                                e
-                            );
-                        }
-                    }
+                    debug!("Precompiled `{}`", name);
+                    Ok(())
                 }
                 Err(e) => {
-                    error!("Encountered an unexpected error installing `{}`: {e}", name);
+                    error!(
+                        "Encountered an unexpected error precompiling `{}`: {e}",
+                        name
+                    );
                     bail!(
-                        "Encountered an unexpected error installing `{}`: {}",
+                        "Encountered an unexpected error precompiling `{}`: {}",
                         name,
                         e
                     );
                 }
             }
+        }
+        Err(e) => {
+            error!("Encountered an unexpected error installing `{}`: {e}", name);
+            bail!(
+                "Encountered an unexpected error installing `{}`: {}",
+                name,
+                e
+            );
         }
     }
 }
