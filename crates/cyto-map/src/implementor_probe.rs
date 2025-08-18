@@ -391,7 +391,7 @@ pub fn ibu_map_probed_pairs_paraseq<M, R>(
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
-    R: Read + Send,
+    R: Read + Send + 'static,
 {
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
@@ -426,8 +426,21 @@ where
 
     // Process the records in parallel
     info!("Beginning mapping with {num_threads} threads");
+    let num_pairs = readers.len();
+    let threads_per_pair = num_threads / num_pairs;
+    let mut handles = Vec::with_capacity(num_pairs);
     for (rdr_r1, rdr_r2) in readers {
-        rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
+        let implementor = implementor.clone();
+        let handle = std::thread::spawn(move || -> Result<()> {
+            rdr_r1.process_parallel_paired(rdr_r2, implementor, threads_per_pair)?;
+            Ok(())
+        });
+        handles.push(handle);
+    }
+
+    // Wait for all threads to finish
+    for handle in handles {
+        handle.join().unwrap()?;
     }
 
     // Finish the progress bar
