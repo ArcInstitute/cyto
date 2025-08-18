@@ -19,77 +19,73 @@ install:
 
 run-wf-crispr:
     time cyto workflow crispr \
-        -b {{CRISPR_BINSEQ}} \
         -c {{CRISPR_GUIDES}} \
         -p {{PROBE_BARCODES}} \
         -w {{BARCODE_LIST}} \
-        --force
+        --force \
+        {{CRISPR_BINSEQ}}
 
 run-wf-gex:
     time cyto workflow gex \
-        -b {{GEX_BINSEQ}} \
         -c {{GEX_PROBES}} \
         -p {{PROBE_BARCODES}} \
         -w {{BARCODE_LIST}} \
-        --force
+        --force \
+        {{GEX_BINSEQ}}
 
 run-all: run-crispr-probe-binseq run-crispr-probe-fastq run-crispr-binseq run-crispr-fastq run-gex-probe-binseq run-gex-probe-fastq run-gex-binseq run-gex-fastq
 
 run-crispr-probe-binseq: install
     time cyto map crispr \
-        -b {{CRISPR_BINSEQ}} \
         -c {{CRISPR_GUIDES}} \
         -p {{PROBE_BARCODES}} \
-        --force
+        --force \
+        {{CRISPR_BINSEQ}}
 
 run-crispr-probe-fastq: install
     time cyto map crispr \
-        -i {{CRISPR_FASTQ_R1}} \
-        -I {{CRISPR_FASTQ_R2}} \
         -c {{CRISPR_GUIDES}} \
         -p {{PROBE_BARCODES}} \
-        --force
+        --force \
+        {{CRISPR_FASTQ_R1}} {{CRISPR_FASTQ_R2}}
 
 run-crispr-binseq: install
     time cyto map crispr \
-        -b {{CRISPR_BINSEQ}} \
         -c {{CRISPR_GUIDES}} \
-        --force
+        --force \
+        {{CRISPR_BINSEQ}}
 
 run-crispr-fastq: install
     time cyto map crispr \
-        -i {{CRISPR_FASTQ_R1}} \
-        -I {{CRISPR_FASTQ_R2}} \
         -c {{CRISPR_GUIDES}} \
-        --force
+        --force \
+        {{CRISPR_FASTQ_R1}} {{CRISPR_FASTQ_R2}}
 
 run-gex-probe-binseq: install
     time cyto map gex \
-        -b {{GEX_BINSEQ}} \
         -c {{GEX_PROBES}} \
         -p {{PROBE_BARCODES}} \
-        --force
+        --force \
+        {{GEX_BINSEQ}}
 
 run-gex-probe-fastq: install
     time cyto map gex \
-        -i {{GEX_FASTQ_R1}} \
-        -I {{GEX_FASTQ_R2}} \
         -c {{GEX_PROBES}} \
         -p {{PROBE_BARCODES}} \
-        --force
+        --force \
+        {{GEX_FASTQ_R1}} {{GEX_FASTQ_R2}}
 
 run-gex-binseq: install
     time cyto map gex \
-        -b {{GEX_BINSEQ}} \
         -c {{GEX_PROBES}} \
-        --force
+        --force \
+        {{GEX_BINSEQ}}
 
 run-gex-fastq: install
     time cyto map gex \
-        -i {{GEX_FASTQ_R1}} \
-        -I {{GEX_FASTQ_R2}} \
         -c {{GEX_PROBES}} \
-        --force
+        --force \
+        {{GEX_FASTQ_R1}} {{GEX_FASTQ_R2}}
 
 clean:
     rm -rfv cyto_out/
