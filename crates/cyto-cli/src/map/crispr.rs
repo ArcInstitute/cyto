@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use super::{Geometry, MapOptions, PairedInput, ProbeOptions, RuntimeOptions};
+use super::{Geometry, MapOptions, MultiPairedInput, ProbeOptions, RuntimeOptions};
 use crate::ArgsOutput;
 
 use super::BinseqInput;
@@ -8,7 +8,7 @@ use super::BinseqInput;
 #[derive(Parser, Debug)]
 pub struct ArgsCrispr {
     #[clap(flatten)]
-    pub input: PairedInput,
+    pub input: MultiPairedInput,
 
     #[clap(flatten)]
     pub binseq: BinseqInput,

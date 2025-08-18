@@ -45,9 +45,39 @@ impl PairedInput {
 }
 
 #[derive(Parser, Debug)]
+#[clap(next_help_heading = "Paired input options")]
+pub struct MultiPairedInput {
+    #[clap(short = 'i', conflicts_with = "input", num_args = 1.., required_unless_present = "input")]
+    pub pairs: Vec<String>,
+}
+impl MultiPairedInput {
+    pub fn to_readers(&self) -> Result<Vec<FxReaderPair>> {
+        let mut readers = Vec::new();
+        if self.pairs.len() % 2 != 0 {
+            error!(
+                "Found {} inputs, expecting an even number of file pairs",
+                self.pairs.len()
+            );
+            bail!("Number of pairs must be even");
+        }
+        for pair in self.pairs.chunks(2) {
+            let r1 = pair[0].clone();
+            let r2 = pair[1].clone();
+            readers.push((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?));
+        }
+        Ok(readers)
+    }
+}
+
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
-    #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"], required_unless_present_all = ["r1", "r2"])]
+    #[clap(
+        short = 'b',
+        long,
+        conflicts_with = "pairs",
+        required_unless_present = "pairs"
+    )]
     pub input: Option<String>,
 }
 impl BinseqInput {
