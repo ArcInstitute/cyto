@@ -16,7 +16,7 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     validate_output_directory(&args.output.outdir, args.output.force)?;
 
     // Load the input readers
-    let (r1, r2) = args.input.to_readers()?;
+    let paired_readers = args.input.to_readers()?;
 
     let start_time = Instant::now();
 
@@ -40,8 +40,7 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
 
     // map the reads and write the results to the probe files
     let statistics = ibu_map_probed_pairs_paraseq(
-        r1,
-        r2,
+        paired_readers,
         &filepaths,
         target_mapper,
         probe_mapper,
@@ -66,7 +65,7 @@ pub fn bus(args: &ArgsCrispr) -> Result<()> {
     validate_output_directory(&args.output.outdir, args.output.force)?;
 
     // Load the input readers
-    let (r1, r2) = args.input.to_readers()?;
+    let paired_readers = args.input.to_readers()?;
     let start_time = Instant::now();
     let target_mapper =
         CrisprMapper::from_tsv_arc(&args.crispr.guides_filepath, args.map.exact_matching)?;
@@ -80,8 +79,7 @@ pub fn bus(args: &ArgsCrispr) -> Result<()> {
 
     // map the reads and write the results to the output file
     let statistics = ibu_map_pairs_paraseq(
-        r1,
-        r2,
+        paired_readers,
         &output_filepath,
         target_mapper,
         Some(target_offset),

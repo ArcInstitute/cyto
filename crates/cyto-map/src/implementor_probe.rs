@@ -15,7 +15,7 @@ use cyto_core::{
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use log::info;
-use paraseq::prelude::*;
+use paraseq::{fastx, prelude::*};
 use parking_lot::Mutex;
 
 #[derive(Clone)]
@@ -377,8 +377,7 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingProbeImplementor<M> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_paraseq<M, R>(
-    rdr_r1: paraseq::fastx::Reader<R>,
-    rdr_r2: paraseq::fastx::Reader<R>,
+    readers: Vec<(fastx::Reader<R>, fastx::Reader<R>)>,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,
@@ -427,7 +426,9 @@ where
 
     // Process the records in parallel
     info!("Beginning mapping with {num_threads} threads");
-    rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
+    for (rdr_r1, rdr_r2) in readers {
+        rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
+    }
 
     // Finish the progress bar
     implementor.finish_pbar();

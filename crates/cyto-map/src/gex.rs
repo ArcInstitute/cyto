@@ -15,7 +15,7 @@ fn probed_bus(args: &ArgsGex) -> Result<()> {
     // Validate output directory
     validate_output_directory(&args.output.outdir, args.output.force)?;
 
-    let (r1, r2) = args.input.to_readers()?;
+    let paired_readers = args.input.to_readers()?;
     let start_time = Instant::now();
 
     // Load the target library
@@ -37,8 +37,7 @@ fn probed_bus(args: &ArgsGex) -> Result<()> {
     write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     let statistics = ibu_map_probed_pairs_paraseq(
-        r1,
-        r2,
+        paired_readers,
         &filepaths,
         target_mapper,
         probe_mapper,
@@ -63,7 +62,8 @@ fn bus(args: &ArgsGex) -> Result<()> {
     validate_output_directory(&args.output.outdir, args.output.force)?;
 
     // Load the input files
-    let (r1, r2) = args.input.to_readers()?;
+    let paired_readers = args.input.to_readers()?;
+
     let start_time = Instant::now();
 
     // Load the target library
@@ -76,8 +76,7 @@ fn bus(args: &ArgsGex) -> Result<()> {
     write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     let statistics = ibu_map_pairs_paraseq(
-        r1,
-        r2,
+        paired_readers,
         &output_filepath,
         target_mapper,
         None,
