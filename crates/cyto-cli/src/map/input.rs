@@ -45,9 +45,60 @@ impl PairedInput {
 }
 
 #[derive(Parser, Debug)]
+#[clap(next_help_heading = "Paired input options")]
+pub struct MultiPairedInput {
+    /// Paths to input files to process.
+    ///
+    /// If using BINSEQ input (*.bq/*.vbq), the ordering of files or number of files does not matter.
+    ///
+    /// If using FASTX input, the input files are expected to be paired and sequentially ordered (S1_R1, S1_R2, S2_R1, S2_R2, ...).
+    /// This is expecting an even number of files.
+    #[clap(num_args = 1.., required=true)]
+    pub inputs: Vec<String>,
+}
+impl MultiPairedInput {
+    pub fn is_binseq(&self) -> bool {
+        self.inputs
+            .iter()
+            .all(|path| path.ends_with(".bq") || path.ends_with(".vbq"))
+    }
+
+    pub fn to_fx_readers(&self) -> Result<Vec<FxReaderPair>> {
+        let mut readers = Vec::new();
+        if self.inputs.len() % 2 != 0 {
+            error!(
+                "Found {} inputs, expecting an even number of file pairs",
+                self.inputs.len()
+            );
+            bail!("Number of pairs must be even");
+        }
+        for pair in self.inputs.chunks(2) {
+            let r1 = pair[0].clone();
+            let r2 = pair[1].clone();
+            readers.push((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?));
+        }
+        Ok(readers)
+    }
+
+    pub fn to_binseq_readers(&self) -> Result<Vec<BinseqReader>> {
+        let mut readers = Vec::new();
+        for path in &self.inputs {
+            let reader = BinseqReader::new(path)?;
+            readers.push(reader);
+        }
+        Ok(readers)
+    }
+}
+
+#[derive(Parser, Debug)]
 #[clap(next_help_heading = "Binseq input options")]
 pub struct BinseqInput {
-    #[clap(short = 'b', long, conflicts_with_all = ["r1", "r2"], required_unless_present_all = ["r1", "r2"])]
+    #[clap(
+        short = 'b',
+        long,
+        conflicts_with = "pairs",
+        required_unless_present = "pairs"
+    )]
     pub input: Option<String>,
 }
 impl BinseqInput {

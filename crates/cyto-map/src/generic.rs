@@ -37,8 +37,7 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
     write_features(&args.output.outdir, target_mapper.as_ref())?;
 
     let statistics = ibu_map_pairs_paraseq(
-        r1,
-        r2,
+        vec![(r1, r2)],
         &output_filepath,
         target_mapper,
         Some(offset),
@@ -85,7 +84,7 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
-        reader,
+        vec![reader],
         &output_filepath,
         target_mapper,
         Some(offset),

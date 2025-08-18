@@ -11,7 +11,7 @@ pub use crispr::ArgsCrispr;
 pub use generic::ArgsGeneric;
 pub use geometry::Geometry;
 pub use gex::ArgsGex;
-pub use input::PairedInput;
+pub use input::{MultiPairedInput, PairedInput};
 pub use map::MapOptions;
 pub use probe::ProbeOptions;
 pub use runtime::RuntimeOptions;

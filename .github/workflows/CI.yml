@@ -87,31 +87,31 @@ jobs:
       - name: run test (fastq)
         run: |
           ./cyto map crispr \
-            -i ./data/sequencing/crispr_R1.fastq.gz \
-            -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
-            --force
+            --force \
+            ./data/sequencing/crispr_R1.fastq.gz \
+            ./data/sequencing/crispr_R2.fastq.gz
       - name: run test (binseq)
         run: |
           ./cyto map crispr \
-            -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
-            --force
+            --force \
+            ./data/sequencing/crispr.bq
       - name: run test (fastq-probe)
         run: |
           ./cyto map crispr \
-            -i ./data/sequencing/crispr_R1.fastq.gz \
-            -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force
+            --force \
+            ./data/sequencing/crispr_R1.fastq.gz \
+            ./data/sequencing/crispr_R2.fastq.gz
       - name: run test (binseq-probe)
         run: |
           ./cyto map crispr \
-            -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force
+            --force \
+            ./data/sequencing/crispr.bq
 
   integration-map-gex:
     name: Integration map GEX
@@ -131,31 +131,31 @@ jobs:
       - name: run test (fastq)
         run: |
           ./cyto map gex \
-            -i ./data/sequencing/gex_R1.fastq.gz \
-            -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
-            --force
+            --force \
+            ./data/sequencing/gex_R1.fastq.gz \
+            ./data/sequencing/gex_R2.fastq.gz
       - name: run test (binseq)
         run: |
           ./cyto map gex \
-            -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
-            --force
+            --force \
+            ./data/sequencing/gex.bq
       - name: run test (fastq-probe)
         run: |
           ./cyto map gex \
-            -i ./data/sequencing/gex_R1.fastq.gz \
-            -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force
+            --force \
+            ./data/sequencing/gex_R1.fastq.gz \
+            ./data/sequencing/gex_R2.fastq.gz
       - name: run test (binseq-probe)
         run: |
           ./cyto map gex \
-            -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force
+            --force \
+            ./data/sequencing/gex.bq
 
   integration-wf-crispr:
     name: Integration workflow CRISPR
@@ -175,35 +175,35 @@ jobs:
       - name: run test (fastq)
         run: |
           ./cyto workflow crispr \
-            -i ./data/sequencing/crispr_R1.fastq.gz \
-            -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/crispr_R1.fastq.gz \
+            ./data/sequencing/crispr_R2.fastq.gz
       - name: run test (binseq)
         run: |
           ./cyto workflow crispr \
-            -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/crispr.bq
       - name: run test (fastq-probe)
         run: |
           ./cyto workflow crispr \
-            -i ./data/sequencing/crispr_R1.fastq.gz \
-            -I ./data/sequencing/crispr_R2.fastq.gz \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/crispr_R1.fastq.gz \
+            ./data/sequencing/crispr_R2.fastq.gz
       - name: run test (binseq-probe)
         run: |
           ./cyto workflow crispr \
-            -b ./data/sequencing/crispr.bq \
             -c ./data/libraries/crispr_guides.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/crispr.bq
 
   integration-wf-gex:
     name: Integration workflow GEX
@@ -223,32 +223,32 @@ jobs:
       - name: run test (fastq)
         run: |
           ./cyto workflow gex \
-            -i ./data/sequencing/gex_R1.fastq.gz \
-            -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/gex_R1.fastq.gz \
+            ./data/sequencing/gex_R2.fastq.gz
       - name: run test (binseq)
         run: |
           ./cyto workflow gex \
-            -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/gex.bq
       - name: run test (fastq-probe)
         run: |
           ./cyto workflow gex \
-            -i ./data/sequencing/gex_R1.fastq.gz \
-            -I ./data/sequencing/gex_R2.fastq.gz \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/gex_R1.fastq.gz \
+            ./data/sequencing/gex_R2.fastq.gz
       - name: run test (binseq-probe)
         run: |
           ./cyto workflow gex \
-            -b ./data/sequencing/gex.bq \
             -c ./data/libraries/gex_probes.tsv \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            --force
+            --force \
+            ./data/sequencing/gex.bq

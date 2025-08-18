@@ -15,7 +15,7 @@ use cyto_core::{
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use log::info;
-use paraseq::prelude::*;
+use paraseq::{fastx, prelude::*};
 use parking_lot::Mutex;
 
 #[derive(Clone)]
@@ -324,8 +324,7 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingImplementor<M> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_paraseq<M, R>(
-    rdr_r1: paraseq::fastx::Reader<R>,
-    rdr_r2: paraseq::fastx::Reader<R>,
+    paired_readers: Vec<(fastx::Reader<R>, fastx::Reader<R>)>,
     filename: &str,
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
@@ -337,7 +336,7 @@ pub fn ibu_map_pairs_paraseq<M, R>(
 ) -> Result<Statistics>
 where
     M: Mapper + 'static,
-    R: Read + Send,
+    R: Read + Send + 'static,
 {
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
@@ -360,8 +359,23 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {num_threads} threads");
-    rdr_r1.process_parallel_paired(rdr_r2, implementor.clone(), num_threads)?;
+    let num_pairs = paired_readers.len();
+    let threads_per_pair = num_threads / num_pairs;
+    let mut handles = Vec::with_capacity(num_pairs);
+    info!("Beginning mapping with {num_threads} threads over {num_pairs} file pairs",);
+    for (rdr_r1, rdr_r2) in paired_readers {
+        let implementor = implementor.clone();
+        let handle = std::thread::spawn(move || -> Result<()> {
+            rdr_r1.process_parallel_paired(rdr_r2, implementor, threads_per_pair)?;
+            Ok(())
+        });
+        handles.push(handle);
+    }
+
+    // Wait for all threads to finish
+    for handle in handles {
+        handle.join().unwrap()?;
+    }
 
     // Finalize the progress bar
     implementor.finish_pbar();
@@ -372,7 +386,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_pairs_binseq<M>(
-    reader: BinseqReader,
+    readers: Vec<BinseqReader>,
     filename: &str,
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
@@ -406,8 +420,13 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {num_threads} threads");
-    reader.process_parallel(implementor.clone(), num_threads)?;
+    info!(
+        "Beginning mapping with {num_threads} threads over {} files",
+        readers.len()
+    );
+    for reader in readers {
+        reader.process_parallel(implementor.clone(), num_threads)?;
+    }
 
     // Complete the progress bar
     implementor.finish_pbar();
