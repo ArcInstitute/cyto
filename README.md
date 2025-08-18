@@ -64,10 +64,10 @@ However, `cyto` includes built-in pipelines for common workflows with the `workf
 The general structure of the usage is as follows:
 
 ```bash
-# Map BINSEQ file
-cyto map <mode> -b <BINSEQ> -c <feature_table> -p <probe_file> -o <output_dir>
+# Map BINSEQ file(s)
+cyto map <mode> -c <feature_table> -p <probe_file> -o <output_dir> <BINSEQ> <...BINSEQ>
 # Map FASTQ files
-cyto map <mode> -i <R1> -I <R2> -c <feature_table> -p <probe_file> -o <output_dir>
+cyto map <mode> -c <feature_table> -p <probe_file> -o <output_dir> <R1> <R2> <...R1> <...R2>
 ```
 
 Where:
@@ -110,9 +110,9 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map crispr \
-    -b data/sequencing/sample.bq \
     -c data/libraries/crispr_guides.tsv \
-    -o output_directory
+    -o output_directory \
+    data/sequencing/sample.bq
 ```
 
 #### GEX processing
@@ -131,9 +131,9 @@ The expected structure of the feature table is a 3 column TSV file with the foll
 
 ```bash
 cyto map gex \
-    -b data/sequencing/sample.bq \
     -c data/libraries/gex_barcodes.tsv \
-    -o output_directory
+    -o output_directory \
+    data/sequencing/sample.bq
 ```
 
 #### Probe-based processing
@@ -155,17 +155,17 @@ The probe file is a 3 column TSV file with the following columns:
 ```bash
 # Mapping CRISPR - demultiplexing by probe
 cyto map crispr \
-    -b data/sequencing/sample.bq \
     -c data/libraries/crispr_guides.tsv \
     -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-    -o output_directory
+    -o output_directory \
+    data/sequencing/sample.bq
 
 # Mapping GEX - demultiplexing by probe
 cyto map gex \
-    -b data/sequencing/sample.bq \
     -c data/libraries/gex_barcodes.tsv \
     -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-    -o output_directory
+    -o output_directory \
+    data/sequencing/sample.bq
 ```
 
 ### Multi-threading
@@ -239,17 +239,17 @@ cyto ibu count -i sample.sorted.ibu -f output_directory/metadata/features.tsv -o
 ```bash
 # Complete CRISPR workflow: map → sort → barcode correction → UMI correction → count
 cyto workflow crispr \
-    -b sample.bq \
     -c crispr_guides.tsv \
     -w whitelist.txt \
-    -o workflow_output
+    -o workflow_output \
+    sample.bq
 
 # Complete GEX workflow: map → sort → barcode correction → UMI correction → count
 cyto workflow gex \
-    -b sample.bq \
     -c gex_barcodes.tsv \
     -w whitelist.txt \
-    -o workflow_output
+    -o workflow_output \
+    sample.bq
 ```
 
 The workflow commands create an extended directory structure:
