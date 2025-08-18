@@ -84,7 +84,7 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
 
     // Open a file handle for the output file
     let statistics = ibu_map_pairs_binseq(
-        reader,
+        vec![reader],
         &output_filepath,
         target_mapper,
         Some(offset),

@@ -47,23 +47,44 @@ impl PairedInput {
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Paired input options")]
 pub struct MultiPairedInput {
-    #[clap(short = 'i', conflicts_with = "input", num_args = 1.., required_unless_present = "input")]
-    pub pairs: Vec<String>,
+    /// Paths to input files to process.
+    ///
+    /// If using BINSEQ input (*.bq/*.vbq), the ordering of files or number of files does not matter.
+    ///
+    /// If using FASTX input, the input files are expected to be paired and sequentially ordered (S1_R1, S1_R2, S2_R1, S2_R2, ...).
+    /// This is expecting an even number of files.
+    #[clap(num_args = 1.., required=true)]
+    pub inputs: Vec<String>,
 }
 impl MultiPairedInput {
-    pub fn to_readers(&self) -> Result<Vec<FxReaderPair>> {
+    pub fn is_binseq(&self) -> bool {
+        self.inputs
+            .iter()
+            .all(|path| path.ends_with(".bq") || path.ends_with(".vbq"))
+    }
+
+    pub fn to_fx_readers(&self) -> Result<Vec<FxReaderPair>> {
         let mut readers = Vec::new();
-        if self.pairs.len() % 2 != 0 {
+        if self.inputs.len() % 2 != 0 {
             error!(
                 "Found {} inputs, expecting an even number of file pairs",
-                self.pairs.len()
+                self.inputs.len()
             );
             bail!("Number of pairs must be even");
         }
-        for pair in self.pairs.chunks(2) {
+        for pair in self.inputs.chunks(2) {
             let r1 = pair[0].clone();
             let r2 = pair[1].clone();
             readers.push((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?));
+        }
+        Ok(readers)
+    }
+
+    pub fn to_binseq_readers(&self) -> Result<Vec<BinseqReader>> {
+        let mut readers = Vec::new();
+        for path in &self.inputs {
+            let reader = BinseqReader::new(path)?;
+            readers.push(reader);
         }
         Ok(readers)
     }

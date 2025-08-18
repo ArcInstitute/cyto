@@ -425,10 +425,10 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {num_threads} threads");
     let num_pairs = readers.len();
     let threads_per_pair = num_threads / num_pairs;
     let mut handles = Vec::with_capacity(num_pairs);
+    info!("Beginning mapping with {num_threads} threads over {num_pairs} files");
     for (rdr_r1, rdr_r2) in readers {
         let implementor = implementor.clone();
         let handle = std::thread::spawn(move || -> Result<()> {
@@ -452,7 +452,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub fn ibu_map_probed_pairs_binseq<M>(
-    reader: BinseqReader,
+    readers: Vec<BinseqReader>,
     filenames: &[String],
     target_mapper: Arc<M>,
     probe_mapper: Arc<ProbeMapper>,
@@ -499,8 +499,13 @@ where
     );
 
     // Process the records in parallel
-    info!("Beginning mapping with {num_threads} threads");
-    reader.process_parallel(implementor.clone(), num_threads)?;
+    info!(
+        "Beginning mapping with {num_threads} threads over {} files",
+        readers.len()
+    );
+    for reader in readers {
+        reader.process_parallel(implementor.clone(), num_threads)?;
+    }
 
     // Finish the progress bar
     implementor.finish_pbar();

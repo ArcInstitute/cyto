@@ -2,15 +2,12 @@ use clap::Parser;
 
 use crate::ArgsOutput;
 
-use super::{BinseqInput, Geometry, MapOptions, MultiPairedInput, ProbeOptions, RuntimeOptions};
+use super::{Geometry, MapOptions, MultiPairedInput, ProbeOptions, RuntimeOptions};
 
 #[derive(Parser, Debug)]
 pub struct ArgsGex {
     #[clap(flatten)]
     pub input: MultiPairedInput,
-
-    #[clap(flatten)]
-    pub binseq: BinseqInput,
 
     #[clap(flatten)]
     pub geometry: Geometry,
