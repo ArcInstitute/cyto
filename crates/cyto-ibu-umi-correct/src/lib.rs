@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    io::{Read, Write},
+    path::Path,
+};
 
 use anyhow::{Result, bail};
 use ibu::{Reader, Record};
@@ -158,18 +161,11 @@ fn write_statistics<P: AsRef<Path>>(log_path: Option<P>, stats: Statistics) -> R
     Ok(())
 }
 
-pub fn run(args: &ArgsUmi) -> Result<()> {
-    // Build IO handles
-    let input = match_input(args.input.input.as_ref())?;
-
-    // Initialize the reader and header
-    let reader = Reader::new(input)?;
-    let header = reader.header();
-
-    // Initialize the output writer
-    let mut output = match_output(args.options.output.as_ref())?;
-    header.write_bytes(&mut output)?;
-
+fn process_records<R: Read, W: Write>(
+    reader: ibu::Reader<R>,
+    mut output: W,
+    header: ibu::Header,
+) -> Result<Statistics> {
     let mut reader_iter = reader.into_iter();
     let mut last_record = if let Some(record) = reader_iter.next() {
         record?
@@ -221,6 +217,23 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     output.flush()?;
 
     let stats = Statistics::new(num_records, num_corrections);
+    Ok(stats)
+}
+
+pub fn run(args: &ArgsUmi) -> Result<()> {
+    // Build IO handles
+    let input = match_input(args.input.input.as_ref())?;
+
+    // Initialize the reader and header
+    let reader = Reader::new(input)?;
+    let header = reader.header();
+
+    // Initialize the output writer
+    let mut output = match_output(args.options.output.as_ref())?;
+    header.write_bytes(&mut output)?;
+
+    let stats = process_records(reader, &mut output, header)?;
+
     write_statistics(args.options.log.as_ref(), stats)?;
 
     Ok(())
