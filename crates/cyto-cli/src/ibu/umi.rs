@@ -20,6 +20,7 @@ impl ArgsUmi {
             options: OptionsCorrect {
                 output: Some(umi_path.to_string()),
                 log: Some(log_path.as_ref().display().to_string()),
+                threads: 1,
             },
         }
     }
@@ -30,6 +31,10 @@ pub struct OptionsCorrect {
     /// Output file to write to [default=stdout]
     #[clap(short, long)]
     pub output: Option<String>,
+
+    /// Number of threads to use [default=1]
+    #[clap(short = 'T', long, default_value_t = 1)]
+    pub threads: usize,
 
     /// Output file to write statistics to [default=stderr]
     ///
