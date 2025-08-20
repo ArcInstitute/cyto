@@ -34,7 +34,7 @@ pub struct OptionsCorrect {
 
     /// Number of threads to use (0 for all available)
     #[clap(short = 'T', long, default_value_t = 1)]
-    pub threads: usize,
+    threads: usize,
 
     /// Output file to write statistics to [default=stderr]
     ///
