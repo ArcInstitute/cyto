@@ -116,7 +116,7 @@ impl ProbeMapper {
     fn map_right(&self, sequence: SeqRef, offset: usize) -> Result<usize, MappingError> {
         let lpos = offset;
         let rpos = lpos + self.sequence_to_index.sequence_size;
-        if rpos >= sequence.len() {
+        if rpos > sequence.len() {
             return Err(MappingError::MissingProbe);
         }
         let subsequence = &sequence[lpos..rpos];
@@ -133,7 +133,7 @@ impl ProbeMapper {
     fn map_right_corrected(&self, sequence: SeqRef, offset: usize) -> Result<usize, MappingError> {
         let lpos = offset;
         let rpos = lpos + self.sequence_to_index.sequence_size;
-        if rpos >= sequence.len() {
+        if rpos > sequence.len() {
             return Err(MappingError::MissingProbe);
         }
         let subsequence = &sequence[lpos..rpos];
