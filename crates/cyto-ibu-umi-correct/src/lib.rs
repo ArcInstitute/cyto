@@ -1,15 +1,22 @@
 use std::{
     io::{Read, Write},
+    ops::AddAssign,
     path::Path,
+    sync::Arc,
 };
 
 use anyhow::{Result, bail};
 use ibu::{Reader, Record};
+use parking_lot::Mutex;
 use petgraph::{Graph, algo::kosaraju_scc, graph::NodeIndex};
 
 use cyto_cli::ibu::ArgsUmi;
 use cyto_io::{match_input, match_output, match_output_stderr};
 use serde::Serialize;
+
+use crate::parallel::BarcodeSetReader;
+
+mod parallel;
 
 #[derive(Serialize, Clone, Copy)]
 struct Statistics {
@@ -24,6 +31,13 @@ impl Statistics {
             corrected,
             fraction_corrected: corrected as f64 / total as f64,
         }
+    }
+}
+impl AddAssign for Statistics {
+    fn add_assign(&mut self, other: Self) {
+        self.total += other.total;
+        self.corrected += other.corrected;
+        self.fraction_corrected = self.corrected as f64 / self.total as f64;
     }
 }
 
@@ -175,6 +189,7 @@ fn process_records<R: Read, W: Write>(
 
     let mut num_corrections = 0;
     let mut num_records = 0;
+
     let mut barcode_set = Vec::new();
     let mut corrected_set = Vec::new();
     barcode_set.push(last_record);
@@ -220,6 +235,64 @@ fn process_records<R: Read, W: Write>(
     Ok(stats)
 }
 
+fn process_records_parallel<R, W>(
+    reader: ibu::Reader<R>,
+    output: W,
+    header: ibu::Header,
+    threads: usize,
+) -> Result<Statistics>
+where
+    R: Read + Send + 'static,
+    W: Write + Send + 'static,
+{
+    let preader = BarcodeSetReader::new_shared(reader.into_iter());
+    let shared_output = Arc::new(Mutex::new(output));
+
+    let mut handles = Vec::new();
+    for _tid in 0..threads {
+        let treader = preader.clone();
+        let twriter = shared_output.clone();
+        let handle = std::thread::spawn(move || -> Result<Statistics> {
+            let mut barcode_set = Vec::new();
+            let mut num_records = 0;
+            let mut num_corrections = 0;
+            let mut corrected_set = Vec::new();
+
+            loop {
+                barcode_set.clear();
+                if !treader.lock().fill_barcode_set(&mut barcode_set)? {
+                    break;
+                }
+                num_records += barcode_set.len();
+                num_corrections += collapse_barcode_set(
+                    &mut barcode_set,
+                    &mut corrected_set,
+                    header.umi_len() as usize,
+                )?;
+
+                // Write corrected records to output
+                {
+                    let mut w = twriter.lock();
+                    for record in corrected_set.drain(..) {
+                        record.write_bytes(w.by_ref())?;
+                    }
+                    w.flush()?;
+                }
+            }
+
+            Ok(Statistics::new(num_records, num_corrections))
+        });
+        handles.push(handle);
+    }
+
+    let mut statistics = Statistics::new(0, 0);
+    for handle in handles {
+        statistics += handle.join().unwrap()?;
+    }
+
+    Ok(statistics)
+}
+
 pub fn run(args: &ArgsUmi) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
@@ -232,7 +305,11 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     let mut output = match_output(args.options.output.as_ref())?;
     header.write_bytes(&mut output)?;
 
-    let stats = process_records(reader, &mut output, header)?;
+    let stats = if args.options.threads > 1 {
+        process_records_parallel(reader, output, header, args.options.threads)
+    } else {
+        process_records(reader, &mut output, header)
+    }?;
 
     write_statistics(args.options.log.as_ref(), stats)?;
 
