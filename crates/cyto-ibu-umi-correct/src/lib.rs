@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use ibu::{Reader, Record};
 use parking_lot::Mutex;
 use petgraph::{Graph, algo::kosaraju_scc, graph::NodeIndex};
@@ -175,66 +175,6 @@ fn write_statistics<P: AsRef<Path>>(log_path: Option<P>, stats: Statistics) -> R
     Ok(())
 }
 
-fn process_records<R: Read, W: Write>(
-    reader: ibu::Reader<R>,
-    mut output: W,
-    header: ibu::Header,
-) -> Result<Statistics> {
-    let mut reader_iter = reader.into_iter();
-    let mut last_record = if let Some(record) = reader_iter.next() {
-        record?
-    } else {
-        bail!("No records found in input file")
-    };
-
-    let mut num_corrections = 0;
-    let mut num_records = 0;
-
-    let mut barcode_set = Vec::new();
-    let mut corrected_set = Vec::new();
-    barcode_set.push(last_record);
-    for record in reader_iter {
-        let record = record?;
-        if record < last_record {
-            bail!("Records are not sorted")
-        }
-
-        if record.barcode() == last_record.barcode() {
-            barcode_set.push(record);
-        } else {
-            num_corrections += collapse_barcode_set(
-                &mut barcode_set,
-                &mut corrected_set,
-                header.umi_len() as usize,
-            )?;
-            barcode_set.clear();
-
-            for record in corrected_set.drain(..) {
-                record.write_bytes(&mut output)?;
-            }
-
-            barcode_set.push(record);
-        }
-
-        last_record = record;
-        num_records += 1;
-    }
-
-    // Process last barcode set
-    num_corrections += collapse_barcode_set(
-        &mut barcode_set,
-        &mut corrected_set,
-        header.umi_len() as usize,
-    )?;
-    for record in corrected_set.drain(..) {
-        record.write_bytes(&mut output)?;
-    }
-    output.flush()?;
-
-    let stats = Statistics::new(num_records, num_corrections);
-    Ok(stats)
-}
-
 fn process_records_parallel<R, W>(
     reader: ibu::Reader<R>,
     output: W,
@@ -253,9 +193,9 @@ where
         let treader = preader.clone();
         let twriter = shared_output.clone();
         let handle = std::thread::spawn(move || -> Result<Statistics> {
-            let mut barcode_set = Vec::new();
             let mut num_records = 0;
             let mut num_corrections = 0;
+            let mut barcode_set = Vec::new();
             let mut corrected_set = Vec::new();
 
             loop {
@@ -305,12 +245,10 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     let mut output = match_output(args.options.output.as_ref())?;
     header.write_bytes(&mut output)?;
 
-    let stats = if args.options.threads > 1 {
-        process_records_parallel(reader, output, header, args.options.threads)
-    } else {
-        process_records(reader, &mut output, header)
-    }?;
+    // Process records in parallel
+    let stats = process_records_parallel(reader, output, header, args.options.threads())?;
 
+    // write output statistics
     write_statistics(args.options.log.as_ref(), stats)?;
 
     Ok(())

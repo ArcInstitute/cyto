@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use parking_lot::Mutex;
 
 pub struct BarcodeSetReader<It>
@@ -37,6 +37,9 @@ where
         for record in self.reader.by_ref() {
             let record = record?;
             if let Some(last) = last_record {
+                if record < last {
+                    bail!("Input is unsorted; expecting sorted IBU input for UMI correction");
+                }
                 if record.barcode() == last.barcode() {
                     bset.push(record);
                 } else {
