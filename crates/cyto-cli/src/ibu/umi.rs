@@ -32,7 +32,7 @@ pub struct OptionsCorrect {
     #[clap(short, long)]
     pub output: Option<String>,
 
-    /// Number of threads to use [default=1]
+    /// Number of threads to use (0 for all available)
     #[clap(short = 'T', long, default_value_t = 1)]
     pub threads: usize,
 
@@ -41,4 +41,13 @@ pub struct OptionsCorrect {
     /// Will output as json
     #[clap(short, long)]
     pub log: Option<String>,
+}
+impl OptionsCorrect {
+    pub fn threads(&self) -> usize {
+        if self.threads == 0 {
+            num_cpus::get()
+        } else {
+            self.threads.min(num_cpus::get())
+        }
+    }
 }
