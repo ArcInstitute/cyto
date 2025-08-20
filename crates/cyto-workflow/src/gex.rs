@@ -25,6 +25,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
     if args.gex_args.probe.probes_filepath.is_some() {
         // Identify all output IBU files
         let ibu_files = identify_ibu_files(&args.gex_args.output.outdir)?;
+        let threads_per_file = (args.gex_args.runtime.num_threads() / ibu_files.len()).max(1);
 
         ibu_files.par_iter().try_for_each(|path| -> Result<()> {
             ibu_steps(
@@ -33,6 +34,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
                 &args.wf_args,
                 whitelist.clone(),
                 args.mode(),
+                threads_per_file,
             )
         })?;
     } else {
@@ -46,6 +48,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             &args.wf_args,
             whitelist,
             args.mode(),
+            args.gex_args.runtime.num_threads(),
         )?;
     }
 

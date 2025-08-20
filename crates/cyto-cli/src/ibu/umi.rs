@@ -13,14 +13,19 @@ pub struct ArgsUmi {
     pub options: OptionsCorrect,
 }
 impl ArgsUmi {
-    pub fn from_wf_path<P: AsRef<Path>>(sort_path: &str, umi_path: &str, log_path: P) -> Self {
+    pub fn from_wf_path<P: AsRef<Path>>(
+        sort_path: &str,
+        umi_path: &str,
+        log_path: P,
+        threads: usize,
+    ) -> Self {
         let input = IbuInput::from_path(sort_path);
         Self {
             input,
             options: OptionsCorrect {
                 output: Some(umi_path.to_string()),
                 log: Some(log_path.as_ref().display().to_string()),
-                threads: 1,
+                threads: threads,
             },
         }
     }
