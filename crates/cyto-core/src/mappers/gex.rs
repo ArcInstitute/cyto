@@ -74,7 +74,7 @@ impl Mapper for GexMapper {
         adjustment: Option<Adjustment>,
     ) -> Result<usize, MappingError> {
         let gex_sequence = match adjustment {
-            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size.max(seq.len())],
+            Some(Adjustment::Plus) => &seq[1..=self.sequence_to_index.sequence_size.min(seq.len())],
             Some(Adjustment::Minus) => return Err(MappingError::MissingGexSequence), // Cannot map minus adjustment
             _ => &seq[..self.sequence_to_index.sequence_size.max(seq.len())],
         };
