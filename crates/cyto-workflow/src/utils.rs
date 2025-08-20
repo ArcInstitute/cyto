@@ -188,6 +188,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
     wf_mode: WorkflowMode,
+    threads: usize,
 ) -> Result<()> {
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
@@ -238,7 +239,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join("umi")
             .join(format!("{base_ibu_path}.umi.json"));
 
-        let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path, umi_log);
+        let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path, umi_log, threads);
 
         info!("UMI Correcting {sort_path} -> {umi_path}");
         cyto_ibu_umi_correct::run(&umi_args)?;
