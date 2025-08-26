@@ -1,8 +1,10 @@
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
+use cyto_cli::workflow::{CrisprMappingCommand, GexMappingCommand};
 use cyto_cli::{
     ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
@@ -324,4 +326,18 @@ pub fn ibu_steps<P: AsRef<Path>>(
     }
 
     Ok(())
+}
+
+pub fn write_done_file<P: AsRef<Path>>(outdir: P, args: RefWorkflowCommand) -> Result<()> {
+    let done_file = outdir.as_ref().join(".done");
+    let mut file = std::fs::File::create(&done_file)?;
+    writeln!(&mut file, "{:#?}", args)?;
+    Ok(())
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum RefWorkflowCommand<'a> {
+    GexMapping(&'a GexMappingCommand),
+    CrisprMapping(&'a CrisprMappingCommand),
 }
