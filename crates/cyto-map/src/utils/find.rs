@@ -99,8 +99,8 @@ impl BestOffset {
         }
     }
     pub fn get_best_offset(&self) -> usize {
-        let max_idx = argmax(&self.offset_scores.lock());
-        max_idx
+        
+        argmax(&self.offset_scores.lock())
     }
     pub fn run(
         rdr: BinseqReader,

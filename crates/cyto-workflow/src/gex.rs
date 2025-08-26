@@ -55,7 +55,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
 
     write_done_file(
         &args.gex_args.output.outdir,
-        RefWorkflowCommand::GexMapping(args),
+        &RefWorkflowCommand::GexMapping(args),
     )?;
 
     Ok(())

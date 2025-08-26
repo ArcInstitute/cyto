@@ -165,11 +165,9 @@ pub fn run(args: &ArgsCrispr) -> Result<()> {
         } else {
             probed_bus(args)
         }
+    } else if args.input.is_binseq() {
+        bus_binseq(args)
     } else {
-        if args.input.is_binseq() {
-            bus_binseq(args)
-        } else {
-            bus(args)
-        }
+        bus(args)
     }
 }

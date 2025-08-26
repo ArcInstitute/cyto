@@ -50,7 +50,7 @@ pub fn run(args: &CrisprMappingCommand) -> Result<()> {
 
     write_done_file(
         &args.crispr_args.output.outdir,
-        RefWorkflowCommand::CrisprMapping(args),
+        &RefWorkflowCommand::CrisprMapping(args),
     )?;
 
     Ok(())

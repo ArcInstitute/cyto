@@ -25,7 +25,7 @@ impl ArgsUmi {
             options: OptionsCorrect {
                 output: Some(umi_path.to_string()),
                 log: Some(log_path.as_ref().display().to_string()),
-                threads: threads,
+                threads,
             },
         }
     }
