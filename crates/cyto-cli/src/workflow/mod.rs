@@ -101,6 +101,10 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub keep_unfiltered: bool,
 
+    /// Keep the IBU file(s) after counting
+    #[clap(long)]
+    pub keep_ibu: bool,
+
     /// Skip CRISPR-barcode assignment step (CRISPR)
     ///
     /// Only used when format is h5ad
@@ -179,9 +183,7 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
                     Ok(())
                 }
                 Err(e) => {
-                    error!(
-                        "Encountered an unexpected error precompiling `{name}`: {e}"
-                    );
+                    error!("Encountered an unexpected error precompiling `{name}`: {e}");
                     bail!(
                         "Encountered an unexpected error precompiling `{}`: {}",
                         name,

@@ -288,6 +288,11 @@ pub fn ibu_steps<P: AsRef<Path>>(
     info!("Counting {sort_path} -> {}", count_path.display());
     cyto_ibu_count::run(&count_args)?;
 
+    if !wf_args.keep_ibu {
+        debug!("Removing IBU file: {sort_path}");
+        std::fs::remove_file(&sort_path).context("Unable to remove IBU file")?;
+    }
+
     // Convert to h5ad if required
     if wf_args.to_h5ad() {
         convert_to_h5ad(&count_path)?;
@@ -332,6 +337,11 @@ pub fn write_done_file<P: AsRef<Path>>(outdir: P, args: &RefWorkflowCommand) -> 
     let done_file = outdir.as_ref().join(".done");
     let mut file = std::fs::File::create(&done_file)?;
     writeln!(&mut file, "{args:#?}")?;
+    Ok(())
+}
+
+pub fn remove_ibu_dir<P: AsRef<Path>>(path: P) -> Result<()> {
+    std::fs::remove_dir_all(path).context("Unable to remove IBU directory")?;
     Ok(())
 }
 
