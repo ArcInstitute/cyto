@@ -2,9 +2,10 @@ use anyhow::Result;
 use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use super::utils::{ibu_steps, identify_ibu_files};
 use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
+
+use crate::utils::{RefWorkflowCommand, ibu_steps, identify_ibu_files, write_done_file};
 
 pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
 
@@ -51,6 +52,11 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             args.gex_args.runtime.num_threads(),
         )?;
     }
+
+    write_done_file(
+        &args.gex_args.output.outdir,
+        RefWorkflowCommand::GexMapping(args),
+    )?;
 
     Ok(())
 }

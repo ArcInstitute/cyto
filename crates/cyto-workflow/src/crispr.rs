@@ -2,9 +2,10 @@ use anyhow::Result;
 use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use super::utils::{ibu_steps, identify_ibu_files};
 use cyto_cli::workflow::CrisprMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
+
+use crate::utils::{RefWorkflowCommand, ibu_steps, identify_ibu_files, write_done_file};
 
 pub fn run(args: &CrisprMappingCommand) -> Result<()> {
     args.wf_args.validate_requirements(args.mode())?;
@@ -46,6 +47,11 @@ pub fn run(args: &CrisprMappingCommand) -> Result<()> {
             args.crispr_args.runtime.num_threads(),
         )?;
     }
+
+    write_done_file(
+        &args.crispr_args.output.outdir,
+        RefWorkflowCommand::CrisprMapping(args),
+    )?;
 
     Ok(())
 }
