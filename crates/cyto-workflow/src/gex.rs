@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -5,7 +7,9 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
-use crate::utils::{RefWorkflowCommand, ibu_steps, identify_ibu_files, write_done_file};
+use crate::utils::{
+    RefWorkflowCommand, ibu_steps, identify_ibu_files, remove_ibu_dir, write_done_file,
+};
 
 pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
 
@@ -51,6 +55,10 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             args.mode(),
             args.gex_args.runtime.num_threads(),
         )?;
+    }
+
+    if !args.wf_args.keep_ibu {
+        remove_ibu_dir(Path::new(&args.gex_args.output.outdir).join("ibu"))?;
     }
 
     write_done_file(
