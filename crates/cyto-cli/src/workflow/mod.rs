@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
@@ -19,6 +19,21 @@ pub enum WorkflowCommand {
     /// Executes a crispr mapping workflow (map => sort => barcode => sort => umi => sort => count)
     #[clap(name = "crispr")]
     CrisprMapping(CrisprMappingCommand),
+}
+impl WorkflowCommand {
+    pub fn validate_outdir(&self) -> Result<()> {
+        match self {
+            WorkflowCommand::GexMapping(cmd) => cmd.gex_args.validate_outdir(),
+            WorkflowCommand::CrisprMapping(cmd) => cmd.crispr_args.validate_outdir(),
+        }
+    }
+
+    pub fn log_path(&self) -> PathBuf {
+        match self {
+            WorkflowCommand::GexMapping(cmd) => cmd.gex_args.log_path(),
+            WorkflowCommand::CrisprMapping(cmd) => cmd.crispr_args.log_path(),
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -74,7 +89,7 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_umi: bool,
 
-    /// Skip EmptyDrops filtering step (GEX)
+    /// Skip `EmptyDrops` filtering step (GEX)
     ///
     /// Only used when format is h5ad
     #[clap(long)]
@@ -149,24 +164,23 @@ pub enum CountFormat {
 }
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
-    debug!("Installing `{}@{}` if necessary...", name, version);
+    debug!("Installing `{name}@{version}` if necessary...");
     match Command::new("uv")
         .arg("tool")
         .arg("install")
-        .arg(format!("{}@{}", name, version))
+        .arg(format!("{name}@{version}"))
         .output()
     {
         Ok(_) => {
-            debug!("Precompiling `{}`...", name);
+            debug!("Precompiling `{name}`...");
             match Command::new(name).arg("--help").output() {
                 Ok(_) => {
-                    debug!("Precompiled `{}`", name);
+                    debug!("Precompiled `{name}`");
                     Ok(())
                 }
                 Err(e) => {
                     error!(
-                        "Encountered an unexpected error precompiling `{}`: {e}",
-                        name
+                        "Encountered an unexpected error precompiling `{name}`: {e}"
                     );
                     bail!(
                         "Encountered an unexpected error precompiling `{}`: {}",
@@ -177,7 +191,7 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
             }
         }
         Err(e) => {
-            error!("Encountered an unexpected error installing `{}`: {e}", name);
+            error!("Encountered an unexpected error installing `{name}`: {e}");
             bail!(
                 "Encountered an unexpected error installing `{}`: {}",
                 name,

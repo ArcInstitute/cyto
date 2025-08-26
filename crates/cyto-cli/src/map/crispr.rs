@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use anyhow::Result;
 use clap::Parser;
 
 use super::{Geometry, MapOptions, MultiPairedInput, ProbeOptions, RuntimeOptions};
@@ -25,6 +28,14 @@ pub struct ArgsCrispr {
 
     #[clap(flatten)]
     pub output: ArgsOutput,
+}
+impl ArgsCrispr {
+    pub fn validate_outdir(&self) -> Result<()> {
+        self.output.validate_outdir()
+    }
+    pub fn log_path(&self) -> PathBuf {
+        self.output.log_path()
+    }
 }
 
 #[derive(Parser, Debug)]

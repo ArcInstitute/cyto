@@ -51,7 +51,7 @@ pub struct MultiPairedInput {
     ///
     /// If using BINSEQ input (*.bq/*.vbq), the ordering of files or number of files does not matter.
     ///
-    /// If using FASTX input, the input files are expected to be paired and sequentially ordered (S1_R1, S1_R2, S2_R1, S2_R2, ...).
+    /// If using FASTX input, the input files are expected to be paired and sequentially ordered (`S1_R1`, `S1_R2`, `S2_R1`, `S2_R2`, ...).
     /// This is expecting an even number of files.
     #[clap(num_args = 1.., required=true)]
     pub inputs: Vec<String>,

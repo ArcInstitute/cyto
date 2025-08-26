@@ -11,13 +11,14 @@ pub use crispr::ArgsCrispr;
 pub use generic::ArgsGeneric;
 pub use geometry::Geometry;
 pub use gex::ArgsGex;
-pub use input::{MultiPairedInput, PairedInput};
+pub use input::{BinseqInput, MultiPairedInput, PairedInput};
 pub use map::MapOptions;
 pub use probe::ProbeOptions;
 pub use runtime::RuntimeOptions;
 
-use input::BinseqInput;
+use std::path::PathBuf;
 
+use anyhow::Result;
 use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
@@ -29,4 +30,20 @@ pub enum MapCommand {
     Gex(ArgsGex),
     /// Map sequences to a generic library
     Generic(ArgsGeneric),
+}
+impl MapCommand {
+    pub fn validate_outdir(&self) -> Result<()> {
+        match self {
+            MapCommand::Crispr(args) => args.validate_outdir(),
+            MapCommand::Gex(args) => args.validate_outdir(),
+            MapCommand::Generic(args) => args.validate_outdir(),
+        }
+    }
+    pub fn log_path(&self) -> PathBuf {
+        match self {
+            MapCommand::Crispr(args) => args.log_path(),
+            MapCommand::Gex(args) => args.log_path(),
+            MapCommand::Generic(args) => args.log_path(),
+        }
+    }
 }

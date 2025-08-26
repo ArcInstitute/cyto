@@ -1,4 +1,8 @@
+use std::path::PathBuf;
+
+use anyhow::Result;
 use clap::Parser;
+use cyto_io::validate_output_directory;
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Output Options")]
@@ -11,4 +15,12 @@ pub struct ArgsOutput {
     /// Force overwrite of existing output directory
     #[clap(short = 'f', long)]
     pub force: bool,
+}
+impl ArgsOutput {
+    pub fn validate_outdir(&self) -> Result<()> {
+        validate_output_directory(&self.outdir, self.force)
+    }
+    pub fn log_path(&self) -> PathBuf {
+        PathBuf::from(&self.outdir).join("cyto.log")
+    }
 }

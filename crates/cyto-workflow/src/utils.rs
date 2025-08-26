@@ -86,7 +86,7 @@ fn filter_h5ad<P: AsRef<Path>>(
 ) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_h5ad = count_path.as_ref().with_extension("filt.h5ad");
-    let logfile = stats_outdir.as_ref().join(format!("{}.log", basename));
+    let logfile = stats_outdir.as_ref().join(format!("{basename}.log"));
 
     info!("Filtering h5ad file: {}", in_h5ad.display());
     let output = Command::new("cell-filter")
@@ -142,8 +142,8 @@ pub fn assign_guides<P: AsRef<Path>>(
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_tsv = assignment_outdir
         .as_ref()
-        .join(format!("{}.assignments.tsv", basename));
-    let stats_json = stats_outdir.as_ref().join(format!("{}.json", basename));
+        .join(format!("{basename}.assignments.tsv"));
+    let stats_json = stats_outdir.as_ref().join(format!("{basename}.json"));
 
     info!(
         "Assigning CRISPR guide identities to: {}",
@@ -328,10 +328,10 @@ pub fn ibu_steps<P: AsRef<Path>>(
     Ok(())
 }
 
-pub fn write_done_file<P: AsRef<Path>>(outdir: P, args: RefWorkflowCommand) -> Result<()> {
+pub fn write_done_file<P: AsRef<Path>>(outdir: P, args: &RefWorkflowCommand) -> Result<()> {
     let done_file = outdir.as_ref().join(".done");
     let mut file = std::fs::File::create(&done_file)?;
-    writeln!(&mut file, "{:#?}", args)?;
+    writeln!(&mut file, "{args:#?}")?;
     Ok(())
 }
 

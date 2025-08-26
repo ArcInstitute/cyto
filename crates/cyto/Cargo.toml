@@ -1,6 +1,6 @@
 [package]
 name = "cyto"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2024"
 
 [dependencies]
@@ -12,11 +12,14 @@ cyto-ibu-barcode-correct = { workspace = true }
 cyto-ibu-cat = { workspace = true }
 cyto-ibu-count = { workspace = true }
 cyto-ibu-sort = { workspace = true }
+cyto-io = { workspace = true }
 cyto-map = { workspace = true }
 cyto-view = { workspace = true }
 cyto-workflow = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+
+strip-ansi-escapes = "0.2.1"
 
 [lints]
 workspace = true
