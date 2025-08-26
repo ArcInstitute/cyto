@@ -3,7 +3,7 @@ use std::time::Instant;
 use anyhow::Result;
 use cyto_cli::map::ArgsGeneric;
 use cyto_core::mappers::GenericMapper;
-use cyto_io::{validate_output_directory, write_features, write_statistics};
+use cyto_io::{write_features, write_statistics};
 
 use super::{
     ibu_map_pairs_binseq,
@@ -12,9 +12,6 @@ use super::{
 };
 
 fn bus(args: &ArgsGeneric) -> Result<()> {
-    // Validate output directory
-    validate_output_directory(&args.output.outdir, args.output.force)?;
-
     // Load the input files
     let (r1, mut r2) = args.input.to_readers()?;
     let start_time = Instant::now();
@@ -58,9 +55,6 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
 
 fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
     use super::utils::find_offset_binseq;
-
-    // Validate output directory
-    validate_output_directory(&args.output.outdir, args.output.force)?;
 
     let reader = args.binseq.into_reader()?;
     let start_time = Instant::now();

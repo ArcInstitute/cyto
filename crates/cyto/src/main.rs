@@ -2,14 +2,23 @@ use anyhow::Result;
 use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
 use log::info;
 
+mod logging;
+use crate::logging::{setup_default_logging, setup_workflow_logging};
+
 fn main() -> Result<()> {
     let args = Cli::new();
 
-    env_logger::builder()
-        .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Info)
-        .parse_env("CYTO_LOG")
-        .init();
+    match &args.command {
+        Commands::Map(map) => {
+            map.validate_outdir()?;
+            setup_workflow_logging(map.log_path())?;
+        }
+        Commands::Workflow(wf) => {
+            wf.validate_outdir()?;
+            setup_workflow_logging(wf.log_path())?;
+        }
+        _ => setup_default_logging(),
+    }
 
     info!("Initializing...");
     match args.command {

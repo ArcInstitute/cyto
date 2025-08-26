@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use anyhow::Result;
 use clap::Parser;
 use cyto_core::mappers::MapperOffset;
 
@@ -28,6 +31,14 @@ pub struct ArgsGeneric {
 
     #[clap(flatten)]
     pub output: ArgsOutput,
+}
+impl ArgsGeneric {
+    pub fn validate_outdir(&self) -> Result<()> {
+        self.output.validate_outdir()
+    }
+    pub fn log_path(&self) -> PathBuf {
+        self.output.log_path()
+    }
 }
 
 #[derive(Parser, Debug)]

@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
@@ -19,6 +19,21 @@ pub enum WorkflowCommand {
     /// Executes a crispr mapping workflow (map => sort => barcode => sort => umi => sort => count)
     #[clap(name = "crispr")]
     CrisprMapping(CrisprMappingCommand),
+}
+impl WorkflowCommand {
+    pub fn validate_outdir(&self) -> Result<()> {
+        match self {
+            WorkflowCommand::GexMapping(cmd) => cmd.gex_args.validate_outdir(),
+            WorkflowCommand::CrisprMapping(cmd) => cmd.crispr_args.validate_outdir(),
+        }
+    }
+
+    pub fn log_path(&self) -> PathBuf {
+        match self {
+            WorkflowCommand::GexMapping(cmd) => cmd.gex_args.log_path(),
+            WorkflowCommand::CrisprMapping(cmd) => cmd.crispr_args.log_path(),
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
