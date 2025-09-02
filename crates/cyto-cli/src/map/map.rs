@@ -9,7 +9,12 @@ pub struct MapOptions {
     #[clap(short = 'x', long)]
     pub exact_matching: bool,
 
-    /// Remap sequences and/or probes with positional adjustment
-    #[clap(short = 'a', long)]
-    pub adjustment: bool,
+    /// Never remap sequences and/or probes with +-1 position adjustment
+    #[clap(long)]
+    no_remap: bool,
+}
+impl MapOptions {
+    pub fn adjustment(&self) -> bool {
+        !self.no_remap
+    }
 }
