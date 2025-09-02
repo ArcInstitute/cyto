@@ -7,6 +7,7 @@ cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct" }
 cyto-ibu-barcode-correct = { path = "crates/cyto-ibu-barcode-correct" }
 cyto-ibu-cat = { path = "crates/cyto-ibu-cat" }
 cyto-ibu-count = { path = "crates/cyto-ibu-count" }
+cyto-ibu-reads = { path = "crates/cyto-ibu-reads" }
 cyto-ibu-sort = { path = "crates/cyto-ibu-sort" }
 cyto-ibu-view = { path = "crates/cyto-ibu-view" }
 cyto-core = { path = "crates/cyto-core" }
