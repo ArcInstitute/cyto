@@ -99,7 +99,6 @@ impl BestOffset {
         }
     }
     pub fn get_best_offset(&self) -> usize {
-        
         argmax(&self.offset_scores.lock())
     }
     pub fn run(
