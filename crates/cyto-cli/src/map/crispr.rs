@@ -48,4 +48,13 @@ pub struct CrisprOptions {
     /// Offset for anchor sequences
     #[clap(short = 's', long, default_value = "26")]
     pub offset: usize,
+
+    /// Lookback size for probe sequences
+    ///
+    /// This will skip back `n` bases from the start of the anchor sequence to match
+    /// the right-hand side of the probe sequence.
+    ///
+    /// [probe][lookback-size][anchor]
+    #[clap(short = 'l', long, default_value_t = 0)]
+    pub lookback: usize,
 }
