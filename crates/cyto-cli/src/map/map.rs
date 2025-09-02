@@ -11,7 +11,7 @@ pub struct MapOptions {
 
     /// Never remap sequences and/or probes with +-1 position adjustment
     #[clap(long)]
-    pub no_remap: bool,
+    no_remap: bool,
 }
 impl MapOptions {
     pub fn adjustment(&self) -> bool {
