@@ -1,9 +1,10 @@
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use cyto_cli::ArgsCrispr;
 use cyto_core::mappers::{CrisprMapper, MapperOffset, ProbeMapper};
 use cyto_io::{write_features, write_statistics};
+use log::error;
 
 use super::{
     ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
@@ -26,8 +27,19 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     )?;
 
     // Define the offsets for the target and probe mappers
+    if args.crispr.lookback > args.crispr.offset {
+        error!(
+            "Lookback ({}) cannot be greater than offset ({})",
+            args.crispr.lookback, args.crispr.offset
+        );
+        bail!(
+            "Lookback ({}) cannot be greater than offset ({})",
+            args.crispr.lookback,
+            args.crispr.offset
+        )
+    }
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
-    let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
+    let probe_offset = MapperOffset::LeftOf(args.crispr.offset - args.crispr.lookback);
 
     // Define the file path for each probe
     let filepaths = build_filepaths(&args.output.outdir, &probe_mapper)?;
@@ -131,8 +143,19 @@ pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
         args.map.exact_matching,
     )?;
 
+    if args.crispr.lookback >= args.crispr.offset {
+        error!(
+            "Lookback ({}) cannot be greater or equal to offset ({})",
+            args.crispr.lookback, args.crispr.offset
+        );
+        bail!(
+            "Lookback ({}) cannot be greater or equal to offset ({})",
+            args.crispr.lookback,
+            args.crispr.offset
+        )
+    }
     let target_offset = MapperOffset::RightOf(args.crispr.offset);
-    let probe_offset = MapperOffset::LeftOf(args.crispr.offset);
+    let probe_offset = MapperOffset::LeftOf(args.crispr.offset - args.crispr.lookback);
 
     let filepaths = build_filepaths(&args.output.outdir, &probe_mapper)?;
 
