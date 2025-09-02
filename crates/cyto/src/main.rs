@@ -35,6 +35,7 @@ fn main() -> Result<()> {
             IbuCommand::Cat(args) => cyto_ibu_cat::run(&args),
             IbuCommand::Barcode(args) => cyto_ibu_barcode_correct::run(&args),
             IbuCommand::Umi(args) => cyto_ibu_umi_correct::run(&args),
+            IbuCommand::Reads(args) => cyto_ibu_reads::run(&args),
         },
         Commands::Workflow(workflow) => match workflow {
             WorkflowCommand::GexMapping(args) => cyto_workflow::gex::run(&args),
