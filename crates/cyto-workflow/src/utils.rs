@@ -4,6 +4,7 @@ use std::process::Command;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
+use cyto_cli::ibu::ArgsReads;
 use cyto_cli::workflow::{CrisprMappingCommand, GexMappingCommand};
 use cyto_cli::{
     ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
@@ -257,6 +258,20 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
         debug!("Removing unsorted file: {umi_path}");
         std::fs::remove_file(&umi_path)?;
+    }
+
+    if !wf_args.skip_reads {
+        let reads_path = outdir
+            .as_ref()
+            .join("stats")
+            .join("reads")
+            .join(format!("{base_ibu_path}.reads.tsv"));
+        info!(
+            "Barcode-level UMI and Reads counting for {sort_path} -> {}",
+            reads_path.display()
+        );
+        let reads_args = ArgsReads::from_wf_path(&sort_path, &reads_path);
+        cyto_ibu_reads::run(&reads_args)?;
     }
 
     // Locate the expected feature path
