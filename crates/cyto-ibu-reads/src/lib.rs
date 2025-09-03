@@ -1,10 +1,10 @@
-use std::io::Write;
+use std::io::{Read, Write};
 
 use anyhow::{Result, bail};
 
 use cyto_cli::ibu::ArgsReads;
 use cyto_io::{match_input, match_output};
-use ibu::Reader;
+use ibu::{Header, Reader};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -60,17 +60,12 @@ fn print_record_stats<W: Write>(
     Ok(())
 }
 
-pub fn run(args: &ArgsReads) -> Result<()> {
-    let input = match_input(args.input.input.as_ref())?;
-    let output = match_output(args.options.output.as_ref())?;
-    let mut writer = csv::WriterBuilder::new()
-        .delimiter(b'\t')
-        .has_headers(!args.options.no_header)
-        .from_writer(output);
-
-    let reader = Reader::new(input)?;
-    let header = reader.header();
-
+fn process_records<R: Read, W: Write>(
+    reader: &mut Reader<R>,
+    header: &Header,
+    writer: &mut csv::Writer<W>,
+    encoded: bool,
+) -> Result<()> {
     let mut last_record = None;
     let mut dbuf = Vec::new();
     let mut n_reads = 0;
@@ -84,11 +79,11 @@ pub fn run(args: &ArgsReads) -> Result<()> {
 
             if record.barcode() != last_record.barcode() {
                 print_record_stats(
-                    &mut writer,
+                    writer,
                     last_record.barcode(),
                     n_umis,
                     n_reads,
-                    args.options.encoded,
+                    encoded,
                     header.barcode_len(),
                     &mut dbuf,
                 )?;
@@ -109,14 +104,31 @@ pub fn run(args: &ArgsReads) -> Result<()> {
     }
 
     print_record_stats(
-        &mut writer,
+        writer,
         last_record.unwrap().barcode(),
         n_umis,
         n_reads,
-        args.options.encoded,
+        encoded,
         header.barcode_len(),
         &mut dbuf,
     )?;
+
+    Ok(())
+}
+
+pub fn run(args: &ArgsReads) -> Result<()> {
+    let input = match_input(args.input.input.as_ref())?;
+    let output = match_output(args.options.output.as_ref())?;
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(!args.options.no_header)
+        .from_writer(output);
+
+    let mut reader = Reader::new(input)?;
+    let header = reader.header();
+
+    process_records(&mut reader, &header, &mut writer, args.options.encoded)?;
+    writer.flush()?;
 
     Ok(())
 }
