@@ -23,8 +23,12 @@ pub struct ProbeMapper {
     corrected: Disambibyte,
 }
 impl ProbeMapper {
-    pub fn from_tsv<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Self> {
-        let lib = ProbeLibrary::from_tsv(filepath)?;
+    pub fn from_tsv<P: AsRef<Path>>(
+        filepath: P,
+        exact_match: bool,
+        regex: Option<&str>,
+    ) -> Result<Self> {
+        let lib = ProbeLibrary::from_tsv(filepath, regex)?;
         if exact_match {
             lib.into_mapper()
         } else {
@@ -32,8 +36,12 @@ impl ProbeMapper {
         }
     }
 
-    pub fn from_tsv_arc<P: AsRef<Path>>(filepath: P, exact_match: bool) -> Result<Arc<Self>> {
-        let mapper = Self::from_tsv(filepath, exact_match)?;
+    pub fn from_tsv_arc<P: AsRef<Path>>(
+        filepath: P,
+        exact_match: bool,
+        regex: Option<&str>,
+    ) -> Result<Arc<Self>> {
+        let mapper = Self::from_tsv(filepath, exact_match, regex)?;
         Ok(Arc::new(mapper))
     }
 
