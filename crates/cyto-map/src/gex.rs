@@ -22,6 +22,7 @@ fn probed_bus(args: &ArgsGex) -> Result<()> {
     let probe_mapper = ProbeMapper::from_tsv_arc(
         args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
+        args.probe.regex.as_deref(),
     )?;
 
     // The expected start position of the probe sequence in the bus sequence
@@ -132,6 +133,7 @@ pub fn probed_bus_binseq(args: &ArgsGex) -> Result<()> {
     let probe_mapper = ProbeMapper::from_tsv_arc(
         args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
+        args.probe.regex.as_deref(),
     )?;
 
     // The expected start position of the probe sequence in the bus sequence
