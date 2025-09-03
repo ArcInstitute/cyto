@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::ibu::IbuInput;
 
 #[derive(clap::Parser, Debug)]
@@ -7,6 +9,20 @@ pub struct ArgsReads {
 
     #[clap(flatten)]
     pub options: OptionsReads,
+}
+impl ArgsReads {
+    pub fn from_wf_path<P: AsRef<Path>>(input_path: &str, output_path: P) -> Self {
+        let outpath = output_path.as_ref().to_string_lossy().to_string();
+        Self {
+            input: IbuInput::from_path(input_path),
+            options: OptionsReads {
+                output: Some(outpath),
+                whitelist: None,
+                encoded: false,
+                no_header: false,
+            },
+        }
+    }
 }
 
 #[derive(clap::Parser, Debug)]

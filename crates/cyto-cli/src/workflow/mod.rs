@@ -89,6 +89,10 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_umi: bool,
 
+    /// Skip reads/umi saturation step
+    #[clap(long)]
+    pub skip_reads: bool,
+
     /// Skip `EmptyDrops` filtering step (GEX)
     ///
     /// Only used when format is h5ad

@@ -48,6 +48,43 @@ pub fn match_output<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write
     }
 }
 
+pub fn match_output_transparent<P: AsRef<Path>>(
+    filepath: Option<P>,
+) -> Result<Box<dyn Write + Send>> {
+    let handle = match_output(filepath.as_ref())?;
+    if let Some(path) = filepath {
+        match path.as_ref().extension().and_then(|ext| ext.to_str()) {
+            Some("gz") | Some("gzip") => {
+                debug!(
+                    "Converting writer handle to gzip writer for {}",
+                    path.as_ref().display()
+                );
+                let writer = niffler::send::get_writer(
+                    handle,
+                    niffler::send::compression::Format::Gzip,
+                    niffler::Level::Three,
+                )?;
+                Ok(writer)
+            }
+            Some("zst") | Some("zstd") => {
+                debug!(
+                    "Converting writer handle to zstd writer for {}",
+                    path.as_ref().display()
+                );
+                let writer = niffler::send::get_writer(
+                    handle,
+                    niffler::send::compression::Format::Zstd,
+                    niffler::Level::Three,
+                )?;
+                Ok(writer)
+            }
+            _ => Ok(handle),
+        }
+    } else {
+        Ok(handle)
+    }
+}
+
 pub fn match_output_stderr<P: AsRef<Path>>(filepath: Option<P>) -> Result<Box<dyn Write + Send>> {
     if let Some(filepath) = filepath {
         open_file_handle(filepath)
