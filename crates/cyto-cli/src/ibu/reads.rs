@@ -15,6 +15,10 @@ pub struct OptionsReads {
     #[clap(short, long)]
     pub output: Option<String>,
 
+    /// A whitelist of barcodes to keep [default=all]
+    #[clap(short, long)]
+    pub whitelist: Option<String>,
+
     /// Keep the barcode as an encoded u64
     #[clap(long)]
     pub encoded: bool,
