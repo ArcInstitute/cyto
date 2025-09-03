@@ -1,10 +1,16 @@
-use std::io::{Read, Write};
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    path::Path,
+};
 
 use anyhow::{Result, bail};
 
+use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsReads;
 use cyto_io::{match_input, match_output};
+use hashbrown::HashSet;
 use ibu::{Header, Reader};
+use log::warn;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -64,6 +70,7 @@ fn process_records<R: Read, W: Write>(
     reader: &mut Reader<R>,
     header: &Header,
     writer: &mut csv::Writer<W>,
+    whitelist: &Whitelist,
     encoded: bool,
 ) -> Result<()> {
     let mut last_record = None;
@@ -72,6 +79,11 @@ fn process_records<R: Read, W: Write>(
     let mut n_umis = 0;
     for record in reader.into_iter() {
         let record = record?;
+
+        if !whitelist.matches(record.barcode()) {
+            continue;
+        }
+
         if let Some(last_record) = last_record {
             if record < last_record {
                 bail!("Expected sorted IBU input")
@@ -103,22 +115,70 @@ fn process_records<R: Read, W: Write>(
         last_record = Some(record);
     }
 
-    print_record_stats(
-        writer,
-        last_record.unwrap().barcode(),
-        n_umis,
-        n_reads,
-        encoded,
-        header.barcode_len(),
-        &mut dbuf,
-    )?;
+    // Print the stats for the last record (if any)
+    if let Some(last_record) = last_record {
+        print_record_stats(
+            writer,
+            last_record.barcode(),
+            n_umis,
+            n_reads,
+            encoded,
+            header.barcode_len(),
+            &mut dbuf,
+        )?;
+    } else {
+        warn!("No records matching whitelist found!");
+    }
 
     Ok(())
+}
+
+pub struct Whitelist {
+    whitelist: Option<HashSet<u64>>,
+}
+
+impl Whitelist {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let reader = match_input(Some(path))?;
+        let mut keys = HashSet::new();
+        let bufreader = BufReader::new(reader);
+        let mut size = 0;
+        for line in bufreader.lines() {
+            let line = line?;
+            if size == 0 {
+                size = line.len();
+            } else if size != line.len() {
+                bail!("All keys in the whitelist must be the same length");
+            }
+            let ebuf = as_2bit(line.as_bytes())?;
+            keys.insert(ebuf);
+        }
+        let whitelist = Whitelist {
+            whitelist: Some(keys),
+        };
+        Ok(whitelist)
+    }
+
+    pub fn from_optional_path<P: AsRef<Path>>(path: Option<P>) -> Result<Self> {
+        match path {
+            Some(path) => Self::from_path(path),
+            None => Ok(Whitelist { whitelist: None }),
+        }
+    }
+
+    pub fn matches(&self, key: u64) -> bool {
+        if let Some(whitelist) = &self.whitelist {
+            whitelist.contains(&key)
+        } else {
+            true
+        }
+    }
 }
 
 pub fn run(args: &ArgsReads) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
     let output = match_output(args.options.output.as_ref())?;
+    let whitelist = Whitelist::from_optional_path(args.options.whitelist.as_ref())?;
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .has_headers(!args.options.no_header)
@@ -127,7 +187,13 @@ pub fn run(args: &ArgsReads) -> Result<()> {
     let mut reader = Reader::new(input)?;
     let header = reader.header();
 
-    process_records(&mut reader, &header, &mut writer, args.options.encoded)?;
+    process_records(
+        &mut reader,
+        &header,
+        &mut writer,
+        &whitelist,
+        args.options.encoded,
+    )?;
     writer.flush()?;
 
     Ok(())

@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 bitnuc = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
+hashbrown = { workspace = true }
 ibu = { workspace = true, features = ["serde"] }
 log = { workspace = true }
 serde = { workspace = true }
