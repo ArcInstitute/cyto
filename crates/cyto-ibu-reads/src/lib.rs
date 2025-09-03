@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 
 use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsReads;
-use cyto_io::{match_input, match_output};
+use cyto_io::{match_input, match_output_transparent};
 use hashbrown::HashSet;
 use ibu::{Header, Reader};
 use log::warn;
@@ -177,7 +177,7 @@ impl Whitelist {
 
 pub fn run(args: &ArgsReads) -> Result<()> {
     let input = match_input(args.input.input.as_ref())?;
-    let output = match_output(args.options.output.as_ref())?;
+    let output = match_output_transparent(args.options.output.as_ref())?;
     let whitelist = Whitelist::from_optional_path(args.options.whitelist.as_ref())?;
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')

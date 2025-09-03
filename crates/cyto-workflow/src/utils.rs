@@ -265,7 +265,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .as_ref()
             .join("stats")
             .join("reads")
-            .join(format!("{base_ibu_path}.reads.tsv"));
+            .join(format!("{base_ibu_path}.reads.tsv.zst"));
         info!(
             "Barcode-level UMI and Reads counting for {sort_path} -> {}",
             reads_path.display()
