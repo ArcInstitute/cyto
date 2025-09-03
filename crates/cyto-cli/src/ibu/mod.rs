@@ -2,6 +2,7 @@ mod barcode;
 mod cat;
 mod count;
 mod input;
+mod reads;
 mod sort;
 mod umi;
 mod view;
@@ -10,6 +11,7 @@ pub use barcode::ArgsBarcode;
 pub use cat::ArgsCat;
 pub use count::ArgsCount;
 pub use input::{IbuInput, MultiIbuInput};
+pub use reads::ArgsReads;
 pub use sort::ArgsSort;
 pub use umi::ArgsUmi;
 pub use view::ArgsView;
@@ -38,4 +40,7 @@ pub enum IbuCommand {
     ///
     /// Expects a sorted IBU library as input
     Umi(ArgsUmi),
+
+    /// Determine number of reads and UMIs per barcode
+    Reads(ArgsReads),
 }
