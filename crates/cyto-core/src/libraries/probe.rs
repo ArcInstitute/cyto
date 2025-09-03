@@ -1,8 +1,9 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use csv::ReaderBuilder;
 use log::{debug, error};
+use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::{mappers::ProbeMapper, metadata::Probe};
@@ -12,7 +13,7 @@ pub struct ProbeLibrary {
     probes: Vec<Probe>,
 }
 impl ProbeLibrary {
-    pub fn from_tsv<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_tsv<P: AsRef<Path>>(path: P, pattern: Option<&str>) -> Result<Self> {
         debug!(
             "Building Flex Demultiplexing Probe library from: {}",
             path.as_ref().display()
@@ -26,10 +27,47 @@ impl ProbeLibrary {
             .from_path(&path)
             .context(format!("Unable to open file {}", path.as_ref().display()))?;
 
-        let probes = reader
-            .deserialize()
-            .map(|result| result.map_err(Into::into))
-            .collect::<Result<Vec<_>>>()?;
+        let alias_re = match pattern {
+            // match the required pattern
+            Some(re) => {
+                debug!("Building probe regex from pattern: {}", re);
+                Regex::new(re)?
+            }
+            // match everything if no regex is provided
+            None => Regex::new(r"^[A-Z0-9]+$")?,
+        };
+
+        let mut probes = Vec::new();
+        let mut excluded = 0;
+        for result in reader.deserialize() {
+            let probe: Probe = result?;
+            if alias_re.is_match(&probe.alias) {
+                probes.push(probe);
+            } else {
+                excluded += 1;
+            }
+        }
+
+        if probes.is_empty() {
+            if let Some(pattern) = pattern {
+                bail!("No probes found matching pattern: {}", pattern);
+            } else {
+                bail!("No probes found");
+            }
+        } else {
+            if let Some(pattern) = pattern {
+                if excluded > 0 {
+                    debug!(
+                        "Included {} of {} probes matching pattern: {}",
+                        probes.len(),
+                        probes.len() + excluded,
+                        pattern
+                    );
+                } else {
+                    debug!("All probes matched pattern: {}", pattern);
+                }
+            }
+        }
 
         Ok(Self { probes })
     }

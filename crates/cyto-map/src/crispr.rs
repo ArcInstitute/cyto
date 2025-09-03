@@ -24,6 +24,7 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
     let probe_mapper = ProbeMapper::from_tsv_arc(
         args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
+        args.probe.regex.as_deref(),
     )?;
 
     // Define the offsets for the target and probe mappers
@@ -141,6 +142,7 @@ pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
     let probe_mapper = ProbeMapper::from_tsv_arc(
         args.probe.probes_filepath.as_ref().unwrap(), // already checked
         args.map.exact_matching,
+        args.probe.regex.as_deref(),
     )?;
 
     if args.crispr.lookback >= args.crispr.offset {
