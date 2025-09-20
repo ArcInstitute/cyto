@@ -37,6 +37,7 @@ pub fn run(args: &CrisprMappingCommand) -> Result<()> {
                 &args.wf_args,
                 whitelist.clone(),
                 args.mode(),
+                Some(args.geomux_args),
                 threads_per_file,
             )
         })?;
@@ -48,6 +49,7 @@ pub fn run(args: &CrisprMappingCommand) -> Result<()> {
             &args.wf_args,
             whitelist,
             args.mode(),
+            Some(args.geomux_args),
             args.crispr_args.runtime.num_threads(),
         )?;
     }

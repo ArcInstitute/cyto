@@ -39,6 +39,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
                 &args.wf_args,
                 whitelist.clone(),
                 args.mode(),
+                None,
                 threads_per_file,
             )
         })?;
@@ -53,6 +54,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             &args.wf_args,
             whitelist,
             args.mode(),
+            None,
             args.gex_args.runtime.num_threads(),
         )?;
     }
