@@ -56,6 +56,9 @@ pub struct CrisprMappingCommand {
     pub crispr_args: ArgsCrispr,
 
     #[clap(flatten)]
+    pub geomux_args: ArgsGeomux,
+
+    #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
 }
 impl CrisprMappingCommand {
@@ -205,4 +208,21 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
             );
         }
     }
+}
+
+#[derive(Parser, Debug, Clone, Copy)]
+#[clap(next_help_heading = "Geomux Options")]
+pub struct ArgsGeomux {
+    /// Minimum number of UMIs required for a cell to be included in geomux testing.
+    #[clap(long, default_value_t = 5)]
+    pub geomux_min_umi: usize,
+    /// Minimum number of cells required for a guide to be included in geomux testing.
+    #[clap(long, default_value_t = 15)]
+    pub geomux_min_cells: usize,
+    /// Log odds ratio minimum threshold to use for geomux assignments.
+    #[clap(long, default_value_t = 10.0)]
+    pub geomux_log_odds_ratio: f64,
+    /// fdr threshold to use for geomux assignments.
+    #[clap(long, default_value_t = 0.05)]
+    pub geomux_fdr_threshold: f64,
 }

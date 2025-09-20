@@ -5,7 +5,7 @@ use std::process::Command;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::ibu::ArgsReads;
-use cyto_cli::workflow::{CrisprMappingCommand, GexMappingCommand};
+use cyto_cli::workflow::{ArgsGeomux, CrisprMappingCommand, GexMappingCommand};
 use cyto_cli::{
     ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
@@ -139,6 +139,7 @@ pub fn assign_guides<P: AsRef<Path>>(
     assignment_outdir: P,
     stats_outdir: P,
     basename: &str,
+    geomux_args: ArgsGeomux,
 ) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_tsv = assignment_outdir
@@ -155,6 +156,14 @@ pub fn assign_guides<P: AsRef<Path>>(
         .arg(&out_tsv)
         .arg("--stats")
         .arg(&stats_json)
+        .arg("--min-umi")
+        .arg(&format!("{}", geomux_args.geomux_min_umi))
+        .arg("--min-cells")
+        .arg(&format!("{}", geomux_args.geomux_min_cells))
+        .arg("--pvalue-threshold")
+        .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
+        .arg("--lor-threshold")
+        .arg(&format!("{}", geomux_args.geomux_log_odds_ratio))
         .output()
         .context("Unable to run geomux")?;
     if !output.status.success() {
@@ -191,6 +200,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
     wf_args: &ArgsWorkflow,
     whitelist: Option<Whitelist>,
     wf_mode: WorkflowMode,
+    geomux_args: Option<ArgsGeomux>,
     threads: usize,
 ) -> Result<()> {
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
@@ -334,11 +344,15 @@ pub fn ibu_steps<P: AsRef<Path>>(
                         .context("Unable to build assignments output directory")?;
                     std::fs::create_dir_all(&assignment_stats_outdir)
                         .context("Unable to build assignments stats output directory")?;
+                    let Some(geomux_args) = geomux_args else {
+                        bail!("Expected geomux arguments")
+                    };
                     assign_guides(
                         &count_path,
                         &assignment_outdir,
                         &assignment_stats_outdir,
                         base_ibu_path,
+                        geomux_args,
                     )?;
                 }
             }
