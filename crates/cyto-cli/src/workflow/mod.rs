@@ -176,8 +176,8 @@ pub enum CountFormat {
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
     debug!("Installing `{name}@{version}` if necessary...");
-    if name == "geomux" {
-        warn!("Not installing geomux - using in path. Remove me before release!");
+    if name == "geomux" || name == "pycyto" {
+        warn!("Not installing {name}- using PATH. Remove me before release!");
         // skip for now in testing
         return Ok(());
     }
