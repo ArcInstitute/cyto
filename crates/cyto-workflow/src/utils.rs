@@ -151,27 +151,47 @@ pub fn assign_guides<P: AsRef<Path>>(
         "Assigning CRISPR guide identities to: {}",
         in_h5ad.display()
     );
-    let output = Command::new("geomux")
-        .arg(&in_h5ad)
-        .arg(&out_tsv)
-        .arg("--stats")
-        .arg(&stats_json)
-        .arg("--min-umi")
-        .arg(&format!("{}", geomux_args.geomux_min_umi))
-        .arg("--min-cells")
-        .arg(&format!("{}", geomux_args.geomux_min_cells))
-        .arg("--pvalue-threshold")
-        .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
-        .arg("--lor-threshold")
-        .arg(&format!("{}", geomux_args.geomux_log_odds_ratio))
-        .output()
-        .context("Unable to run geomux")?;
+
+    let output = if let Some(lor_threshold) = geomux_args.geomux_log_odds_ratio {
+        Command::new("geomux")
+            .arg(&in_h5ad)
+            .arg(&out_tsv)
+            .arg("--stats")
+            .arg(&stats_json)
+            .arg("--min-umi-cells")
+            .arg(&format!("{}", geomux_args.geomux_min_umi_cells))
+            .arg("--min-umi-guides")
+            .arg(&format!("{}", geomux_args.geomux_min_umi_guides))
+            .arg("--fdr-threshold")
+            .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
+            .arg("--lor-threshold")
+            .arg(&format!("{}", lor_threshold))
+            .output()
+            .context("Unable to run geomux")
+    } else {
+        Command::new("geomux")
+            .arg(&in_h5ad)
+            .arg(&out_tsv)
+            .arg("--stats")
+            .arg(&stats_json)
+            .arg("--min-umi-cells")
+            .arg(&format!("{}", geomux_args.geomux_min_umi_cells))
+            .arg("--min-umi-guides")
+            .arg(&format!("{}", geomux_args.geomux_min_umi_guides))
+            .arg("--fdr-threshold")
+            .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
+            .output()
+            .context("Unable to run geomux")
+    }?;
+
     if !output.status.success() {
         let stderr_str = std::str::from_utf8(&output.stderr)?;
         if stderr_str.contains("No guides passed the cell threshold") {
             warn!("No guides passed the cell threshold: {}", in_h5ad.display());
         } else if stderr_str.contains("No cells passed the UMI threshold") {
             warn!("No cells passed the UMI threshold: {}", in_h5ad.display());
+        } else if stderr_str.contains("ValueError: No valid cell-guide pairs found") {
+            warn!("No valid cell-guide pairs found: {}", in_h5ad.display());
         } else {
             error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
             error!("stderr: {}", std::str::from_utf8(&output.stderr)?);

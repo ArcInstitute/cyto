@@ -2,11 +2,11 @@ use std::{path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{debug, error};
+use log::{debug, error, warn};
 
 use super::{ArgsCrispr, ArgsGex};
 
-pub const VERSION_GEOMUX: &str = "0.4.4";
+pub const VERSION_GEOMUX: &str = "0.5.0";
 pub const VERSION_CELL_FILTER: &str = "0.1.1";
 pub const VERSION_PYCYTO: &str = "0.1.5";
 
@@ -176,6 +176,11 @@ pub enum CountFormat {
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
     debug!("Installing `{name}@{version}` if necessary...");
+    if name == "geomux" {
+        warn!("Not installing geomux - using in path. Remove me before release!");
+        // skip for now in testing
+        return Ok(());
+    }
     match Command::new("uv")
         .arg("tool")
         .arg("install")
@@ -215,13 +220,13 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
 pub struct ArgsGeomux {
     /// Minimum number of UMIs required for a cell to be included in geomux testing.
     #[clap(long, default_value_t = 5)]
-    pub geomux_min_umi: usize,
-    /// Minimum number of cells required for a guide to be included in geomux testing.
-    #[clap(long, default_value_t = 15)]
-    pub geomux_min_cells: usize,
+    pub geomux_min_umi_cells: usize,
+    /// Minimum number of UMIs required for a guide to be included in geomux testing.
+    #[clap(long, default_value_t = 5)]
+    pub geomux_min_umi_guides: usize,
     /// Log odds ratio minimum threshold to use for geomux assignments.
-    #[clap(long, default_value_t = 10.0)]
-    pub geomux_log_odds_ratio: f64,
+    #[clap(long)]
+    pub geomux_log_odds_ratio: Option<f64>,
     /// fdr threshold to use for geomux assignments.
     #[clap(long, default_value_t = 0.05)]
     pub geomux_fdr_threshold: f64,
