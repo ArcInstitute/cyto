@@ -18,7 +18,7 @@ cyto-map = { path = "crates/cyto-map" }
 cyto-workflow = { path = "crates/cyto-workflow" }
 
 anyhow = "1.0.98"
-binseq = { git = "ssh://github.com/arcinstitute/binseq", branch = "binseq-v2"}
+binseq = { git = "https://github.com/arcinstitute/binseq", branch = "binseq-v2"}
 bitnuc = "0.2.11"
 env_logger = "0.11.8"
 hashbrown = "0.15.4"
