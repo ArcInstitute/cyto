@@ -60,6 +60,7 @@ pub fn probed_bus(args: &ArgsCrispr) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 
@@ -94,6 +95,7 @@ pub fn bus(args: &ArgsCrispr) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 
@@ -127,6 +129,7 @@ fn bus_binseq(args: &ArgsCrispr) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 
@@ -174,6 +177,7 @@ pub fn probed_bus_binseq(args: &ArgsCrispr) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 

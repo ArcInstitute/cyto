@@ -10,6 +10,7 @@ pub struct MappingStatistics {
     pub total_reads: usize,
     pub mapped_reads: usize,
     pub unmapped_reads: usize,
+    pub low_quality_umis: usize,
     pub mapping_errors: MappingErrorStatistics,
 }
 impl MappingStatistics {
@@ -27,6 +28,10 @@ impl MappingStatistics {
         self.unmapped_reads += 1;
         self.mapping_errors.increment(why1);
         self.mapping_errors.increment(why2);
+    }
+    pub fn increment_umi_qual_failure(&mut self) {
+        self.total_reads += 1;
+        self.low_quality_umis += 1;
     }
     pub fn process(&self) -> ProcessedMappingStatistics {
         self.into()
@@ -48,6 +53,7 @@ impl Add for MappingStatistics {
             total_reads: self.total_reads + other.total_reads,
             mapped_reads: self.mapped_reads + other.mapped_reads,
             unmapped_reads: self.unmapped_reads + other.unmapped_reads,
+            low_quality_umis: self.low_quality_umis + other.low_quality_umis,
             mapping_errors: self.mapping_errors + other.mapping_errors,
         }
     }

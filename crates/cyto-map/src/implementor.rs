@@ -18,12 +18,15 @@ use log::info;
 use paraseq::{fastx, prelude::*};
 use parking_lot::Mutex;
 
+use super::{ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY};
+
 #[derive(Clone)]
 pub struct MappingImplementor<M: Mapper> {
     target_mapper: Arc<M>,
     target_offset: Option<MapperOffset>,
     geometry: GeometryR1,
     adjustment: Option<Adjustment>,
+    umi_quality_removal: bool,
 
     local_stats: MappingStatistics,
     global_stats: Arc<Mutex<MappingStatistics>>,
@@ -65,6 +68,7 @@ impl<M: Mapper> MappingImplementor<M> {
         file: Arc<Mutex<Box<dyn Write + Send>>>,
         exact_matching: bool,
         adjustment: bool,
+        umi_quality_removal: bool,
         init_time: Instant,
     ) -> Self {
         let local_stats = MappingStatistics::default();
@@ -100,6 +104,7 @@ impl<M: Mapper> MappingImplementor<M> {
             init_time,
             map_time: Instant::now(),
             adjustment,
+            umi_quality_removal,
         }
     }
 
@@ -254,6 +259,19 @@ impl<M: Mapper> PairedParallelProcessor for MappingImplementor<M> {
         let barcode = self.barcode_buf[0];
         let umi = self.umi_buf[0];
 
+        if self.umi_quality_removal
+            && let Some(qual) = r1.qual()
+        {
+            let (_, umi_qual) = qual.split_at(self.geometry.umi);
+            if umi_qual
+                .iter()
+                .any(|q| (*q - ILLUMINA_QUALITY_OFFSET) < UMI_MIN_QUALITY)
+            {
+                self.local_stats.increment_umi_qual_failure();
+                return Ok(());
+            }
+        }
+
         // Map the sequence
         match self.map_sequence(&r2.seq()) {
             Ok(index) => {
@@ -332,6 +350,7 @@ pub fn ibu_map_pairs_paraseq<M, R>(
     num_threads: usize,
     exact_matching: bool,
     adjustment: bool,
+    umi_quality_removal: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -355,6 +374,7 @@ where
         writer,
         exact_matching,
         adjustment,
+        umi_quality_removal,
         start_time,
     );
 
@@ -394,6 +414,7 @@ pub fn ibu_map_pairs_binseq<M>(
     num_threads: usize,
     exact_matching: bool,
     adjustment: bool,
+    umi_quality_removal: bool,
     start_time: Instant,
 ) -> Result<Statistics>
 where
@@ -416,6 +437,7 @@ where
         writer,
         exact_matching,
         adjustment,
+        umi_quality_removal,
         start_time,
     );
 
