@@ -312,6 +312,17 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingImplementor<M> {
         let barcode = self.barcode_buf[0];
         let umi = self.umi_buf[0];
 
+        if self.umi_quality_removal && pair.has_quality() {
+            let (_, umi_qual) = pair.squal().split_at(self.geometry.umi);
+            if umi_qual
+                .iter()
+                .any(|q| (*q - ILLUMINA_QUALITY_OFFSET) < UMI_MIN_QUALITY)
+            {
+                self.local_stats.increment_umi_qual_failure();
+                return Ok(());
+            }
+        }
+
         // Map the sequence
         match self.map_sequence(&self.dbuf) {
             Ok(index) => {
