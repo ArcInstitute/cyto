@@ -140,6 +140,7 @@ pub fn assign_guides<P: AsRef<Path>>(
     stats_outdir: P,
     basename: &str,
     geomux_args: ArgsGeomux,
+    threads: usize,
 ) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_tsv = assignment_outdir
@@ -152,37 +153,30 @@ pub fn assign_guides<P: AsRef<Path>>(
         in_h5ad.display()
     );
 
-    let output = if let Some(lor_threshold) = geomux_args.geomux_log_odds_ratio {
-        Command::new("geomux")
-            .arg(&in_h5ad)
-            .arg(&out_tsv)
-            .arg("--stats")
-            .arg(&stats_json)
-            .arg("--min-umi-cells")
-            .arg(&format!("{}", geomux_args.geomux_min_umi_cells))
-            .arg("--min-umi-guides")
-            .arg(&format!("{}", geomux_args.geomux_min_umi_guides))
-            .arg("--fdr-threshold")
-            .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
-            .arg("--lor-threshold")
-            .arg(&format!("{}", lor_threshold))
-            .output()
-            .context("Unable to run geomux")
-    } else {
-        Command::new("geomux")
-            .arg(&in_h5ad)
-            .arg(&out_tsv)
-            .arg("--stats")
-            .arg(&stats_json)
-            .arg("--min-umi-cells")
-            .arg(&format!("{}", geomux_args.geomux_min_umi_cells))
-            .arg("--min-umi-guides")
-            .arg(&format!("{}", geomux_args.geomux_min_umi_guides))
-            .arg("--fdr-threshold")
-            .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
-            .output()
-            .context("Unable to run geomux")
-    }?;
+    let mut geomux_args_vec = vec![
+        format!("{}", in_h5ad.display()),
+        format!("{}", out_tsv.display()),
+        "--stats".to_string(),
+        format!("{}", stats_json.display()),
+        "--min-umi-cells".to_string(),
+        format!("{}", geomux_args.min_umi_cells()),
+        "--min-umi-guides".to_string(),
+        format!("{}", geomux_args.geomux_min_umi_guides),
+        "--fdr-threshold".to_string(),
+        format!("{}", geomux_args.geomux_fdr_threshold),
+        "--method".to_string(),
+        format!("{}", geomux_args.geomux_mode),
+        "--n-jobs".to_string(),
+        format!("{}", threads),
+    ];
+    if let Some(lor_threshold) = geomux_args.geomux_log_odds_ratio {
+        geomux_args_vec.push("--lor-threshold".to_string());
+        geomux_args_vec.push(format!("{}", lor_threshold));
+    }
+    let output = Command::new("geomux")
+        .args(&geomux_args_vec)
+        .output()
+        .context("Unable to run geomux")?;
 
     if !output.status.success() {
         let stderr_str = std::str::from_utf8(&output.stderr)?;
@@ -190,7 +184,7 @@ pub fn assign_guides<P: AsRef<Path>>(
             warn!("No guides passed the cell threshold: {}", in_h5ad.display());
         } else if stderr_str.contains("No cells passed the UMI threshold") {
             warn!("No cells passed the UMI threshold: {}", in_h5ad.display());
-        } else if stderr_str.contains("ValueError: No valid cell-guide pairs found") {
+        } else if stderr_str.contains("No valid cell-guide pairs found") {
             warn!("No valid cell-guide pairs found: {}", in_h5ad.display());
         } else {
             error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
@@ -378,6 +372,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
                         &assignment_stats_outdir,
                         base_ibu_path,
                         geomux_args,
+                        threads,
                     )?;
                 }
             }

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{fmt::Display, path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
@@ -6,7 +6,7 @@ use log::{debug, error};
 
 use super::{ArgsCrispr, ArgsGex};
 
-pub const VERSION_GEOMUX: &str = "0.5.1";
+pub const VERSION_GEOMUX: &str = "0.5.2";
 pub const VERSION_CELL_FILTER: &str = "0.1.1";
 pub const VERSION_PYCYTO: &str = "0.1.6";
 
@@ -225,8 +225,11 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
 #[clap(next_help_heading = "Geomux Options")]
 pub struct ArgsGeomux {
     /// Minimum number of UMIs required for a cell to be included in geomux testing.
-    #[clap(long, default_value_t = 5)]
-    pub geomux_min_umi_cells: usize,
+    ///
+    /// 5 for geomux
+    /// 3 for mixture
+    #[clap(long)]
+    geomux_min_umi_cells: Option<usize>,
     /// Minimum number of UMIs required for a guide to be included in geomux testing.
     #[clap(long, default_value_t = 5)]
     pub geomux_min_umi_guides: usize,
@@ -236,4 +239,32 @@ pub struct ArgsGeomux {
     /// fdr threshold to use for geomux assignments.
     #[clap(long, default_value_t = 0.05)]
     pub geomux_fdr_threshold: f64,
+    /// Mode to use for geomux testing.
+    #[clap(long, default_value = "geomux")]
+    pub geomux_mode: GeomuxMode,
+}
+impl ArgsGeomux {
+    pub fn min_umi_cells(&self) -> usize {
+        self.geomux_min_umi_cells
+            .unwrap_or_else(|| match self.geomux_mode {
+                GeomuxMode::Geomux => 5,
+                GeomuxMode::Mixture => 3,
+            })
+    }
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum GeomuxMode {
+    /// Use the hypergeometric test.
+    Geomux,
+    /// Use the gaussian mixture model
+    Mixture,
+}
+impl Display for GeomuxMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeomuxMode::Geomux => write!(f, "geomux"),
+            GeomuxMode::Mixture => write!(f, "mixture"),
+        }
+    }
 }
