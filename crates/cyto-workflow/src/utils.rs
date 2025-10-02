@@ -241,8 +241,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join("barcode")
             .join(format!("{base_ibu_path}.barcode.json"));
 
-        let barcode_args =
-            ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist, bc_log);
+        let barcode_args = ArgsBarcode::from_wf_path(
+            &sort_path,
+            &bc_path,
+            &wf_args.whitelist,
+            bc_log,
+            wf_args.skip_bc_second_pass,
+        );
         let Some(whitelist) = whitelist else {
             error!("Whitelist is required for barcode correction");
             bail!("Whitelist is required for barcode correction");

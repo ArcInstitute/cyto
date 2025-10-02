@@ -118,6 +118,12 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_assignment: bool,
 
+    /// Skip barcode correction second pass step.
+    ///
+    /// This skips recovery of ambiguous one-offs barcodes by parent abundance.
+    #[clap(long, conflicts_with = "skip_barcode")]
+    pub skip_bc_second_pass: bool,
+
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
