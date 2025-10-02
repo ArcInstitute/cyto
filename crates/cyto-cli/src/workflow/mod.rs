@@ -2,13 +2,13 @@ use std::{path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{debug, error, warn};
+use log::{debug, error};
 
 use super::{ArgsCrispr, ArgsGex};
 
-pub const VERSION_GEOMUX: &str = "0.5.0";
+pub const VERSION_GEOMUX: &str = "0.5.1";
 pub const VERSION_CELL_FILTER: &str = "0.1.1";
-pub const VERSION_PYCYTO: &str = "0.1.5";
+pub const VERSION_PYCYTO: &str = "0.1.6";
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
@@ -182,11 +182,11 @@ pub enum CountFormat {
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
     debug!("Installing `{name}@{version}` if necessary...");
-    if name == "geomux" || name == "pycyto" {
-        warn!("Not installing {name}- using PATH. Remove me before release!");
-        // skip for now in testing
-        return Ok(());
-    }
+    // if name == "geomux" || name == "pycyto" {
+    //     warn!("Not installing {name}- using PATH. Remove me before release!");
+    //     // skip for now in testing
+    //     return Ok(());
+    // }
     match Command::new("uv")
         .arg("tool")
         .arg("install")
