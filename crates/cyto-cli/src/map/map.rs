@@ -9,6 +9,12 @@ pub struct MapOptions {
     #[clap(short = 'x', long)]
     pub exact_matching: bool,
 
+    /// Skip quality check for UMI sequences
+    ///
+    /// Default removes UMIs if a quality score is below a fixed threshold
+    #[clap(long)]
+    pub no_umi_quality_check: bool,
+
     /// Never remap sequences and/or probes with +-1 position adjustment
     #[clap(long)]
     no_remap: bool,
@@ -16,5 +22,8 @@ pub struct MapOptions {
 impl MapOptions {
     pub fn adjustment(&self) -> bool {
         !self.no_remap
+    }
+    pub fn umi_quality_removal(&self) -> bool {
+        !self.no_umi_quality_check
     }
 }

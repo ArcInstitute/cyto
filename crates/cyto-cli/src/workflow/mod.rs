@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{fmt::Display, path::PathBuf, process::Command};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
@@ -6,9 +6,9 @@ use log::{debug, error};
 
 use super::{ArgsCrispr, ArgsGex};
 
-pub const VERSION_GEOMUX: &str = "0.4.4";
+pub const VERSION_GEOMUX: &str = "0.5.2";
 pub const VERSION_CELL_FILTER: &str = "0.1.1";
-pub const VERSION_PYCYTO: &str = "0.1.5";
+pub const VERSION_PYCYTO: &str = "0.1.6";
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
@@ -118,6 +118,12 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_assignment: bool,
 
+    /// Skip barcode correction second pass step.
+    ///
+    /// This skips recovery of ambiguous one-offs barcodes by parent abundance.
+    #[clap(long, conflicts_with = "skip_barcode")]
+    pub skip_bc_second_pass: bool,
+
     /// Cell Barcode Whitelist
     #[clap(short, long, required_unless_present = "skip_barcode")]
     pub whitelist: String,
@@ -176,6 +182,11 @@ pub enum CountFormat {
 
 fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
     debug!("Installing `{name}@{version}` if necessary...");
+    // if name == "geomux" || name == "pycyto" {
+    //     warn!("Not installing {name}- using PATH. Remove me before release!");
+    //     // skip for now in testing
+    //     return Ok(());
+    // }
     match Command::new("uv")
         .arg("tool")
         .arg("install")
@@ -214,15 +225,46 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
 #[clap(next_help_heading = "Geomux Options")]
 pub struct ArgsGeomux {
     /// Minimum number of UMIs required for a cell to be included in geomux testing.
+    ///
+    /// 5 for geomux
+    /// 3 for mixture
+    #[clap(long)]
+    geomux_min_umi_cells: Option<usize>,
+    /// Minimum number of UMIs required for a guide to be included in geomux testing.
     #[clap(long, default_value_t = 5)]
-    pub geomux_min_umi: usize,
-    /// Minimum number of cells required for a guide to be included in geomux testing.
-    #[clap(long, default_value_t = 15)]
-    pub geomux_min_cells: usize,
+    pub geomux_min_umi_guides: usize,
     /// Log odds ratio minimum threshold to use for geomux assignments.
-    #[clap(long, default_value_t = 10.0)]
-    pub geomux_log_odds_ratio: f64,
+    #[clap(long)]
+    pub geomux_log_odds_ratio: Option<f64>,
     /// fdr threshold to use for geomux assignments.
     #[clap(long, default_value_t = 0.05)]
     pub geomux_fdr_threshold: f64,
+    /// Mode to use for geomux testing.
+    #[clap(long, default_value = "geomux")]
+    pub geomux_mode: GeomuxMode,
+}
+impl ArgsGeomux {
+    pub fn min_umi_cells(&self) -> usize {
+        self.geomux_min_umi_cells
+            .unwrap_or_else(|| match self.geomux_mode {
+                GeomuxMode::Geomux => 5,
+                GeomuxMode::Mixture => 3,
+            })
+    }
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum GeomuxMode {
+    /// Use the hypergeometric test.
+    Geomux,
+    /// Use the gaussian mixture model
+    Mixture,
+}
+impl Display for GeomuxMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeomuxMode::Geomux => write!(f, "geomux"),
+            GeomuxMode::Mixture => write!(f, "mixture"),
+        }
+    }
 }

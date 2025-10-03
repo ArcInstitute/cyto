@@ -99,6 +99,7 @@ pub struct UmiState {
     max_abundance: u64,
     current_index: u64,
     current_abundance: u64,
+    is_tied: bool,
 }
 impl UmiState {
     /// Increment the current abundance
@@ -106,6 +107,11 @@ impl UmiState {
         if self.current_abundance > self.max_abundance {
             self.max_index = self.current_index;
             self.max_abundance = self.current_abundance;
+            self.is_tied = false;
+        } else if self.current_abundance == self.max_abundance
+            && self.current_index != self.max_index
+        {
+            self.is_tied = true;
         }
     }
 
@@ -113,6 +119,7 @@ impl UmiState {
     pub fn update_index(&mut self, new_index: u64) {
         self.current_index = new_index;
         self.current_abundance = 1;
+        self.is_tied = false;
     }
 
     /// Reset to a new index
@@ -122,6 +129,12 @@ impl UmiState {
 
         self.max_index = new_index;
         self.max_abundance = 1;
+        self.is_tied = false;
+    }
+
+    /// True if there is no tie
+    pub fn has_clear_winner(&self) -> bool {
+        !self.is_tied
     }
 }
 
@@ -167,12 +180,16 @@ pub fn deduplicate_umis(
         if last_record.barcode() != record.barcode() {
             // Process the last UMI group before moving to new barcode
             umi_state.update_max();
-            counts.insert(last_record.barcode(), umi_state.max_index);
+            if umi_state.has_clear_winner() {
+                counts.insert(last_record.barcode(), umi_state.max_index);
+            }
             umi_state.reset(record.index());
         } else if last_record.umi() != record.umi() {
             // Process the current UMI group before moving to new UMI
             umi_state.update_max();
-            counts.insert(last_record.barcode(), umi_state.max_index);
+            if umi_state.has_clear_winner() {
+                counts.insert(last_record.barcode(), umi_state.max_index);
+            }
             umi_state.reset(record.index());
         } else if last_record.index() != record.index() {
             // Handle new index within same UMI
@@ -189,7 +206,9 @@ pub fn deduplicate_umis(
 
     // Process the final record
     umi_state.update_max();
-    counts.insert(last_record.barcode(), umi_state.max_index);
+    if umi_state.has_clear_winner() {
+        counts.insert(last_record.barcode(), umi_state.max_index);
+    }
 
     Ok(counts)
 }
@@ -238,15 +257,15 @@ mod testing {
         let records = vec![
             ibu::Record::new(1, 1, 0),
             ibu::Record::new(1, 1, 0),
-            ibu::Record::new(1, 2, 0), // precedence goes to first observed in tie
-            ibu::Record::new(1, 2, 1),
+            ibu::Record::new(1, 2, 0), // tied with below
+            ibu::Record::new(1, 2, 1), // ties lead to no winner
         ];
         let stream = build_record_stream(records);
         let counts = super::deduplicate_umis(stream, u64::MAX)?;
 
         assert_eq!(counts.get_num_barcodes(), 1);
         assert_eq!(counts.get_num_indices(1), Some(1));
-        assert_eq!(counts.get_abundance(1, 0), Some(2));
+        assert_eq!(counts.get_abundance(1, 0), Some(1));
 
         Ok(())
     }

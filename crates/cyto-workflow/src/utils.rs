@@ -140,6 +140,7 @@ pub fn assign_guides<P: AsRef<Path>>(
     stats_outdir: P,
     basename: &str,
     geomux_args: ArgsGeomux,
+    threads: usize,
 ) -> Result<()> {
     let in_h5ad = count_path.as_ref().with_extension("h5ad");
     let out_tsv = assignment_outdir
@@ -151,27 +152,40 @@ pub fn assign_guides<P: AsRef<Path>>(
         "Assigning CRISPR guide identities to: {}",
         in_h5ad.display()
     );
+
+    let mut geomux_args_vec = vec![
+        format!("{}", in_h5ad.display()),
+        format!("{}", out_tsv.display()),
+        "--stats".to_string(),
+        format!("{}", stats_json.display()),
+        "--min-umi-cells".to_string(),
+        format!("{}", geomux_args.min_umi_cells()),
+        "--min-umi-guides".to_string(),
+        format!("{}", geomux_args.geomux_min_umi_guides),
+        "--fdr-threshold".to_string(),
+        format!("{}", geomux_args.geomux_fdr_threshold),
+        "--method".to_string(),
+        format!("{}", geomux_args.geomux_mode),
+        "--n-jobs".to_string(),
+        format!("{}", threads),
+    ];
+    if let Some(lor_threshold) = geomux_args.geomux_log_odds_ratio {
+        geomux_args_vec.push("--lor-threshold".to_string());
+        geomux_args_vec.push(format!("{}", lor_threshold));
+    }
     let output = Command::new("geomux")
-        .arg(&in_h5ad)
-        .arg(&out_tsv)
-        .arg("--stats")
-        .arg(&stats_json)
-        .arg("--min-umi")
-        .arg(&format!("{}", geomux_args.geomux_min_umi))
-        .arg("--min-cells")
-        .arg(&format!("{}", geomux_args.geomux_min_cells))
-        .arg("--pvalue-threshold")
-        .arg(&format!("{}", geomux_args.geomux_fdr_threshold))
-        .arg("--lor-threshold")
-        .arg(&format!("{}", geomux_args.geomux_log_odds_ratio))
+        .args(&geomux_args_vec)
         .output()
         .context("Unable to run geomux")?;
+
     if !output.status.success() {
         let stderr_str = std::str::from_utf8(&output.stderr)?;
         if stderr_str.contains("No guides passed the cell threshold") {
             warn!("No guides passed the cell threshold: {}", in_h5ad.display());
         } else if stderr_str.contains("No cells passed the UMI threshold") {
             warn!("No cells passed the UMI threshold: {}", in_h5ad.display());
+        } else if stderr_str.contains("No valid cell-guide pairs found") {
+            warn!("No valid cell-guide pairs found: {}", in_h5ad.display());
         } else {
             error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
             error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
@@ -221,8 +235,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join("barcode")
             .join(format!("{base_ibu_path}.barcode.json"));
 
-        let barcode_args =
-            ArgsBarcode::from_wf_path(&sort_path, &bc_path, &wf_args.whitelist, bc_log);
+        let barcode_args = ArgsBarcode::from_wf_path(
+            &sort_path,
+            &bc_path,
+            &wf_args.whitelist,
+            bc_log,
+            wf_args.skip_bc_second_pass,
+        );
         let Some(whitelist) = whitelist else {
             error!("Whitelist is required for barcode correction");
             bail!("Whitelist is required for barcode correction");
@@ -353,6 +372,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
                         &assignment_stats_outdir,
                         base_ibu_path,
                         geomux_args,
+                        threads,
                     )?;
                 }
             }

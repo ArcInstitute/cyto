@@ -42,6 +42,7 @@ fn bus(args: &ArgsGeneric) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 
@@ -86,6 +87,7 @@ fn bus_binseq(args: &ArgsGeneric) -> Result<()> {
         args.runtime.num_threads(),
         args.map.exact_matching,
         args.map.adjustment(),
+        args.map.umi_quality_removal(),
         start_time,
     )?;
 

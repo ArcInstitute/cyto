@@ -18,8 +18,10 @@ pub struct ProcessedMappingStatistics {
     pub total_reads: usize,
     pub mapped_reads: usize,
     pub unmapped_reads: usize,
+    pub low_quality_umis: usize,
     pub fraction_mapped: f64,
     pub fraction_unmapped: f64,
+    pub fraction_low_quality_umis: f64,
     pub mapping_errors: ProcessedMappingErrorStatistics,
 }
 impl From<MappingStatistics> for ProcessedMappingStatistics {
@@ -28,8 +30,10 @@ impl From<MappingStatistics> for ProcessedMappingStatistics {
             total_reads: ms.total_reads,
             mapped_reads: ms.mapped_reads,
             unmapped_reads: ms.unmapped_reads,
+            low_quality_umis: ms.low_quality_umis,
             fraction_mapped: fraction(ms.mapped_reads, ms.total_reads),
             fraction_unmapped: fraction(ms.unmapped_reads, ms.total_reads),
+            fraction_low_quality_umis: fraction(ms.low_quality_umis, ms.total_reads),
             mapping_errors: ProcessedMappingErrorStatistics::new(
                 ms.mapping_errors,
                 ms.unmapped_reads,

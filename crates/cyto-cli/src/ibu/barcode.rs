@@ -18,13 +18,14 @@ impl ArgsBarcode {
         output_path: &str,
         whitelist: &str,
         bc_log: P,
+        skip_second_pass: bool,
     ) -> Self {
         Self {
             input: IbuInput::from_path(input_path),
             options: OptionsBarcode {
                 whitelist: whitelist.to_string(),
                 distance: 1,
-                skip_second_pass: false,
+                skip_second_pass,
                 include: false,
                 output: Some(output_path.to_string()),
                 log: Some(bc_log.as_ref().display().to_string()),
