@@ -11,6 +11,12 @@ pub struct ArgsSort {
     #[clap(short, long, required_unless_present("pipe"))]
     pub output: Option<String>,
 
+    /// Perform the sorting in-memory [default: on-disk merge sort]
+    ///
+    /// This may be faster for small datasets, but will load IBUs fully into memory.
+    #[clap(short, long)]
+    pub in_memory: bool,
+
     /// Pipe the output to stdout
     ///
     /// Due to binary output, this flag is necessary not to flood the terminal with binary.
@@ -28,6 +34,7 @@ impl ArgsSort {
             num_threads,
             output: Some(output.to_string()),
             pipe: false,
+            in_memory: false,
         }
     }
 }
