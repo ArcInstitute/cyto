@@ -171,7 +171,7 @@ pub fn assign_guides<P: AsRef<Path>>(
     ];
     if let Some(lor_threshold) = geomux_args.geomux_log_odds_ratio {
         geomux_args_vec.push("--lor-threshold".to_string());
-        geomux_args_vec.push(format!("{}", lor_threshold));
+        geomux_args_vec.push(format!("{lor_threshold}"));
     }
     let output = Command::new("geomux")
         .args(&geomux_args_vec)

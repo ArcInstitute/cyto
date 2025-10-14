@@ -54,7 +54,7 @@ pub fn match_output_transparent<P: AsRef<Path>>(
     let handle = match_output(filepath.as_ref())?;
     if let Some(path) = filepath {
         match path.as_ref().extension().and_then(|ext| ext.to_str()) {
-            Some("gz") | Some("gzip") => {
+            Some("gz" | "gzip") => {
                 debug!(
                     "Converting writer handle to gzip writer for {}",
                     path.as_ref().display()
@@ -66,7 +66,7 @@ pub fn match_output_transparent<P: AsRef<Path>>(
                 )?;
                 Ok(writer)
             }
-            Some("zst") | Some("zstd") => {
+            Some("zst" | "zstd") => {
                 debug!(
                     "Converting writer handle to zstd writer for {}",
                     path.as_ref().display()

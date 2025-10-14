@@ -65,7 +65,7 @@ impl MultiPairedInput {
 
     pub fn to_fx_readers(&self) -> Result<Vec<FxReaderPair>> {
         let mut readers = Vec::new();
-        if self.inputs.len() % 2 != 0 {
+        if !self.inputs.len().is_multiple_of(2) {
             error!(
                 "Found {} inputs, expecting an even number of file pairs",
                 self.inputs.len()

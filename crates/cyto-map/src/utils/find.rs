@@ -110,10 +110,7 @@ impl BestOffset {
         let target_size = mapper.get_sequence_size();
         if target_size > max_seq_size {
             bail!(
-                "Target size ({}) is greater than the maximum sequence size ({}) of the first ({}) records",
-                target_size,
-                max_seq_size,
-                max_records
+                "Target size ({target_size}) is greater than the maximum sequence size ({max_seq_size}) of the first ({max_records}) records"
             )
         }
         let best_offset = BestOffset::new(mapper, max_seq_size, target_size);

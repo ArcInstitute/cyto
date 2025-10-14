@@ -143,7 +143,7 @@ impl ArgsWorkflow {
                 Ok(_) => debug!("Found `uv` in $PATH"),
                 Err(e) => {
                     error!("Encountered an unexpected error checking for `uv`: {e}");
-                    bail!("Encountered an unexpected error checking for `uv`: {}", e);
+                    bail!("Encountered an unexpected error checking for `uv`: {e}");
                 }
             }
             transparent_uv_install("pycyto", VERSION_PYCYTO)?;
@@ -207,9 +207,7 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
                 Err(e) => {
                     error!("Encountered an unexpected error precompiling `{name}`: {e}");
                     bail!(
-                        "Encountered an unexpected error precompiling `{}`: {}",
-                        name,
-                        e
+                        "Encountered an unexpected error precompiling `{name}`: {e}"
                     );
                 }
             }
@@ -217,9 +215,7 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
         Err(e) => {
             error!("Encountered an unexpected error installing `{name}`: {e}");
             bail!(
-                "Encountered an unexpected error installing `{}`: {}",
-                name,
-                e
+                "Encountered an unexpected error installing `{name}`: {e}"
             );
         }
     }
@@ -250,7 +246,7 @@ pub struct ArgsGeomux {
 impl ArgsGeomux {
     pub fn min_umi_cells(&self) -> usize {
         self.geomux_min_umi_cells
-            .unwrap_or_else(|| match self.geomux_mode {
+            .unwrap_or(match self.geomux_mode {
                 GeomuxMode::Geomux => 5,
                 GeomuxMode::Mixture => 3,
             })
