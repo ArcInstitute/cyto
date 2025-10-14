@@ -6,9 +6,12 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 ibu = { workspace = true, features = ["serde"] }
+log = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
+
 ext-sort = { version = "0.1.5", features = ["memory-limit"] }
+bytesize = "2.1.0"
 
 [lints]
 workspace = true

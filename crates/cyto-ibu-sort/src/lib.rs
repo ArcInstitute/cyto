@@ -1,14 +1,17 @@
 use anyhow::Result;
+use bytesize::ByteSize;
 use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
 use ibu::Reader;
 
 use cyto_cli::ibu::ArgsSort;
 use cyto_io::{match_input, match_output};
+use log::debug;
 
-/// Default chunk size for external sorting
-///
-/// 1M records = (3*u64 = 24 bytes * 1M = 24MB)
-pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
+/// Size of a single IBU record in bytes
+const RECORD_SIZE: u64 = 24;
+
+/// Default memory limit per sort operation (5GB)
+const DEFAULT_MEMORY_LIMIT: u64 = 5 * 1024 * 1024 * 1024;
 
 fn pull_records<R: std::io::Read>(
     reader: Reader<R>,
@@ -37,14 +40,26 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             record.write_bytes(&mut output)?;
         }
     } else {
-        // Define the external sorter
+        // Calculate chunk size from memory limit
+        // 5GB / 24 bytes per record = ~208M records per chunk
+        let chunk_size = (DEFAULT_MEMORY_LIMIT / RECORD_SIZE) as usize;
+
+        debug!(
+            "External sorting with {} memory limit ({} records/chunk, {} threads) for file {}",
+            ByteSize::b(DEFAULT_MEMORY_LIMIT),
+            chunk_size,
+            args.num_threads,
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+
+        // Build the external sorter with count-limited buffer
         let sorter: ExternalSorter<
             ibu::Record,
             ibu::BinaryFormatError,
-            _,
+            LimitedBufferBuilder,
             RmpExternalChunk<ibu::Record>,
         > = ExternalSorterBuilder::new()
-            .with_buffer(LimitedBufferBuilder::new(DEFAULT_CHUNK_SIZE, true))
+            .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
             .with_threads_number(args.num_threads)
             .build()?;
 
