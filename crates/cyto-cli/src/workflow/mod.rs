@@ -118,6 +118,10 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_assignment: bool,
 
+    /// Memory limit for sorting
+    #[clap(long, default_value = "5GiB")]
+    pub memory_limit: String,
+
     /// Skip barcode correction second pass step.
     ///
     /// This skips recovery of ambiguous one-offs barcodes by parent abundance.

@@ -11,6 +11,10 @@ pub struct ArgsSort {
     #[clap(short, long, required_unless_present("pipe"))]
     pub output: Option<String>,
 
+    /// Memory limit for sorting in-memory
+    #[clap(short, long, default_value = "5GiB")]
+    pub memory_limit: String,
+
     /// Perform the sorting in-memory [default: on-disk merge sort]
     ///
     /// This may be faster for small datasets, but will load IBUs fully into memory.
@@ -27,7 +31,12 @@ pub struct ArgsSort {
     pub num_threads: usize,
 }
 impl ArgsSort {
-    pub fn from_wf_path(path: &str, output: &str, num_threads: usize) -> Self {
+    pub fn from_wf_path(
+        path: &str,
+        output: &str,
+        memory_limit: String,
+        num_threads: usize,
+    ) -> Self {
         let input = IbuInput::from_path(path);
         Self {
             input,
@@ -35,6 +44,7 @@ impl ArgsSort {
             output: Some(output.to_string()),
             pipe: false,
             in_memory: false,
+            memory_limit,
         }
     }
 }

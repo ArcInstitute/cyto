@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use bytesize::ByteSize;
 use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
@@ -10,8 +12,8 @@ use log::debug;
 /// Size of a single IBU record in bytes
 const RECORD_SIZE: u64 = 24;
 
-/// Default memory limit per sort operation (5GB)
-const DEFAULT_MEMORY_LIMIT: u64 = 5 * 1024 * 1024 * 1024;
+/// Default memory limit per sort operation (5GiB)
+const DEFAULT_MEMORY_LIMIT: u64 = 5;
 
 fn pull_records<R: std::io::Read>(
     reader: Reader<R>,
@@ -40,13 +42,13 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             record.write_bytes(&mut output)?;
         }
     } else {
-        // Calculate chunk size from memory limit
-        // 5GB / 24 bytes per record = ~208M records per chunk
-        let chunk_size = (DEFAULT_MEMORY_LIMIT / RECORD_SIZE) as usize;
+        let memory_limit =
+            ByteSize::from_str(&args.memory_limit).unwrap_or(ByteSize::gib(DEFAULT_MEMORY_LIMIT));
+        let chunk_size = (memory_limit.as_u64() / RECORD_SIZE) as usize;
 
         debug!(
             "External sorting with {} memory limit ({} records/chunk, {} threads) for file {}",
-            ByteSize::b(DEFAULT_MEMORY_LIMIT),
+            memory_limit,
             chunk_size,
             args.num_threads,
             args.input.input.as_deref().unwrap_or("stdin")
