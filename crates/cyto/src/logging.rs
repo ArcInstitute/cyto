@@ -49,6 +49,7 @@ pub fn setup_workflow_logging<P: AsRef<Path>>(log_path: P) -> Result<()> {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
+        .filter_module("ext_sort", log::LevelFilter::Warn)
         .target(env_logger::Target::Pipe(Box::new(multi_writer)))
         .parse_env("CYTO_LOG")
         .write_style(env_logger::WriteStyle::Always)
@@ -59,6 +60,7 @@ pub fn setup_workflow_logging<P: AsRef<Path>>(log_path: P) -> Result<()> {
 pub fn setup_default_logging() {
     env_logger::builder()
         .format_timestamp_millis()
+        .filter_module("ext_sort", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .parse_env("CYTO_LOG")
         .init();
