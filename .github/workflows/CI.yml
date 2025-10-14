@@ -84,6 +84,8 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
+      - name: set log trace
+        run: export CYTO_LOG=trace
       - name: run test (fastq)
         run: |
           ./cyto map crispr \
@@ -128,6 +130,8 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
+      - name: set log trace
+        run: export CYTO_LOG=trace
       - name: run test (fastq)
         run: |
           ./cyto map gex \
@@ -172,6 +176,8 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
+      - name: set log trace
+        run: export CYTO_LOG=trace
       - name: run test (fastq)
         run: |
           ./cyto workflow crispr \
@@ -224,6 +230,8 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
+      - name: set log trace
+        run: export CYTO_LOG=trace
       - name: run test (fastq)
         run: |
           ./cyto workflow gex \
