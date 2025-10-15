@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.6.15"
+version = "0.6.16"
 edition = "2021"
 
 [dependencies]
@@ -11,7 +11,7 @@ cyto-io = { workspace = true }
 ibu = { workspace = true }
 log = { workspace = true }
 paraseq = { workspace = true }
-clap = { version = "4.5.40", features = ["derive"] }
+clap = { version = "4.5.49", features = ["derive"] }
 num_cpus = "1.17.0"
 
 [lints]

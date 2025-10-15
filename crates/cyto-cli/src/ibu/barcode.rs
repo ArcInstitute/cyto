@@ -18,13 +18,14 @@ impl ArgsBarcode {
         output_path: &str,
         whitelist: &str,
         bc_log: P,
+        exact: bool,
         skip_second_pass: bool,
     ) -> Self {
         Self {
             input: IbuInput::from_path(input_path),
             options: OptionsBarcode {
                 whitelist: whitelist.to_string(),
-                distance: 1,
+                exact,
                 skip_second_pass,
                 include: false,
                 output: Some(output_path.to_string()),
@@ -45,11 +46,11 @@ pub struct OptionsBarcode {
     #[clap(short = 'w', long)]
     pub whitelist: String,
 
-    /// Maximum distance from a whitelist sequence to be considered a match.
+    /// Exact match only
     ///
-    /// Will not accept corrections that are ambiguously distant from multiple whitelist sequences.
-    #[clap(short = 'd', long, default_value = "1")]
-    pub distance: u32,
+    /// If this flag is present, only exact matches will be accepted.
+    #[clap(long = "bc-exact")]
+    pub exact: bool,
 
     /// Skip second pass correction
     ///
