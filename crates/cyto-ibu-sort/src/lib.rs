@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
 use ibu::Reader;
 
 use cyto_cli::ibu::ArgsSort;
 use cyto_io::{match_input, match_output};
-use log::debug;
+use log::{debug, error};
 
 /// Size of a single IBU record in bytes
 const RECORD_SIZE: u64 = 24;
@@ -63,22 +63,50 @@ pub fn run(args: &ArgsSort) -> Result<()> {
         > = ExternalSorterBuilder::new()
             .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
             .with_threads_number(args.num_threads)
-            .build()?;
+            .build()
+            .context("Failed to build external sorter")?;
 
         // Sort the records using external sort
-        let sorted = sorter.sort(reader)?;
+        let sorted = sorter.sort(reader).with_context(|| {
+            error!(
+                "Failed to sort with external sort for file: {}",
+                args.input.input.as_deref().unwrap_or("stdin")
+            );
+            "Failed to sort with external sort for file"
+        })?;
 
         // Write the header
         header.write_bytes(&mut output)?;
 
         // Write the records
         for record in sorted {
-            record?.write_bytes(&mut output)?;
+            record
+                .with_context(|| {
+                    error!(
+                        "Failed to deserialize record for file: {}",
+                        args.input.input.as_deref().unwrap_or("stdin")
+                    );
+                    "Failed to deserialize record"
+                })?
+                .write_bytes(&mut output)
+                .with_context(|| {
+                    error!(
+                        "Failed to write record for file: {}",
+                        args.input.input.as_deref().unwrap_or("stdin")
+                    );
+                    "Failed to write record"
+                })?;
         }
     }
 
     // Flush the output
-    output.flush()?;
+    output.flush().with_context(|| {
+        error!(
+            "Failed to flush writer for file: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+        "Failed to flush writer"
+    })?;
 
     Ok(())
 }
