@@ -77,7 +77,9 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
             let x = index_set[i];
             let y = index_set[j];
 
-            if x.index() == y.index() && bitnuc::hdist_scalar(x.umi(), y.umi(), umi_len)? <= 1 {
+            if x.index() == y.index()
+                && bitnuc::twobit::hdist_scalar(x.umi(), y.umi(), umi_len)? <= 1
+            {
                 graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ());
                 n_edges += 1;
             }

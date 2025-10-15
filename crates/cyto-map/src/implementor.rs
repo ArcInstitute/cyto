@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use binseq::prelude::*;
-use bitnuc::encode;
+use bitnuc::twobit::{encode, split_packed};
 use cyto_core::{
     GeometryR1, Mapper, MappingStatistics,
     mappers::{Adjustment, MapperOffset, MappingError},
@@ -142,7 +142,7 @@ impl<M: Mapper> MappingImplementor<M> {
         if record.slen() as usize != self.geometry.barcode + self.geometry.umi {
             bail!("R1 sequence length does not match provided geometry");
         }
-        bitnuc::split_packed(
+        split_packed(
             record.sbuf(),
             record.slen() as usize,
             self.geometry.barcode,
