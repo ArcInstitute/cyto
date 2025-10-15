@@ -15,6 +15,9 @@ CRISPR_FASTQ_R1 := "./data/sequencing/crispr_R1.fastq.gz"
 CRISPR_FASTQ_R2 := "./data/sequencing/crispr_R2.fastq.gz"
 
 install:
+    export RUSTFLAGS="-C target-cpu=native"; cargo install --path crates/cyto
+
+install-portable:
     cargo install --path crates/cyto
 
 run-wf-crispr:
