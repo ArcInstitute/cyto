@@ -246,6 +246,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             &bc_path,
             &wf_args.whitelist,
             bc_log,
+            wf_args.bc_exact,
             wf_args.skip_bc_second_pass,
         );
         let Some(whitelist) = whitelist else {

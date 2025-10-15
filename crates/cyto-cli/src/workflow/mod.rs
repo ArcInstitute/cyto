@@ -126,6 +126,12 @@ pub struct ArgsWorkflow {
     #[clap(long, default_value = "5GiB")]
     pub memory_limit: String,
 
+    /// Exact barcode matching only
+    ///
+    /// Default allows barcode correction of 1 unambiguous mismatch from whitelist
+    #[clap(long)]
+    pub bc_exact: bool,
+
     /// Skip barcode correction second pass step.
     ///
     /// This skips recovery of ambiguous one-offs barcodes by parent abundance.

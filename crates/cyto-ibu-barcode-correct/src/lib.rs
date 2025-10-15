@@ -11,7 +11,7 @@ use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output, match_output_stderr};
 use ibu::{Reader, Record};
-use log::{debug, info};
+use log::{debug, info, trace};
 use serde::Serialize;
 
 fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
@@ -58,10 +58,6 @@ pub enum Correction {
 pub struct Whitelist {
     /// The set of keys in the whitelist and their abundances
     keys: HashMap<u64, usize>,
-    /// A vector of keys in the whitelist (identical to `keys` but in a different format)
-    key_vec: Vec<u64>,
-    /// The size of each sequence in the whitelist
-    slen: usize,
     /// The mismatch table for fast correction
     mismatch_table: bitnuc_mismatch::MismatchTable,
     /// The ambiguous mismatch table for fast identification of ambiguous parents
@@ -85,8 +81,6 @@ impl Whitelist {
 
         Ok(Self {
             keys,
-            key_vec,
-            slen,
             mismatch_table,
             ambiguous_table,
         })
@@ -106,43 +100,28 @@ impl Whitelist {
     ///
     /// Will return `None` if no key in the whitelist is within the given hamming distance
     /// or if the key can be corrected to multiple keys in the whitelist.
-    pub fn correct_to(&self, key: u64, distance: u32) -> Correction {
+    pub fn correct_to(&self, key: u64, exact: bool) -> Correction {
         // If distance is 0, only exact matches are allowed
-        if distance == 0 {
-            return if self.contains(key) {
+        if exact {
+            if self.contains(key) {
                 Correction::Unchanged
             } else {
                 Correction::Ambiguous
-            };
+            }
         }
-
         // If distance is 1, use the precomputed mismatch table
-        if distance == 1 {
+        else {
             // If the key is in the whitelist, return unchanged
             if self.contains(key) {
-                return Correction::Unchanged;
+                Correction::Unchanged
             // If the key is in the mismatch table, return the corrected parent
             } else if let Some(&parent) = self.mismatch_table.get(&key) {
-                return Correction::Corrected(parent);
-            }
-            // The key is not in the mismatch table or whitelist
-            return Correction::Ambiguous;
-        }
-
-        // For distances > 1, fall back to the old method with hdist_scalar
-        let mut corrected = None;
-        for &k in &self.key_vec {
-            if bitnuc::hdist_scalar(k, key, self.slen).expect("Failure in calculating hdist_scalar")
-                <= distance
-            {
-                if corrected.is_some() {
-                    return Correction::Ambiguous;
-                }
-                corrected = Some(k);
+                Correction::Corrected(parent)
+            } else {
+                // The key is not in the mismatch table or whitelist
+                Correction::Ambiguous
             }
         }
-
-        corrected.map_or(Correction::Unchanged, Correction::Corrected)
     }
 
     pub fn ambiguously_correct_to_(&self, key: u64) -> Correction {
@@ -255,14 +234,18 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     let mut stats = CorrectStats::default();
     let mut second_pass = Vec::new();
 
-    debug!("Starting first pass...");
+    trace!(
+        "Starting first pass [file: {}, exact_match: {}]",
+        args.input.input.as_deref().unwrap_or("stdin"),
+        args.options.exact
+    );
     for record in reader {
         let record = record?;
         let barcode = record.barcode();
         stats.total += 1;
 
         // Case where barcode is in the whitelist without error
-        match whitelist.correct_to(barcode, args.options.distance) {
+        match whitelist.correct_to(barcode, args.options.exact) {
             Correction::Ambiguous => {
                 if args.options.skip_second_pass {
                     stats.ambiguous += 1;
@@ -290,7 +273,10 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     }
 
     if !second_pass.is_empty() {
-        debug!("Starting second pass (ambiguous subset)...");
+        trace!(
+            "Starting second pass (ambiguous subset) [file: {}]...",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
         for record in second_pass {
             match whitelist.ambiguously_correct_to_(record.barcode()) {
                 Correction::Ambiguous => {
