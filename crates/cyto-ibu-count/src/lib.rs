@@ -167,16 +167,17 @@ fn write_counts_tsv<P: AsRef<Path>>(
     twobit_compressed: bool,
     suffix: Option<&str>,
 ) -> Result<()> {
-    if let Some(path) = path {
-        if path.as_ref().exists() && path.as_ref().is_dir() {
-            error!(
-                "Output path already exists and is a directory. Only `--mtx` can accept a directory.",
-            );
-            bail!(
-                "Output path already exists and is a directory:\n{}",
-                path.as_ref().display()
-            )
-        }
+    if let Some(path) = path
+        && path.as_ref().exists()
+        && path.as_ref().is_dir()
+    {
+        error!(
+            "Output path already exists and is a directory. Only `--mtx` can accept a directory.",
+        );
+        bail!(
+            "Output path already exists and is a directory:\n{}",
+            path.as_ref().display()
+        )
     }
 
     let output_handle = match_output(path.as_ref())?;

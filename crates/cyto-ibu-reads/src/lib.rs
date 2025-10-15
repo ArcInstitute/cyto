@@ -77,7 +77,7 @@ fn process_records<R: Read, W: Write>(
     let mut dbuf = Vec::new();
     let mut n_reads = 0;
     let mut n_umis = 0;
-    for record in reader.into_iter() {
+    for record in &mut *reader {
         let record = record?;
 
         if !whitelist.matches(record.barcode()) {
@@ -89,7 +89,12 @@ fn process_records<R: Read, W: Write>(
                 bail!("Expected sorted IBU input")
             }
 
-            if record.barcode() != last_record.barcode() {
+            if record.barcode() == last_record.barcode() {
+                if record.umi() != last_record.umi() {
+                    n_umis += 1;
+                }
+                n_reads += 1;
+            } else {
                 print_record_stats(
                     writer,
                     last_record.barcode(),
@@ -101,11 +106,6 @@ fn process_records<R: Read, W: Write>(
                 )?;
                 n_reads = 1;
                 n_umis = 1;
-            } else {
-                if record.umi() != last_record.umi() {
-                    n_umis += 1
-                }
-                n_reads += 1;
             }
         } else {
             n_reads = 1;

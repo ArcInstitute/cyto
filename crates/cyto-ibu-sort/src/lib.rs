@@ -1,8 +1,19 @@
-use anyhow::Result;
+use std::str::FromStr;
+
+use anyhow::{Context, Result};
+use bytesize::ByteSize;
+use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
 use ibu::Reader;
 
 use cyto_cli::ibu::ArgsSort;
 use cyto_io::{match_input, match_output};
+use log::{debug, error, trace};
+
+/// Size of a single IBU record in bytes
+const RECORD_SIZE: u64 = 24;
+
+/// Default memory limit per sort operation (5GiB)
+const DEFAULT_MEMORY_LIMIT: u64 = 5;
 
 fn pull_records<R: std::io::Read>(
     reader: Reader<R>,
@@ -19,22 +30,91 @@ pub fn run(args: &ArgsSort) -> Result<()> {
     let reader = Reader::new(input)?;
     let header = reader.header();
 
-    // Read in all records
-    let mut records = pull_records(reader)?;
+    if args.in_memory {
+        trace!(
+            "Sorting in memory: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+        let mut collection = pull_records(reader)?;
+        collection.sort_unstable();
 
-    // Sort the records
-    records.sort_unstable();
+        // Write the header
+        header.write_bytes(&mut output)?;
 
-    // Write the header
-    header.write_bytes(&mut output)?;
+        // Write the records
+        for record in collection {
+            record.write_bytes(&mut output)?;
+        }
+    } else {
+        trace!(
+            "Sorting externally: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+        let memory_limit =
+            ByteSize::from_str(&args.memory_limit).unwrap_or(ByteSize::gib(DEFAULT_MEMORY_LIMIT));
+        let chunk_size = (memory_limit.as_u64() / RECORD_SIZE) as usize;
 
-    // Write the records
-    for record in records {
-        record.write_bytes(&mut output)?;
+        debug!(
+            "External sorting with {} memory limit ({} records/chunk, {} threads) for file {}",
+            memory_limit,
+            chunk_size,
+            args.num_threads,
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+
+        // Build the external sorter with count-limited buffer
+        let sorter: ExternalSorter<
+            ibu::Record,
+            ibu::BinaryFormatError,
+            LimitedBufferBuilder,
+            RmpExternalChunk<ibu::Record>,
+        > = ExternalSorterBuilder::new()
+            .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
+            .with_threads_number(args.num_threads)
+            .build()
+            .context("Failed to build external sorter")?;
+
+        // Sort the records using external sort
+        let sorted = sorter.sort(reader).with_context(|| {
+            error!(
+                "Failed to sort with external sort for file: {}",
+                args.input.input.as_deref().unwrap_or("stdin")
+            );
+            "Failed to sort with external sort for file"
+        })?;
+
+        // Write the header
+        header.write_bytes(&mut output)?;
+
+        // Write the records
+        for record in sorted {
+            record
+                .with_context(|| {
+                    error!(
+                        "Failed to deserialize record for file: {}",
+                        args.input.input.as_deref().unwrap_or("stdin")
+                    );
+                    "Failed to deserialize record"
+                })?
+                .write_bytes(&mut output)
+                .with_context(|| {
+                    error!(
+                        "Failed to write record for file: {}",
+                        args.input.input.as_deref().unwrap_or("stdin")
+                    );
+                    "Failed to write record"
+                })?;
+        }
     }
 
     // Flush the output
-    output.flush()?;
+    output.flush().with_context(|| {
+        error!(
+            "Failed to flush writer for file: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
+        "Failed to flush writer"
+    })?;
 
     Ok(())
 }

@@ -30,11 +30,11 @@ pub fn validate_output_directory<P: AsRef<Path>>(outdir: P, force: bool) -> Resu
 /// Convenience function to open a file handle, creating directories as needed
 pub fn open_file_handle<P: AsRef<Path>>(output_path: P) -> Result<Box<dyn Write + Send>> {
     // Create parent directories if they don't exist
-    if let Some(parent) = output_path.as_ref().parent() {
-        if !parent.exists() {
-            debug!("Creating parent directories for {}", parent.display());
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = output_path.as_ref().parent()
+        && !parent.exists()
+    {
+        debug!("Creating parent directories for {}", parent.display());
+        fs::create_dir_all(parent)?;
     }
     debug!("Opening file handle for {}", output_path.as_ref().display());
     let buffer = File::create(output_path).map(BufWriter::new)?;

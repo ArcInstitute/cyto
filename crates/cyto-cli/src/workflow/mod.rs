@@ -118,6 +118,14 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_assignment: bool,
 
+    /// Sort in memory instead of using disk
+    #[clap(long)]
+    pub sort_in_memory: bool,
+
+    /// Memory limit for sorting (ignored if sort_in_memory is true)
+    #[clap(long, default_value = "5GiB")]
+    pub memory_limit: String,
+
     /// Skip barcode correction second pass step.
     ///
     /// This skips recovery of ambiguous one-offs barcodes by parent abundance.
@@ -139,7 +147,7 @@ impl ArgsWorkflow {
                 Ok(_) => debug!("Found `uv` in $PATH"),
                 Err(e) => {
                     error!("Encountered an unexpected error checking for `uv`: {e}");
-                    bail!("Encountered an unexpected error checking for `uv`: {}", e);
+                    bail!("Encountered an unexpected error checking for `uv`: {e}");
                 }
             }
             transparent_uv_install("pycyto", VERSION_PYCYTO)?;
@@ -202,21 +210,13 @@ fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
                 }
                 Err(e) => {
                     error!("Encountered an unexpected error precompiling `{name}`: {e}");
-                    bail!(
-                        "Encountered an unexpected error precompiling `{}`: {}",
-                        name,
-                        e
-                    );
+                    bail!("Encountered an unexpected error precompiling `{name}`: {e}");
                 }
             }
         }
         Err(e) => {
             error!("Encountered an unexpected error installing `{name}`: {e}");
-            bail!(
-                "Encountered an unexpected error installing `{}`: {}",
-                name,
-                e
-            );
+            bail!("Encountered an unexpected error installing `{name}`: {e}");
         }
     }
 }
@@ -245,11 +245,10 @@ pub struct ArgsGeomux {
 }
 impl ArgsGeomux {
     pub fn min_umi_cells(&self) -> usize {
-        self.geomux_min_umi_cells
-            .unwrap_or_else(|| match self.geomux_mode {
-                GeomuxMode::Geomux => 5,
-                GeomuxMode::Mixture => 3,
-            })
+        self.geomux_min_umi_cells.unwrap_or(match self.geomux_mode {
+            GeomuxMode::Geomux => 5,
+            GeomuxMode::Mixture => 3,
+        })
     }
 }
 

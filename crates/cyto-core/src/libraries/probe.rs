@@ -30,7 +30,7 @@ impl ProbeLibrary {
         let alias_re = match pattern {
             // match the required pattern
             Some(re) => {
-                debug!("Building probe regex from pattern: {}", re);
+                debug!("Building probe regex from pattern: {re}");
                 Regex::new(re)?
             }
             // match everything if no regex is provided
@@ -50,22 +50,19 @@ impl ProbeLibrary {
 
         if probes.is_empty() {
             if let Some(pattern) = pattern {
-                bail!("No probes found matching pattern: {}", pattern);
-            } else {
-                bail!("No probes found");
+                bail!("No probes found matching pattern: {pattern}");
             }
-        } else {
-            if let Some(pattern) = pattern {
-                if excluded > 0 {
-                    debug!(
-                        "Included {} of {} probes matching pattern: {}",
-                        probes.len(),
-                        probes.len() + excluded,
-                        pattern
-                    );
-                } else {
-                    debug!("All probes matched pattern: {}", pattern);
-                }
+            bail!("No probes found");
+        } else if let Some(pattern) = pattern {
+            if excluded > 0 {
+                debug!(
+                    "Included {} of {} probes matching pattern: {}",
+                    probes.len(),
+                    probes.len() + excluded,
+                    pattern
+                );
+            } else {
+                debug!("All probes matched pattern: {pattern}");
             }
         }
 
