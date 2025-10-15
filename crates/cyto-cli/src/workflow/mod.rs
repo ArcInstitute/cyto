@@ -122,7 +122,7 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub sort_in_memory: bool,
 
-    /// Memory limit for sorting (ignored if sort_in_memory is true)
+    /// Memory limit for sorting (ignored if `sort_in_memory` is true)
     #[clap(long, default_value = "5GiB")]
     pub memory_limit: String,
 
