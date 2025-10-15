@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use cyto_cli::ArgsView;
 use cyto_io::match_output;
-use paraseq::parallel::{PairedParallelProcessor, PairedParallelReader};
+use paraseq::prelude::{PairedParallelProcessor, ParallelReader};
 use parking_lot::Mutex;
 
 type BoxedWriter = Box<dyn Write + Send>;
@@ -44,12 +44,8 @@ impl CytoView {
     }
 }
 
-impl PairedParallelProcessor for CytoView {
-    fn process_record_pair<Rf: paraseq::Record>(
-        &mut self,
-        record1: Rf,
-        record2: Rf,
-    ) -> paraseq::parallel::Result<()> {
+impl<Rf: paraseq::Record> PairedParallelProcessor<Rf> for CytoView {
+    fn process_record_pair(&mut self, record1: Rf, record2: Rf) -> paraseq::parallel::Result<()> {
         let r1_seq = record1.seq();
 
         if r1_seq.len() < (self.bc_size + self.umi_size) {
@@ -87,14 +83,14 @@ pub fn run(args: &ArgsView) -> Result<()> {
     let writer = match_output(args.options.output.as_ref())?;
 
     // Initialize processor
-    let processor = CytoView::new(
+    let mut processor = CytoView::new(
         args.geometry.barcode,
         args.geometry.umi,
         Arc::new(Mutex::new(writer)),
     );
 
     // Process records in parallel
-    r1_reader.process_parallel_paired(r2_reader, processor, num_threads)?;
+    r1_reader.process_parallel_paired(r2_reader, &mut processor, num_threads)?;
 
     Ok(())
 }
