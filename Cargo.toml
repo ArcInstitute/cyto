@@ -19,7 +19,7 @@ cyto-workflow = { path = "crates/cyto-workflow" }
 
 anyhow = "1.0.98"
 binseq = "0.7.5"
-bitnuc = "0.2.11"
+bitnuc = "0.3.0"
 env_logger = "0.11.8"
 hashbrown = "0.15.4"
 ibu = "0.1.0"
