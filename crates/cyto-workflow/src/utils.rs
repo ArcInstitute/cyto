@@ -219,8 +219,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
 ) -> Result<()> {
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
-    let sort_args =
-        ArgsSort::from_wf_path(ibu_path, &sort_path, wf_args.memory_limit.clone(), threads);
+    let sort_args = ArgsSort::from_wf_path(
+        ibu_path,
+        &sort_path,
+        wf_args.sort_in_memory,
+        wf_args.memory_limit.clone(),
+        threads,
+    );
 
     info!("Sorting {ibu_path} -> {sort_path}");
     cyto_ibu_sort::run(&sort_args)?;
@@ -257,8 +262,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
         sort_path = bc_path.replace(".barcode.ibu", ".barcode.sort.ibu");
         info!("Sorting barcode corrected file: {bc_path} -> {sort_path}");
 
-        let sort_args =
-            ArgsSort::from_wf_path(&bc_path, &sort_path, wf_args.memory_limit.clone(), threads);
+        let sort_args = ArgsSort::from_wf_path(
+            &bc_path,
+            &sort_path,
+            wf_args.sort_in_memory,
+            wf_args.memory_limit.clone(),
+            threads,
+        );
         cyto_ibu_sort::run(&sort_args)?;
 
         debug!("Removing unsorted file: {bc_path}");
@@ -284,8 +294,13 @@ pub fn ibu_steps<P: AsRef<Path>>(
         sort_path = umi_path.replace(".umi.ibu", ".umi.sort.ibu");
         info!("Sorting UMI corrected file: {umi_path} -> {sort_path}");
 
-        let sort_args =
-            ArgsSort::from_wf_path(&umi_path, &sort_path, wf_args.memory_limit.clone(), threads);
+        let sort_args = ArgsSort::from_wf_path(
+            &umi_path,
+            &sort_path,
+            wf_args.sort_in_memory,
+            wf_args.memory_limit.clone(),
+            threads,
+        );
         cyto_ibu_sort::run(&sort_args)?;
 
         debug!("Removing unsorted file: {umi_path}");

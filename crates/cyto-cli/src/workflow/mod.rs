@@ -118,7 +118,11 @@ pub struct ArgsWorkflow {
     #[clap(long)]
     pub skip_assignment: bool,
 
-    /// Memory limit for sorting
+    /// Sort in memory instead of using disk
+    #[clap(long)]
+    pub sort_in_memory: bool,
+
+    /// Memory limit for sorting (ignored if sort_in_memory is true)
     #[clap(long, default_value = "5GiB")]
     pub memory_limit: String,
 

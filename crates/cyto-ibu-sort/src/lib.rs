@@ -7,7 +7,7 @@ use ibu::Reader;
 
 use cyto_cli::ibu::ArgsSort;
 use cyto_io::{match_input, match_output};
-use log::{debug, error};
+use log::{debug, error, trace};
 
 /// Size of a single IBU record in bytes
 const RECORD_SIZE: u64 = 24;
@@ -31,6 +31,10 @@ pub fn run(args: &ArgsSort) -> Result<()> {
     let header = reader.header();
 
     if args.in_memory {
+        trace!(
+            "Sorting in memory: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
         let mut collection = pull_records(reader)?;
         collection.sort_unstable();
 
@@ -42,6 +46,10 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             record.write_bytes(&mut output)?;
         }
     } else {
+        trace!(
+            "Sorting externally: {}",
+            args.input.input.as_deref().unwrap_or("stdin")
+        );
         let memory_limit =
             ByteSize::from_str(&args.memory_limit).unwrap_or(ByteSize::gib(DEFAULT_MEMORY_LIMIT));
         let chunk_size = (memory_limit.as_u64() / RECORD_SIZE) as usize;

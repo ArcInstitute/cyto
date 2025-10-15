@@ -34,6 +34,7 @@ impl ArgsSort {
     pub fn from_wf_path(
         path: &str,
         output: &str,
+        in_memory: bool,
         memory_limit: String,
         num_threads: usize,
     ) -> Self {
@@ -43,7 +44,7 @@ impl ArgsSort {
             num_threads,
             output: Some(output.to_string()),
             pipe: false,
-            in_memory: false,
+            in_memory,
             memory_limit,
         }
     }
