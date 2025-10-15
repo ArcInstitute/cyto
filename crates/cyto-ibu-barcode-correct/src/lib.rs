@@ -272,7 +272,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
         }
     }
 
-    if !second_pass.is_empty() {
+    if !second_pass.is_empty() && !args.options.exact {
         trace!(
             "Starting second pass (ambiguous subset) [file: {}]...",
             args.input.input.as_deref().unwrap_or("stdin")
