@@ -15,7 +15,10 @@ use cyto_core::{
 use cyto_io::open_file_handle;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use log::info;
-use paraseq::{fastx, prelude::*};
+use paraseq::{
+    fastx,
+    prelude::{ParallelReader as ParaseqParallelReader, *},
+};
 use parking_lot::Mutex;
 
 use super::{ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY};
@@ -268,13 +271,8 @@ impl<M: Mapper> MappingProbeImplementor<M> {
         }
     }
 }
-impl<M: Mapper> PairedParallelProcessor for MappingProbeImplementor<M> {
-    // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record_pair<Rf: paraseq::Record>(
-        &mut self,
-        r1: Rf,
-        r2: Rf,
-    ) -> paraseq::parallel::Result<()> {
+impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingProbeImplementor<M> {
+    fn process_record_pair(&mut self, r1: Rf, r2: Rf) -> paraseq::parallel::Result<()> {
         // Split R1 into barcode and UMI and 2-bit encode them
         if !self.encode_r1(&r1)? {
             return Ok(()); // Skip the record if it contains an `N`
@@ -461,9 +459,9 @@ where
     let mut handles = Vec::with_capacity(num_pairs);
     info!("Beginning mapping with {num_threads} threads over {num_pairs} files");
     for (rdr_r1, rdr_r2) in readers {
-        let implementor = implementor.clone();
+        let mut implementor = implementor.clone();
         let handle = std::thread::spawn(move || -> Result<()> {
-            rdr_r1.process_parallel_paired(rdr_r2, implementor, threads_per_pair)?;
+            rdr_r1.process_parallel_paired(rdr_r2, &mut implementor, threads_per_pair)?;
             Ok(())
         });
         handles.push(handle);
