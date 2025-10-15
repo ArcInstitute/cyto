@@ -8,7 +8,7 @@ use super::{ArgsCrispr, ArgsGex};
 
 pub const VERSION_GEOMUX: &str = "0.5.4";
 pub const VERSION_CELL_FILTER: &str = "0.1.1";
-pub const VERSION_PYCYTO: &str = "0.1.7";
+pub const VERSION_PYCYTO: &str = "0.1.8";
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
