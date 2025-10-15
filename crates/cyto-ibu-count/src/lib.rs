@@ -230,15 +230,15 @@ fn write_counts_mtx<P: AsRef<Path>>(
     let barcodes_handle = match_output(Some(barcodes_path))?;
     let features_handle = match_output(Some(features_path))?;
 
-    let mut mtx_handle: ParCompress<Gzip> = ParCompressBuilder::new()
+    let mut mtx_handle: ParCompress<Gzip, _> = ParCompressBuilder::new()
         .num_threads(zthreads)?
         .from_writer(mtx_handle);
 
-    let mut barcodes_handle: ParCompress<Gzip> = ParCompressBuilder::new()
+    let mut barcodes_handle: ParCompress<Gzip, _> = ParCompressBuilder::new()
         .num_threads(zthreads)?
         .from_writer(barcodes_handle);
 
-    let mut features_handle: ParCompress<Gzip> = ParCompressBuilder::new()
+    let mut features_handle: ParCompress<Gzip, _> = ParCompressBuilder::new()
         .num_threads(zthreads)?
         .from_writer(features_handle);
 

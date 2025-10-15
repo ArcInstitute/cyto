@@ -13,7 +13,7 @@ ibu = { workspace = true }
 log = { workspace = true }
 hashbrown = { workspace = true }
 csv = "1"
-gzp = "1.0.1"
+gzp = "2.0.0"
 
 [lints]
 workspace = true
