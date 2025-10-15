@@ -187,7 +187,7 @@ jobs:
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/crispr_R1.fastq.gz \
             ./data/sequencing/crispr_R2.fastq.gz
@@ -198,7 +198,7 @@ jobs:
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/crispr.bq
       - name: run test (fastq-probe)
@@ -209,7 +209,7 @@ jobs:
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/crispr_R1.fastq.gz \
             ./data/sequencing/crispr_R2.fastq.gz
@@ -221,7 +221,7 @@ jobs:
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/crispr.bq
 
@@ -247,7 +247,7 @@ jobs:
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/gex_R1.fastq.gz \
             ./data/sequencing/gex_R2.fastq.gz
@@ -258,7 +258,7 @@ jobs:
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/gex.bq
       - name: run test (fastq-probe)
@@ -269,7 +269,7 @@ jobs:
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/gex_R1.fastq.gz \
             ./data/sequencing/gex_R2.fastq.gz
@@ -281,6 +281,6 @@ jobs:
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
-            --memory-limit 50MiB \
+            --sort-in-memory \
             --force \
             ./data/sequencing/gex.bq
