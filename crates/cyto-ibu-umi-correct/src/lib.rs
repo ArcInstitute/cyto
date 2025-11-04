@@ -8,15 +8,16 @@ use std::{
 use anyhow::Result;
 use ibu::{Reader, Record};
 use parking_lot::Mutex;
-use petgraph::{Graph, algo::kosaraju_scc, graph::NodeIndex};
+use petgraph::{Graph, graph::NodeIndex};
 
 use cyto_cli::ibu::ArgsUmi;
 use cyto_io::{match_input, match_output, match_output_stderr};
 use serde::Serialize;
 
-use crate::parallel::BarcodeSetReader;
-
 mod parallel;
+mod utils;
+
+pub use crate::{parallel::BarcodeSetReader, utils::connected_components_vec};
 
 #[derive(Serialize, Clone, Copy)]
 struct Statistics {
@@ -92,7 +93,7 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
     }
 
     let mut n_corrections = 0;
-    for component in kosaraju_scc(&graph) {
+    for component in connected_components_vec(&graph) {
         // Skip single-node components (no need to collapse)
         if component.len() == 1 {
             continue;
