@@ -1,18 +1,27 @@
+mod channel_iter;
+
 use std::{
     collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Read},
     ops::Add,
     path::Path,
+    str::FromStr,
+    thread,
 };
 
 use anyhow::{Context, Result, bail};
 use bitnuc::as_2bit;
+use bytesize::ByteSize;
+use crossbeam_channel::unbounded;
 use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output, match_output_stderr};
+use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
 use ibu::{Reader, Record};
 use log::{debug, info, trace};
 use serde::Serialize;
+
+use crate::channel_iter::ChannelIterator;
 
 fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
     debug!("Opening whitelist file: {}", path.as_ref().display());
@@ -310,7 +319,138 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     Ok(())
 }
 
+/// Prebuild whitelist so multiple threads deduplicate work in building mismatch table.
+pub fn run_with_prebuilt_whitelist_and_sort(
+    args: &ArgsBarcode,
+    mut whitelist: Whitelist,
+) -> Result<()> {
+    // Build IO handles
+    let input = match_input(args.input.input.as_ref())?;
+
+    // Initialize the reader and header
+    let reader = Reader::new(input)?;
+    let header = reader.header();
+
+    // Determine if we're sorting in-flight
+    let (tx, sorting_handle) = {
+        let (tx, rx) = unbounded();
+
+        // Spawn sorting thread
+        let header_clone = header;
+
+        let memory_limit =
+            ByteSize::from_str(&args.options.memory_limit).unwrap_or(ByteSize::gib(5));
+        let output_path = args.options.output.as_ref().map(|path| path.to_owned());
+        let num_threads = args.options.num_threads;
+
+        let handle = thread::spawn(move || -> Result<()> {
+            let mut output = match_output(output_path)?;
+            header_clone.write_bytes(&mut output)?;
+
+            let channel_iter = ChannelIterator { receiver: rx };
+            let chunk_size = (memory_limit.as_u64() / 24) as usize;
+
+            let sorter: ExternalSorter<
+                ibu::Record,
+                ibu::BinaryFormatError,
+                LimitedBufferBuilder,
+                RmpExternalChunk<ibu::Record>,
+            > = ExternalSorterBuilder::new()
+                .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
+                .with_threads_number(num_threads)
+                .build()?;
+
+            let sorted = sorter.sort(channel_iter)?;
+
+            for record in sorted {
+                record?.write_bytes(&mut output)?;
+            }
+
+            output.flush()?;
+            Ok(())
+        });
+
+        (tx, handle)
+    };
+
+    // Process records (barcode correction)
+    let mut stats = CorrectStats::default();
+    let mut second_pass = Vec::new();
+
+    trace!("Starting first pass...");
+    for record in reader {
+        let record = record?;
+        let barcode = record.barcode();
+        stats.total += 1;
+
+        match whitelist.correct_to(barcode, args.options.exact) {
+            Correction::Ambiguous => {
+                if args.options.skip_second_pass {
+                    stats.ambiguous += 1;
+                    if args.options.include {
+                        tx.send(Ok(record))?;
+                    }
+                } else {
+                    second_pass.push(record);
+                }
+            }
+            Correction::Unchanged => {
+                stats.matched += 1;
+                stats.unchanged += 1;
+                whitelist.increment(barcode);
+                tx.send(Ok(record))?;
+            }
+            Correction::Corrected(corrected) => {
+                stats.matched += 1;
+                stats.corrected += 1;
+                whitelist.increment(corrected);
+                let new_record = Record::new(corrected, record.umi(), record.index());
+                tx.send(Ok(new_record))?;
+            }
+        }
+    }
+
+    // Second pass logic remains similar...
+    if !second_pass.is_empty() && !args.options.exact {
+        trace!("Starting second pass...");
+        for record in second_pass {
+            match whitelist.ambiguously_correct_to_(record.barcode()) {
+                Correction::Ambiguous => {
+                    stats.ambiguous += 1;
+                    if args.options.include {
+                        tx.send(Ok(record))?;
+                    }
+                }
+                Correction::Unchanged => {
+                    stats.matched += 1;
+                    stats.unchanged += 1;
+                    tx.send(Ok(record))?;
+                }
+                Correction::Corrected(corrected) => {
+                    stats.matched += 1;
+                    stats.corrected += 1;
+                    stats.corrected_via_counts += 1;
+                    let new_record = Record::new(corrected, record.umi(), record.index());
+                    tx.send(Ok(new_record))?;
+                }
+            }
+        }
+    }
+
+    // Close channel and wait for sorter to finish
+    drop(tx); // Close sender to signal EOF
+    sorting_handle.join().unwrap()?;
+
+    // Write statistics
+    write_statistics(args.options.log.as_ref(), stats)?;
+    Ok(())
+}
+
 pub fn run(args: &ArgsBarcode) -> Result<()> {
     let whitelist = Whitelist::from_path(&args.options.whitelist)?;
-    run_with_prebuilt_whitelist(args, whitelist)
+    if args.options.sort {
+        run_with_prebuilt_whitelist_and_sort(args, whitelist)
+    } else {
+        run_with_prebuilt_whitelist(args, whitelist)
+    }
 }
