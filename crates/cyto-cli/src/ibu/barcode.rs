@@ -20,6 +20,8 @@ impl ArgsBarcode {
         bc_log: P,
         exact: bool,
         skip_second_pass: bool,
+        num_threads: usize,
+        memory_limit: &str,
     ) -> Self {
         Self {
             input: IbuInput::from_path(input_path),
@@ -30,6 +32,9 @@ impl ArgsBarcode {
                 include: false,
                 output: Some(output_path.to_string()),
                 log: Some(bc_log.as_ref().display().to_string()),
+                sort: true,
+                num_threads,
+                memory_limit: memory_limit.to_string(),
             },
         }
     }
@@ -76,4 +81,16 @@ pub struct OptionsBarcode {
     /// Will output as json
     #[clap(short, long)]
     pub log: Option<String>,
+
+    /// Sort output by barcode
+    #[clap(long)]
+    pub sort: bool,
+
+    /// Number of threads to use when sorting
+    #[clap(short = 'T', long, default_value = "1")]
+    pub num_threads: usize,
+
+    /// Memory limit for sorting
+    #[clap(short, long, default_value = "5GiB")]
+    pub memory_limit: String,
 }
