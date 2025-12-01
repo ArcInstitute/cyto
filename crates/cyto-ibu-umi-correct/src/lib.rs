@@ -1,13 +1,17 @@
 use std::{
+    collections::BTreeMap,
     io::{Read, Write},
     ops::AddAssign,
     path::Path,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use anyhow::Result;
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use ibu::{Reader, Record};
-use parking_lot::Mutex;
 use petgraph::{Graph, graph::NodeIndex};
 
 use cyto_cli::ibu::ArgsUmi;
@@ -189,12 +193,37 @@ where
     W: Write + Send + 'static,
 {
     let preader = BarcodeSetReader::new_shared(reader.into_iter());
-    let shared_output = Arc::new(Mutex::new(output));
+    let ticket_counter = Arc::new(AtomicUsize::new(0));
+
+    let (tx, rx): (Sender<(usize, Vec<Record>)>, Receiver<(usize, Vec<Record>)>) = unbounded();
+
+    // Spawn writer thread
+    let writer_handle = std::thread::spawn(move || -> Result<()> {
+        let mut output = output;
+        let mut next_expected = 0;
+        let mut buffer: BTreeMap<usize, Vec<Record>> = BTreeMap::new();
+
+        for (ticket, records) in rx {
+            buffer.insert(ticket, records);
+
+            // Write all sequential records we have
+            while let Some(records) = buffer.remove(&next_expected) {
+                for record in records {
+                    record.write_bytes(&mut output)?;
+                }
+                output.flush()?;
+                next_expected += 1;
+            }
+        }
+        Ok(())
+    });
 
     let mut handles = Vec::new();
     for _tid in 0..threads {
         let treader = preader.clone();
-        let twriter = shared_output.clone();
+        let ticket_counter = ticket_counter.clone();
+        let tx = tx.clone();
+
         let handle = std::thread::spawn(move || -> Result<Statistics> {
             let mut num_records = 0;
             let mut num_corrections = 0;
@@ -203,6 +232,9 @@ where
 
             loop {
                 barcode_set.clear();
+
+                let my_ticket = ticket_counter.fetch_add(1, Ordering::SeqCst);
+
                 if !treader.lock().fill_barcode_set(&mut barcode_set)? {
                     break;
                 }
@@ -213,14 +245,12 @@ where
                     header.umi_len() as usize,
                 )?;
 
-                // Write corrected records to output
-                {
-                    let mut w = twriter.lock();
-                    for record in corrected_set.drain(..) {
-                        record.write_bytes(w.by_ref())?;
-                    }
-                    w.flush()?;
-                }
+                // sort the correct set by barcode-umi-index
+                corrected_set.sort_unstable();
+
+                // Send to writer (non-blocking)
+                tx.send((my_ticket, std::mem::take(&mut corrected_set)))
+                    .unwrap();
             }
 
             Ok(Statistics::new(num_records, num_corrections))
@@ -228,10 +258,14 @@ where
         handles.push(handle);
     }
 
+    drop(tx); // Close channel after all workers are done
+
     let mut statistics = Statistics::new(0, 0);
     for handle in handles {
         statistics += handle.join().unwrap()?;
     }
+
+    writer_handle.join().unwrap()?;
 
     Ok(statistics)
 }
