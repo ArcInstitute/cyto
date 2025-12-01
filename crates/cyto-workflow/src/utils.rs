@@ -220,7 +220,21 @@ pub fn ibu_steps<P: AsRef<Path>>(
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
 
-    if !wf_args.skip_barcode {
+    if wf_args.skip_barcode {
+        let sort_args = ArgsSort::from_wf_path(
+            ibu_path,
+            &sort_path,
+            wf_args.sort_in_memory,
+            wf_args.memory_limit.clone(),
+            threads,
+        );
+
+        info!("Sorting {ibu_path} -> {sort_path}");
+        cyto_ibu_sort::run(&sort_args)?;
+
+        debug!("Removing unsorted file: {ibu_path}");
+        std::fs::remove_file(ibu_path)?;
+    } else {
         let bc_path = ibu_path.replace(".ibu", ".barcode.ibu");
 
         let bc_log = outdir
@@ -230,7 +244,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join(format!("{base_ibu_path}.barcode.json"));
 
         let barcode_args = ArgsBarcode::from_wf_path(
-            &ibu_path,
+            ibu_path,
             &bc_path,
             &wf_args.whitelist,
             bc_log,
@@ -248,23 +262,9 @@ pub fn ibu_steps<P: AsRef<Path>>(
         cyto_ibu_barcode_correct::run_with_prebuilt_whitelist_and_sort(&barcode_args, whitelist)?;
 
         debug!("Removing uncorrected file: {ibu_path}");
-        std::fs::remove_file(&ibu_path)?;
+        std::fs::remove_file(ibu_path)?;
 
         sort_path = bc_path.clone();
-    } else {
-        let sort_args = ArgsSort::from_wf_path(
-            ibu_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
-
-        info!("Sorting {ibu_path} -> {sort_path}");
-        cyto_ibu_sort::run(&sort_args)?;
-
-        debug!("Removing unsorted file: {ibu_path}");
-        std::fs::remove_file(ibu_path)?;
     }
 
     if !wf_args.skip_umi {

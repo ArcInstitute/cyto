@@ -340,7 +340,7 @@ pub fn run_with_prebuilt_whitelist_and_sort(
 
         let memory_limit =
             ByteSize::from_str(&args.options.memory_limit).unwrap_or(ByteSize::gib(5));
-        let output_path = args.options.output.as_ref().map(|path| path.to_owned());
+        let output_path = args.options.output.as_ref().map(std::borrow::ToOwned::to_owned);
         let num_threads = args.options.num_threads;
 
         let handle = thread::spawn(move || -> Result<()> {
