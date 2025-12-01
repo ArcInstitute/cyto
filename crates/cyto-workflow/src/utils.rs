@@ -292,20 +292,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         debug!("Removing uncorrected file: {sort_path}");
         std::fs::remove_file(&sort_path)?;
 
-        sort_path = umi_path.replace(".umi.ibu", ".umi.sort.ibu");
-        info!("Sorting UMI corrected file: {umi_path} -> {sort_path}");
-
-        let sort_args = ArgsSort::from_wf_path(
-            &umi_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
-        cyto_ibu_sort::run(&sort_args)?;
-
-        debug!("Removing unsorted file: {umi_path}");
-        std::fs::remove_file(&umi_path)?;
+        sort_path = umi_path.clone();
     }
 
     if !wf_args.skip_reads {
