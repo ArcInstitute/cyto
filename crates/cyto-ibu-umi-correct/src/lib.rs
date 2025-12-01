@@ -233,11 +233,18 @@ where
             loop {
                 barcode_set.clear();
 
-                let my_ticket = ticket_counter.fetch_add(1, Ordering::SeqCst);
+                let my_ticket = {
+                    let mut reader = treader.lock();
 
-                if !treader.lock().fill_barcode_set(&mut barcode_set)? {
-                    break;
-                }
+                    // Try to read first
+                    if !reader.fill_barcode_set(&mut barcode_set)? {
+                        break;
+                    }
+
+                    // Get ticket while still holding the lock
+                    ticket_counter.fetch_add(1, Ordering::SeqCst)
+                }; // Lock released here
+
                 num_records += barcode_set.len();
                 num_corrections += collapse_barcode_set(
                     &mut barcode_set,
