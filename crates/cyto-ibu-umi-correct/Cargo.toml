@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-umi-correct"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 
 [dependencies]
@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 hashbrown = { workspace = true }
 
 petgraph = "0.8.3"
+crossbeam-channel = "0.5"
 
 [lints]
 workspace = true
