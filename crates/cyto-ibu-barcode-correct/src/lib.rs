@@ -1,4 +1,5 @@
 mod channel_iter;
+mod chunk;
 
 use std::{
     collections::HashMap,
@@ -16,12 +17,12 @@ use bytesize::ByteSize;
 use crossbeam_channel::unbounded;
 use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output, match_output_stderr};
-use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
+use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder};
 use ibu::{Reader, Record};
 use log::{debug, info, trace};
 use serde::Serialize;
 
-use crate::channel_iter::ChannelIterator;
+use crate::{channel_iter::ChannelIterator, chunk::IbuExternalChunk};
 
 fn open_whitelist<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read + Send>> {
     debug!("Opening whitelist file: {}", path.as_ref().display());
@@ -340,7 +341,11 @@ pub fn run_with_prebuilt_whitelist_and_sort(
 
         let memory_limit =
             ByteSize::from_str(&args.options.memory_limit).unwrap_or(ByteSize::gib(5));
-        let output_path = args.options.output.as_ref().map(std::borrow::ToOwned::to_owned);
+        let output_path = args
+            .options
+            .output
+            .as_ref()
+            .map(std::borrow::ToOwned::to_owned);
         let num_threads = args.options.num_threads;
 
         let handle = thread::spawn(move || -> Result<()> {
@@ -348,13 +353,13 @@ pub fn run_with_prebuilt_whitelist_and_sort(
             header_clone.write_bytes(&mut output)?;
 
             let channel_iter = ChannelIterator { receiver: rx };
-            let chunk_size = (memory_limit.as_u64() / 24) as usize;
+            let chunk_size = (memory_limit.as_u64() / ibu::SIZE_RECORD as u64) as usize;
 
             let sorter: ExternalSorter<
                 ibu::Record,
                 ibu::BinaryFormatError,
                 LimitedBufferBuilder,
-                RmpExternalChunk<ibu::Record>,
+                IbuExternalChunk,
             > = ExternalSorterBuilder::new()
                 .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
                 .with_threads_number(num_threads)
@@ -378,7 +383,7 @@ pub fn run_with_prebuilt_whitelist_and_sort(
     let mut second_pass = Vec::new();
 
     trace!("Starting first pass...");
-    for record in reader {
+    for record in reader.into_iter() {
         let record = record?;
         let barcode = record.barcode();
         stats.total += 1;
