@@ -1,4 +1,4 @@
-use ibu::{Header, VERSION};
+use ibu::Header;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -12,11 +12,10 @@ impl TryFrom<GeometryR1> for Header {
     #[allow(clippy::cast_possible_truncation)]
     fn try_from(geometry: GeometryR1) -> Result<Self, Self::Error> {
         let header = Header::new(
-            VERSION,                 // IBU version
             geometry.barcode as u32, // Barcode size
             geometry.umi as u32,     // UMI size
-            false,                   // Sorted flag
-        )?;
+        );
+        header.validate()?;
         Ok(header)
     }
 }

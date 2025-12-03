@@ -15,9 +15,9 @@ fn build_csv_writer<W: Write>(writer: W) -> csv::Writer<W> {
 
 fn write_header<W: Write>(header: Header, writer: &mut W) -> Result<()> {
     writeln!(writer, "# IBU")?;
-    writeln!(writer, "# version: {}", header.version())?;
-    writeln!(writer, "# barcode_len: {}", header.barcode_len())?;
-    writeln!(writer, "# umi_len: {}", header.umi_len())?;
+    writeln!(writer, "# version: {}", header.version)?;
+    writeln!(writer, "# barcode_len: {}", header.bc_len)?;
+    writeln!(writer, "# umi_len: {}", header.umi_len)?;
     writeln!(writer, "# is_sorted: {}", header.sorted())?;
     Ok(())
 }
@@ -31,11 +31,8 @@ fn dump_encoded_records<W: Write, R: Read>(
     for record in reader {
         let record = record?;
         if let Some(features) = features {
-            let f_record: (u64, u64, &str) = (
-                record.barcode(),
-                record.umi(),
-                &features[record.index() as usize],
-            );
+            let f_record: (u64, u64, &str) =
+                (record.barcode, record.umi, &features[record.index as usize]);
             csv_writer.serialize(f_record)?;
         } else {
             csv_writer.serialize(record)?;
@@ -51,17 +48,13 @@ fn decode_record<'a, 'b>(
     barcode_buffer: &'a mut Vec<u8>,
     umi_buffer: &'b mut Vec<u8>,
 ) -> Result<(&'a str, &'b str, u64)> {
-    bitnuc::from_2bit(
-        record.barcode(),
-        header.barcode_len() as usize,
-        barcode_buffer,
-    )?;
+    bitnuc::from_2bit(record.barcode, header.bc_len as usize, barcode_buffer)?;
     let barcode_str = std::str::from_utf8(barcode_buffer)?;
 
-    bitnuc::from_2bit(record.umi(), header.umi_len() as usize, umi_buffer)?;
+    bitnuc::from_2bit(record.umi, header.umi_len as usize, umi_buffer)?;
     let umi_str = std::str::from_utf8(umi_buffer)?;
 
-    Ok((barcode_str, umi_str, record.index()))
+    Ok((barcode_str, umi_str, record.index))
 }
 
 #[allow(clippy::cast_possible_truncation)]

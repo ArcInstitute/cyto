@@ -10,7 +10,7 @@ use anyhow::{Context, Result, bail};
 use bitnuc::as_2bit;
 use cyto_cli::ibu::ArgsBarcode;
 use cyto_io::{match_input, match_output, match_output_stderr};
-use ibu::{Reader, Record};
+use ibu::{Reader, Record, Writer};
 use log::{debug, info, trace};
 use serde::Serialize;
 
@@ -227,8 +227,8 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     let header = reader.header();
 
     // Write the header to the output file
-    let mut output = match_output(args.options.output.as_ref())?;
-    header.write_bytes(&mut output)?;
+    let output = match_output(args.options.output.as_ref())?;
+    let mut writer = Writer::new(output, header)?;
 
     // Process the records sequentially
     let mut stats = CorrectStats::default();
@@ -241,7 +241,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
     );
     for record in reader {
         let record = record?;
-        let barcode = record.barcode();
+        let barcode = record.barcode;
         stats.total += 1;
 
         // Case where barcode is in the whitelist without error
@@ -250,7 +250,7 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
                 if args.options.skip_second_pass {
                     stats.ambiguous += 1;
                     if args.options.include {
-                        record.write_bytes(&mut output)?;
+                        writer.write_record(&record)?;
                     }
                 } else {
                     second_pass.push(record); // Record is ambiguous - will try to resolve in second pass
@@ -260,14 +260,14 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
                 stats.matched += 1;
                 stats.unchanged += 1;
                 whitelist.increment(barcode);
-                record.write_bytes(&mut output)?;
+                writer.write_record(&record)?;
             }
             Correction::Corrected(corrected) => {
                 stats.matched += 1;
                 stats.corrected += 1;
                 whitelist.increment(corrected);
-                let new_record = Record::new(corrected, record.umi(), record.index());
-                new_record.write_bytes(&mut output)?;
+                let new_record = Record::new(corrected, record.umi, record.index);
+                writer.write_record(&new_record)?;
             }
         }
     }
@@ -278,32 +278,32 @@ pub fn run_with_prebuilt_whitelist(args: &ArgsBarcode, mut whitelist: Whitelist)
             args.input.input.as_deref().unwrap_or("stdin")
         );
         for record in second_pass {
-            match whitelist.ambiguously_correct_to_(record.barcode()) {
+            match whitelist.ambiguously_correct_to_(record.barcode) {
                 Correction::Ambiguous => {
                     stats.ambiguous += 1;
                     // Write ambiguous unless user wants to remove
                     if args.options.include {
-                        record.write_bytes(&mut output)?;
+                        writer.write_record(&record)?;
                     }
                 }
                 Correction::Unchanged => {
                     stats.matched += 1;
                     stats.unchanged += 1;
-                    record.write_bytes(&mut output)?;
+                    writer.write_record(&record)?;
                 }
                 Correction::Corrected(corrected) => {
                     stats.matched += 1;
                     stats.corrected += 1;
                     stats.corrected_via_counts += 1;
-                    let new_record = Record::new(corrected, record.umi(), record.index());
-                    new_record.write_bytes(&mut output)?;
+                    let new_record = Record::new(corrected, record.umi, record.index);
+                    writer.write_record(&new_record)?;
                 }
             }
         }
     }
 
     // Flush the output
-    output.flush()?;
+    writer.finish()?;
 
     // Write the statistics to stderr
     write_statistics(args.options.log.as_ref(), stats)?;
