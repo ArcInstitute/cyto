@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use ext_sort::{ExternalSorter, ExternalSorterBuilder, LimitedBufferBuilder, RmpExternalChunk};
-use ibu::Reader;
+use ibu::{Reader, Writer};
 
 use cyto_cli::ibu::ArgsSort;
 use cyto_io::{match_input, match_output};
@@ -15,20 +15,21 @@ const RECORD_SIZE: u64 = 24;
 /// Default memory limit per sort operation (5GiB)
 const DEFAULT_MEMORY_LIMIT: u64 = 5;
 
-fn pull_records<R: std::io::Read>(
-    reader: Reader<R>,
-) -> Result<Vec<ibu::Record>, ibu::BinaryFormatError> {
+fn pull_records<R: std::io::Read>(reader: Reader<R>) -> Result<Vec<ibu::Record>, ibu::IbuError> {
     reader.collect()
 }
 
 pub fn run(args: &ArgsSort) -> Result<()> {
     // Build IO handles
     let input = match_input(args.input.input.as_ref())?;
-    let mut output = match_output(args.output.as_ref())?;
+    let output = match_output(args.output.as_ref())?;
 
     // Initialize the reader and header
     let reader = Reader::new(input)?;
     let header = reader.header();
+
+    // Initialize the writer
+    let mut writer = Writer::new(output, header)?;
 
     if args.in_memory {
         trace!(
@@ -38,13 +39,7 @@ pub fn run(args: &ArgsSort) -> Result<()> {
         let mut collection = pull_records(reader)?;
         collection.sort_unstable();
 
-        // Write the header
-        header.write_bytes(&mut output)?;
-
-        // Write the records
-        for record in collection {
-            record.write_bytes(&mut output)?;
-        }
+        writer.write_batch(&collection)?;
     } else {
         trace!(
             "Sorting externally: {}",
@@ -65,7 +60,7 @@ pub fn run(args: &ArgsSort) -> Result<()> {
         // Build the external sorter with count-limited buffer
         let sorter: ExternalSorter<
             ibu::Record,
-            ibu::BinaryFormatError,
+            ibu::IbuError,
             LimitedBufferBuilder,
             RmpExternalChunk<ibu::Record>,
         > = ExternalSorterBuilder::new()
@@ -83,38 +78,21 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             "Failed to sort with external sort for file"
         })?;
 
-        // Write the header
-        header.write_bytes(&mut output)?;
-
         // Write the records
-        for record in sorted {
-            record
-                .with_context(|| {
-                    error!(
-                        "Failed to deserialize record for file: {}",
-                        args.input.input.as_deref().unwrap_or("stdin")
-                    );
-                    "Failed to deserialize record"
-                })?
-                .write_bytes(&mut output)
-                .with_context(|| {
-                    error!(
-                        "Failed to write record for file: {}",
-                        args.input.input.as_deref().unwrap_or("stdin")
-                    );
-                    "Failed to write record"
-                })?;
+        for result in sorted {
+            let record = result.with_context(|| {
+                error!(
+                    "Failed to deserialize record for file: {}",
+                    args.input.input.as_deref().unwrap_or("stdin")
+                );
+                "Failed to deserialize record"
+            })?;
+            writer.write_record(&record)?;
         }
     }
 
     // Flush the output
-    output.flush().with_context(|| {
-        error!(
-            "Failed to flush writer for file: {}",
-            args.input.input.as_deref().unwrap_or("stdin")
-        );
-        "Failed to flush writer"
-    })?;
+    writer.finish()?;
 
     Ok(())
 }

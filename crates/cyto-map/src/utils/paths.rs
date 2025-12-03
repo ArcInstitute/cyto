@@ -23,7 +23,7 @@ pub fn build_filepaths(outdir: &str, probe_mapper: &ProbeMapper) -> Result<Vec<S
 pub fn delete_empty_path(filepath: &str) -> Result<(), std::io::Error> {
     if let Ok(metadata) = std::fs::metadata(filepath) {
         // If the file only contains a header, delete it
-        if metadata.len() == ibu::SIZE_HEADER as u64 {
+        if metadata.len() == ibu::HEADER_SIZE as u64 {
             debug!("Removing empty IBU file: {filepath}");
             std::fs::remove_file(filepath)?;
         }

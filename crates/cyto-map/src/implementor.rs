@@ -276,7 +276,7 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImpl
             Ok(index) => {
                 // Write the record
                 let record = ibu::Record::new(barcode, umi, index as u64);
-                record.write_bytes(&mut self.local_output_buf)?;
+                self.local_output_buf.write_all(record.as_bytes())?;
                 self.local_stats.increment_mapped();
             }
             Err(why) => {
@@ -327,7 +327,7 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingImplementor<M> {
             Ok(index) => {
                 // Write the record
                 let record = ibu::Record::new(barcode, umi, index as u64);
-                record.write_bytes(&mut self.local_output_buf)?;
+                self.local_output_buf.write_all(record.as_bytes())?;
                 self.local_stats.increment_mapped();
             }
             Err(why) => {
@@ -370,7 +370,7 @@ where
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
     let mut writer = open_file_handle(filename)?;
-    header.write_bytes(&mut writer)?;
+    writer.write_all(header.as_bytes())?;
     writer.flush()?;
 
     // Wrap the writer in an Arc<Mutex<W>>
@@ -433,7 +433,7 @@ where
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
     let mut writer = open_file_handle(filename)?;
-    header.write_bytes(&mut writer)?;
+    writer.write_all(header.as_bytes())?;
     writer.flush()?;
 
     // Wrap the writer in an Arc<Mutex<W>>

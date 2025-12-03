@@ -308,7 +308,7 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingProb
                     .expect("Could not access probe alias index");
 
                 // Write the record to the correct output buffer
-                record.write_bytes(&mut self.local_output_buffers[probe_alias_index])?;
+                self.local_output_buffers[probe_alias_index].write_all(record.as_bytes())?;
 
                 // Increment the mapped reads counter
                 self.local_stats.increment_mapped();
@@ -374,7 +374,7 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingProbeImplementor<M> {
                     .expect("Could not access probe alias index");
 
                 // Write the record to the correct output buffer
-                record.write_bytes(&mut self.local_output_buffers[probe_alias_index])?;
+                self.local_output_buffers[probe_alias_index].write_all(record.as_bytes())?;
 
                 // Increment the mapped reads counter
                 self.local_stats.increment_mapped();
@@ -432,7 +432,7 @@ where
 
     // Write the header to each output file
     for writer in &mut writers {
-        header.write_bytes(writer)?;
+        writer.write_all(header.as_bytes())?;
         writer.flush()?;
     }
 
@@ -508,7 +508,7 @@ where
 
     // Write the header to each output file
     for writer in &mut writers {
-        header.write_bytes(writer)?;
+        writer.write_all(header.as_bytes())?;
         writer.flush()?;
     }
 

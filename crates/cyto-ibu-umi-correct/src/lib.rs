@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use ibu::{Reader, Record};
+use ibu::{Reader, Record, Writer};
 use petgraph::{Graph, graph::NodeIndex};
 
 use cyto_cli::ibu::ArgsUmi;
@@ -49,10 +49,10 @@ impl AddAssign for Statistics {
 /// Sorts the record set by barcode, index, and UMI.
 fn resort_record_set(record_set: &mut [Record]) {
     record_set.sort_by(|a, b| {
-        a.barcode()
-            .cmp(&b.barcode())
-            .then(a.index().cmp(&b.index()))
-            .then(a.umi().cmp(&b.umi()))
+        a.barcode
+            .cmp(&b.barcode)
+            .then(a.index.cmp(&b.index))
+            .then(a.umi.cmp(&b.umi))
     });
 }
 
@@ -82,9 +82,7 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
             let x = index_set[i];
             let y = index_set[j];
 
-            if x.index() == y.index()
-                && bitnuc::twobit::hdist_scalar(x.umi(), y.umi(), umi_len)? <= 1
-            {
+            if x.index == y.index && bitnuc::twobit::hdist_scalar(x.umi, y.umi, umi_len)? <= 1 {
                 graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ());
                 n_edges += 1;
             }
@@ -112,8 +110,7 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
             // Skip if child is a duplicate of parent
             if child != parent {
                 // Update the child's UMI to match the parent's (in-place)
-                index_set[child_idx.index()] =
-                    Record::new(child.barcode(), parent.umi(), child.index());
+                index_set[child_idx.index()] = Record::new(child.barcode, parent.umi, child.index);
 
                 n_corrections += 1;
             }
@@ -151,7 +148,7 @@ fn collapse_barcode_set(
     let mut n_corrections = 0;
     for record in set_iter {
         // If the index is the same, add the record to the index set
-        if record.index() == last_record.index() {
+        if record.index == last_record.index {
             index_set.push(*record);
 
         // If the index is different, collapse the index set and clear it
@@ -184,7 +181,7 @@ fn write_statistics<P: AsRef<Path>>(log_path: Option<P>, stats: Statistics) -> R
 
 fn process_records_parallel<R, W>(
     reader: ibu::Reader<R>,
-    output: W,
+    mut writer: ibu::Writer<W>,
     header: ibu::Header,
     threads: usize,
 ) -> Result<Statistics>
@@ -199,7 +196,6 @@ where
 
     // Spawn writer thread
     let writer_handle = std::thread::spawn(move || -> Result<()> {
-        let mut output = output;
         let mut next_expected = 0;
         let mut buffer: BTreeMap<usize, Vec<Record>> = BTreeMap::new();
 
@@ -208,13 +204,11 @@ where
 
             // Write all sequential records we have
             while let Some(records) = buffer.remove(&next_expected) {
-                for record in records {
-                    record.write_bytes(&mut output)?;
-                }
-                output.flush()?;
+                writer.write_batch(&records)?;
                 next_expected += 1;
             }
         }
+        writer.finish()?;
         Ok(())
     });
 
@@ -249,7 +243,7 @@ where
                 num_corrections += collapse_barcode_set(
                     &mut barcode_set,
                     &mut corrected_set,
-                    header.umi_len() as usize,
+                    header.umi_len as usize,
                 )?;
 
                 // sort the correct set by barcode-umi-index
@@ -286,11 +280,11 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     let header = reader.header();
 
     // Initialize the output writer
-    let mut output = match_output(args.options.output.as_ref())?;
-    header.write_bytes(&mut output)?;
+    let output = match_output(args.options.output.as_ref())?;
+    let writer = Writer::new(output, header)?;
 
     // Process records in parallel
-    let stats = process_records_parallel(reader, output, header, args.options.threads())?;
+    let stats = process_records_parallel(reader, writer, header, args.options.threads())?;
 
     // write output statistics
     write_statistics(args.options.log.as_ref(), stats)?;

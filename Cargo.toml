@@ -22,7 +22,7 @@ binseq = "0.7.5"
 bitnuc = "0.3.0"
 env_logger = "0.11.8"
 hashbrown = "0.16.0"
-ibu = "0.1.1"
+ibu = "0.2.1"
 log = "0.4.28"
 niffler = { version = "3.0.0", features = ["gz"] }
 paraseq = "0.4.3"
