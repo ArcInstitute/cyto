@@ -4,6 +4,7 @@ use std::{
     io::{BufRead, BufReader, Read},
     ops::Add,
     path::Path,
+    sync::Arc,
 };
 
 use anyhow::{Context, Result, bail};
@@ -59,9 +60,9 @@ pub struct Whitelist {
     /// The set of keys in the whitelist and their abundances
     keys: HashMap<u64, usize>,
     /// The mismatch table for fast correction
-    mismatch_table: bitnuc_mismatch::MismatchTable,
+    mismatch_table: Arc<bitnuc_mismatch::MismatchTable>,
     /// The ambiguous mismatch table for fast identification of ambiguous parents
-    ambiguous_table: bitnuc_mismatch::AmbiguousMismatchTable,
+    ambiguous_table: Arc<bitnuc_mismatch::AmbiguousMismatchTable>,
 }
 impl Whitelist {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -78,6 +79,10 @@ impl Whitelist {
         let (mismatch_table, ambiguous_table) =
             bitnuc_mismatch::build_mismatch_table_with_ambiguous(&key_vec, slen)?;
         info!("Finished disambiguation");
+
+        // Wrap the mismatch tables in Arcs for shared ownership
+        let mismatch_table = Arc::new(mismatch_table);
+        let ambiguous_table = Arc::new(ambiguous_table);
 
         Ok(Self {
             keys,
