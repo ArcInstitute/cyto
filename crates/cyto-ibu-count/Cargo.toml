@@ -6,13 +6,14 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 bitnuc = { workspace = true }
+csv = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-core = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
 log = { workspace = true }
 hashbrown = { workspace = true }
-csv = "1"
+
 gzp = "2.0.0"
 
 [lints]
