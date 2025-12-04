@@ -134,14 +134,14 @@ fn aggregate_unit(
     let mut aggr_to_uidx = HashMap::new();
     for f in features {
         if !aggr_to_uidx.contains_key(f) {
-            aggr_to_uidx.insert(f.to_string(), aggr_to_uidx.len());
+            aggr_to_uidx.insert(f.clone(), aggr_to_uidx.len());
         }
     }
 
     // Creates a vector to store the aggregated feature names
     let mut agg_features = vec![String::new(); aggr_to_uidx.len()];
     for (feature, idx) in &aggr_to_uidx {
-        agg_features[*idx] = feature.to_string();
+        agg_features[*idx] = feature.clone();
     }
 
     let mut agg_counts = BarcodeIndexCounts::with_capacity(counts.get_num_barcodes());

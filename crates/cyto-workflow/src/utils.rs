@@ -224,7 +224,28 @@ pub fn ibu_steps<P: AsRef<Path>>(
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
 
-    if !wf_args.skip_barcode {
+    if wf_args.skip_barcode {
+        let sort_args = ArgsSort::from_wf_path(
+            ibu_path,
+            &sort_path,
+            wf_args.sort_in_memory,
+            wf_args.memory_limit.clone(),
+            threads,
+        );
+
+        info!("Sorting {ibu_path} -> {sort_path}");
+        let start = Instant::now();
+        cyto_ibu_sort::run(&sort_args)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::InitialSort,
+            elapsed,
+        ));
+
+        debug!("Removing unsorted file: {ibu_path}");
+        std::fs::remove_file(ibu_path)?;
+    } else {
         let bc_path = sort_path.replace(".sort.ibu", ".barcode.ibu");
         let bc_log = outdir
             .as_ref()
@@ -233,7 +254,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join(format!("{base_ibu_path}.barcode.json"));
 
         let barcode_args = ArgsBarcode::from_wf_path(
-            &ibu_path,
+            ibu_path,
             &bc_path,
             &wf_args.whitelist,
             bc_log,
@@ -256,7 +277,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         ));
 
         debug!("Removing uncorrected file: {ibu_path}");
-        std::fs::remove_file(&ibu_path)?;
+        std::fs::remove_file(ibu_path)?;
 
         sort_path = bc_path.replace(".barcode.ibu", ".barcode.sort.ibu");
         info!("Sorting barcode corrected file: {bc_path} -> {sort_path}");
@@ -279,27 +300,6 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
         debug!("Removing unsorted file: {bc_path}");
         std::fs::remove_file(&bc_path)?;
-    } else {
-        let sort_args = ArgsSort::from_wf_path(
-            ibu_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
-
-        info!("Sorting {ibu_path} -> {sort_path}");
-        let start = Instant::now();
-        cyto_ibu_sort::run(&sort_args)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::InitialSort,
-            elapsed,
-        ));
-
-        debug!("Removing unsorted file: {ibu_path}");
-        std::fs::remove_file(ibu_path)?;
     }
 
     if !wf_args.skip_umi {
