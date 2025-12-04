@@ -1,10 +1,11 @@
 [package]
 name = "cyto-workflow"
-version = "0.2.20"
+version = "0.2.21"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+csv = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-ibu-barcode-correct = { workspace = true }
 cyto-ibu-count = { workspace = true }
@@ -13,6 +14,9 @@ cyto-ibu-sort = { workspace = true }
 cyto-ibu-umi-correct = { workspace = true }
 cyto-map = { workspace = true }
 log = { workspace = true }
+parking_lot = { workspace = true }
+serde = { workspace = true }
+
 rayon = "1.11.0"
 glob = "0.3.3"
 

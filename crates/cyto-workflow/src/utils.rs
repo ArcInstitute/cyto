@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
+use std::time::Instant;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
@@ -15,6 +16,7 @@ use glob::glob;
 use log::{debug, error, info, warn};
 
 use crate::gex::DEFAULT_OUTPUT_BASENAME;
+use crate::timing::{Module, ModuleTiming};
 
 pub fn identify_ibu_files<P: AsRef<Path>>(outdir: P) -> Result<Vec<String>> {
     let ibu_files = glob(&format!("{}/ibu/*.ibu", outdir.as_ref().display()))?
@@ -216,11 +218,34 @@ pub fn ibu_steps<P: AsRef<Path>>(
     wf_mode: WorkflowMode,
     geomux_args: Option<ArgsGeomux>,
     threads: usize,
-) -> Result<()> {
+) -> Result<Vec<ModuleTiming>> {
+    let mut timings = Vec::new();
+
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
 
-    if !wf_args.skip_barcode {
+    if wf_args.skip_barcode {
+        let sort_args = ArgsSort::from_wf_path(
+            ibu_path,
+            &sort_path,
+            wf_args.sort_in_memory,
+            wf_args.memory_limit.clone(),
+            threads,
+        );
+
+        info!("Sorting {ibu_path} -> {sort_path}");
+        let start = Instant::now();
+        cyto_ibu_sort::run(&sort_args)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::InitialSort,
+            elapsed,
+        ));
+
+        debug!("Removing unsorted file: {ibu_path}");
+        std::fs::remove_file(ibu_path)?;
+    } else {
         let bc_path = sort_path.replace(".sort.ibu", ".barcode.ibu");
         let bc_log = outdir
             .as_ref()
@@ -229,7 +254,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
             .join(format!("{base_ibu_path}.barcode.json"));
 
         let barcode_args = ArgsBarcode::from_wf_path(
-            &ibu_path,
+            ibu_path,
             &bc_path,
             &wf_args.whitelist,
             bc_log,
@@ -242,10 +267,17 @@ pub fn ibu_steps<P: AsRef<Path>>(
         };
 
         info!("Barcode Correcting {ibu_path} -> {bc_path}");
+        let start = Instant::now();
         cyto_ibu_barcode_correct::run_with_prebuilt_whitelist(&barcode_args, whitelist)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::BarcodeCorrection,
+            elapsed,
+        ));
 
         debug!("Removing uncorrected file: {ibu_path}");
-        std::fs::remove_file(&ibu_path)?;
+        std::fs::remove_file(ibu_path)?;
 
         sort_path = bc_path.replace(".barcode.ibu", ".barcode.sort.ibu");
         info!("Sorting barcode corrected file: {bc_path} -> {sort_path}");
@@ -257,24 +289,17 @@ pub fn ibu_steps<P: AsRef<Path>>(
             wf_args.memory_limit.clone(),
             threads,
         );
+        let start = Instant::now();
         cyto_ibu_sort::run(&sort_args)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::PostBarcodeCorrectionSort,
+            elapsed,
+        ));
 
         debug!("Removing unsorted file: {bc_path}");
         std::fs::remove_file(&bc_path)?;
-    } else {
-        let sort_args = ArgsSort::from_wf_path(
-            ibu_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
-
-        info!("Sorting {ibu_path} -> {sort_path}");
-        cyto_ibu_sort::run(&sort_args)?;
-
-        debug!("Removing unsorted file: {ibu_path}");
-        std::fs::remove_file(ibu_path)?;
     }
 
     if !wf_args.skip_umi {
@@ -288,7 +313,14 @@ pub fn ibu_steps<P: AsRef<Path>>(
         let umi_args = ArgsUmi::from_wf_path(&sort_path, &umi_path, umi_log, threads);
 
         info!("UMI Correcting {sort_path} -> {umi_path}");
+        let start = Instant::now();
         cyto_ibu_umi_correct::run(&umi_args)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::UmiCorrection,
+            elapsed,
+        ));
 
         debug!("Removing uncorrected file: {sort_path}");
         std::fs::remove_file(&sort_path)?;
@@ -307,7 +339,11 @@ pub fn ibu_steps<P: AsRef<Path>>(
             reads_path.display()
         );
         let reads_args = ArgsReads::from_wf_path(&sort_path, &reads_path);
+
+        let start = Instant::now();
         cyto_ibu_reads::run(&reads_args)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(base_ibu_path, Module::ReadsDump, elapsed));
     }
 
     // Locate the expected feature path
@@ -337,7 +373,10 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     // Run the counting step
     info!("Counting {sort_path} -> {}", count_path.display());
+    let start = Instant::now();
     cyto_ibu_count::run(&count_args)?;
+    let elapsed = start.elapsed();
+    timings.push(ModuleTiming::new(base_ibu_path, Module::Counting, elapsed));
 
     if !wf_args.keep_ibu {
         debug!("Removing IBU file: {sort_path}");
@@ -346,7 +385,14 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     // Convert to h5ad if required
     if wf_args.to_h5ad() {
+        let start = Instant::now();
         convert_to_h5ad(&count_path)?;
+        let elapsed = start.elapsed();
+        timings.push(ModuleTiming::new(
+            base_ibu_path,
+            Module::ConversionH5ad,
+            elapsed,
+        ));
 
         match wf_mode {
             WorkflowMode::Gex => {
@@ -354,12 +400,20 @@ pub fn ibu_steps<P: AsRef<Path>>(
                     let filter_stats_outdir = outdir.as_ref().join("stats").join("filtering");
                     std::fs::create_dir_all(&filter_stats_outdir)
                         .context("Unable to build filter stats output directory")?;
+
+                    let start = Instant::now();
                     filter_h5ad(
                         &count_path,
                         &filter_stats_outdir,
                         base_ibu_path,
                         wf_args.keep_unfiltered,
                     )?;
+                    let elapsed = start.elapsed();
+                    timings.push(ModuleTiming::new(
+                        base_ibu_path,
+                        Module::DropletFiltering,
+                        elapsed,
+                    ));
                 }
             }
             WorkflowMode::Crispr => {
@@ -373,6 +427,8 @@ pub fn ibu_steps<P: AsRef<Path>>(
                     let Some(geomux_args) = geomux_args else {
                         bail!("Expected geomux arguments")
                     };
+
+                    let start = Instant::now();
                     assign_guides(
                         &count_path,
                         &assignment_outdir,
@@ -381,18 +437,39 @@ pub fn ibu_steps<P: AsRef<Path>>(
                         geomux_args,
                         threads,
                     )?;
+                    let elapsed = start.elapsed();
+                    timings.push(ModuleTiming::new(
+                        base_ibu_path,
+                        Module::GuideAssignment,
+                        elapsed,
+                    ));
                 }
             }
         }
     }
 
-    Ok(())
+    Ok(timings)
 }
 
 pub fn write_done_file<P: AsRef<Path>>(outdir: P, args: &RefWorkflowCommand) -> Result<()> {
     let done_file = outdir.as_ref().join(".done");
     let mut file = std::fs::File::create(&done_file)?;
     writeln!(&mut file, "{args:#?}")?;
+    Ok(())
+}
+
+pub fn write_timings_file<P: AsRef<Path>>(outdir: P, timings: &[ModuleTiming]) -> Result<()> {
+    let timings_file = outdir.as_ref().join(".timings.tsv");
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_path(&timings_file)?;
+
+    for timing in timings {
+        writer.serialize(timing)?;
+    }
+    writer.flush()?;
+
     Ok(())
 }
 
