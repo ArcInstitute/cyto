@@ -18,7 +18,7 @@ cyto-map = { path = "crates/cyto-map" }
 cyto-workflow = { path = "crates/cyto-workflow" }
 
 anyhow = "1.0.100"
-binseq = "0.7.5"
+binseq = "0.7.8"
 bitnuc = "0.3.0"
 csv = "1.3.1"
 env_logger = "0.11.8"
