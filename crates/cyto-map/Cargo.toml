@@ -15,7 +15,7 @@ log = { workspace = true }
 paraseq = { workspace = true }
 parking_lot = { workspace = true }
 
-indicatif = "0.18.0"
+indicatif = "0.18.3"
 
 [lints]
 workspace = true

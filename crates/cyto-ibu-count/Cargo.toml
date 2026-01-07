@@ -14,7 +14,7 @@ ibu = { workspace = true }
 log = { workspace = true }
 hashbrown = { workspace = true }
 
-gzp = "2.0.0"
+gzp = "2.0.2"
 
 [lints]
 workspace = true
