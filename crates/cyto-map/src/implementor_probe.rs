@@ -295,7 +295,7 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingProb
         self._process_record(
             &r1.seq(),
             &r2.seq(),
-            r1.qual().map(|q| q.split_at(self.geometry.umi).1),
+            r1.qual().map(|q| q.split_at(self.geometry.barcode).1),
         )?;
         Ok(())
     }
@@ -319,7 +319,7 @@ impl<M: Mapper> binseq::ParallelProcessor for MappingProbeImplementor<M> {
             record.xseq(),
             record
                 .has_quality()
-                .then(|| record.squal().split_at(self.geometry.umi).1),
+                .then(|| record.squal().split_at(self.geometry.barcode).1),
         )?;
         Ok(())
     }
