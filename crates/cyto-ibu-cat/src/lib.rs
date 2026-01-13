@@ -2,6 +2,7 @@ use anyhow::{Result, bail};
 
 use cyto_cli::ibu::ArgsCat;
 use cyto_io::match_output;
+use ibu::Writer;
 
 pub fn run(args: &ArgsCat) -> Result<()> {
     // Build input handles
@@ -11,9 +12,6 @@ pub fn run(args: &ArgsCat) -> Result<()> {
         .iter()
         .map(|input| ibu::Reader::from_path(input))
         .collect::<Result<Vec<_>, _>>()?;
-
-    // Build output handles
-    let mut output = match_output(args.output.as_ref())?;
 
     // Validate all headers are the same
     let mut og_header = None;
@@ -28,18 +26,19 @@ pub fn run(args: &ArgsCat) -> Result<()> {
     }
     let header = og_header.expect("No headers found... Something went wrong!");
 
-    // Write the header
-    header.write_bytes(&mut output)?;
+    // Build output handles
+    let output = match_output(args.output.as_ref())?;
+    let mut writer = Writer::new(output, header)?;
 
     // Dump all records into the output
     for reader in &mut inputs {
         for record in reader {
-            record?.write_bytes(&mut output)?;
+            writer.write_record(&record?)?;
         }
     }
 
     // Flush the output
-    output.flush()?;
+    writer.finish()?;
 
     Ok(())
 }

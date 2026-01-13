@@ -5,14 +5,14 @@ use parking_lot::Mutex;
 
 pub struct BarcodeSetReader<It>
 where
-    It: Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>>,
+    It: Iterator<Item = Result<ibu::Record, ibu::IbuError>>,
 {
     reader: It,
     remainder: Option<ibu::Record>,
 }
 impl<It> BarcodeSetReader<It>
 where
-    It: Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>>,
+    It: Iterator<Item = Result<ibu::Record, ibu::IbuError>>,
 {
     pub fn new(reader: It) -> Self {
         BarcodeSetReader {
@@ -40,7 +40,7 @@ where
                 if record < last {
                     bail!("Input is unsorted; expecting sorted IBU input for UMI correction");
                 }
-                if record.barcode() == last.barcode() {
+                if record.barcode == last.barcode {
                     bset.push(record);
                 } else {
                     self.remainder = Some(record);

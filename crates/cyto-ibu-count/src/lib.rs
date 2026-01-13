@@ -55,11 +55,7 @@ fn decode_record(
     header: Header,
     barcode_buffer: &mut Vec<u8>,
 ) -> Result<(&str, u64, u64)> {
-    bitnuc::from_2bit(
-        record.barcode(),
-        header.barcode_len() as usize,
-        barcode_buffer,
-    )?;
+    bitnuc::from_2bit(record.barcode(), header.bc_len as usize, barcode_buffer)?;
     let barcode_str = std::str::from_utf8(barcode_buffer)?;
     Ok((barcode_str, record.count(), record.index()))
 }
@@ -91,7 +87,7 @@ fn dump_decoded_records_features<W: Write>(
     for record in records {
         bitnuc::from_2bit(
             record.barcode(),
-            header.barcode_len() as usize,
+            header.bc_len as usize,
             &mut barcode_buffer,
         )?;
 
@@ -138,14 +134,14 @@ fn aggregate_unit(
     let mut aggr_to_uidx = HashMap::new();
     for f in features {
         if !aggr_to_uidx.contains_key(f) {
-            aggr_to_uidx.insert(f.to_string(), aggr_to_uidx.len());
+            aggr_to_uidx.insert(f.clone(), aggr_to_uidx.len());
         }
     }
 
     // Creates a vector to store the aggregated feature names
     let mut agg_features = vec![String::new(); aggr_to_uidx.len()];
     for (feature, idx) in &aggr_to_uidx {
-        agg_features[*idx] = feature.to_string();
+        agg_features[*idx] = feature.clone();
     }
 
     let mut agg_counts = BarcodeIndexCounts::with_capacity(counts.get_num_barcodes());
@@ -272,7 +268,7 @@ fn write_counts_mtx<P: AsRef<Path>>(
         } else {
             // decode the barcode
             dbuf.clear();
-            bitnuc::from_2bit(record.barcode(), header.barcode_len() as usize, &mut dbuf)?;
+            bitnuc::from_2bit(record.barcode(), header.bc_len as usize, &mut dbuf)?;
 
             // handle suffix
             extend_suffix(&mut dbuf, suffix);

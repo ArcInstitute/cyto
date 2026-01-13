@@ -1,7 +1,8 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use log::{info, trace};
+use parking_lot::Mutex;
 use rayon::{
     ThreadPoolBuilder,
     iter::{IntoParallelRefIterator, ParallelIterator},
@@ -10,8 +11,12 @@ use rayon::{
 use cyto_cli::workflow::GexMappingCommand;
 use cyto_ibu_barcode_correct::Whitelist;
 
-use crate::utils::{
-    RefWorkflowCommand, ibu_steps, identify_ibu_files, remove_ibu_dir, write_done_file,
+use crate::{
+    timing::{Module, ModuleTiming},
+    utils::{
+        RefWorkflowCommand, ibu_steps, identify_ibu_files, remove_ibu_dir, write_done_file,
+        write_timings_file,
+    },
 };
 
 pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
@@ -19,8 +24,16 @@ pub const DEFAULT_OUTPUT_BASENAME: &str = "output";
 pub fn run(args: &GexMappingCommand) -> Result<()> {
     args.wf_args.validate_requirements(args.mode())?;
 
+    // initialize the timing vector
+    let all_timings = Arc::new(Mutex::new(Vec::new()));
+
     info!("Running GEX Mapping Workflow");
+    let start = Instant::now();
     cyto_map::gex::run(&args.gex_args)?;
+    let elapsed = start.elapsed();
+    all_timings
+        .lock()
+        .push(ModuleTiming::new("All-Barcodes", Module::Mapping, elapsed));
 
     let whitelist = if args.wf_args.skip_barcode {
         None
@@ -47,7 +60,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
         );
         pool.install(|| {
             ibu_files.par_iter().try_for_each(|path| -> Result<()> {
-                ibu_steps(
+                let timings = ibu_steps(
                     path,
                     &args.gex_args.output.outdir,
                     &args.wf_args,
@@ -55,7 +68,9 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
                     args.mode(),
                     None,
                     threads_per_file,
-                )
+                )?;
+                all_timings.lock().extend_from_slice(&timings);
+                Ok(())
             })
         })?;
     } else {
@@ -63,7 +78,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             "{}/ibu/{}.ibu",
             args.gex_args.output.outdir, DEFAULT_OUTPUT_BASENAME
         );
-        ibu_steps(
+        let timings = ibu_steps(
             &ibu_file,
             &args.gex_args.output.outdir,
             &args.wf_args,
@@ -72,6 +87,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
             None,
             args.gex_args.runtime.num_threads(),
         )?;
+        all_timings.lock().extend_from_slice(&timings);
     }
 
     if !args.wf_args.keep_ibu {
@@ -82,6 +98,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
         &args.gex_args.output.outdir,
         &RefWorkflowCommand::GexMapping(args),
     )?;
+    write_timings_file(&args.gex_args.output.outdir, &all_timings.lock())?;
 
     Ok(())
 }

@@ -149,7 +149,7 @@ pub enum DeduplicateError {
 }
 
 pub fn deduplicate_umis(
-    mut record_stream: impl Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>>,
+    mut record_stream: impl Iterator<Item = Result<ibu::Record, ibu::IbuError>>,
     max_index: u64,
 ) -> Result<BarcodeIndexCounts> {
     let mut counts = BarcodeIndexCounts::new();
@@ -164,9 +164,9 @@ pub fn deduplicate_umis(
     for record in record_stream {
         let record = record?;
 
-        if record.index() > max_index {
+        if record.index > max_index {
             bail!(DeduplicateError::MaxIndexExceeded {
-                index: record.index(),
+                index: record.index,
                 max_index
             });
         }
@@ -177,24 +177,24 @@ pub fn deduplicate_umis(
         }
 
         // Handle new barcode
-        if last_record.barcode() != record.barcode() {
+        if last_record.barcode != record.barcode {
             // Process the last UMI group before moving to new barcode
             umi_state.update_max();
             if umi_state.has_clear_winner() {
-                counts.insert(last_record.barcode(), umi_state.max_index);
+                counts.insert(last_record.barcode, umi_state.max_index);
             }
-            umi_state.reset(record.index());
-        } else if last_record.umi() != record.umi() {
+            umi_state.reset(record.index);
+        } else if last_record.umi != record.umi {
             // Process the current UMI group before moving to new UMI
             umi_state.update_max();
             if umi_state.has_clear_winner() {
-                counts.insert(last_record.barcode(), umi_state.max_index);
+                counts.insert(last_record.barcode, umi_state.max_index);
             }
-            umi_state.reset(record.index());
-        } else if last_record.index() != record.index() {
+            umi_state.reset(record.index);
+        } else if last_record.index != record.index {
             // Handle new index within same UMI
             umi_state.update_max();
-            umi_state.update_index(record.index());
+            umi_state.update_index(record.index);
         } else {
             // Same index within same UMI
             umi_state.current_abundance += 1;
@@ -207,7 +207,7 @@ pub fn deduplicate_umis(
     // Process the final record
     umi_state.update_max();
     if umi_state.has_clear_winner() {
-        counts.insert(last_record.barcode(), umi_state.max_index);
+        counts.insert(last_record.barcode, umi_state.max_index);
     }
 
     Ok(counts)
@@ -219,7 +219,7 @@ mod testing {
 
     pub fn build_record_stream(
         records: Vec<ibu::Record>,
-    ) -> impl Iterator<Item = Result<ibu::Record, ibu::BinaryFormatError>> {
+    ) -> impl Iterator<Item = Result<ibu::Record, ibu::IbuError>> {
         records.into_iter().map(Ok)
     }
 

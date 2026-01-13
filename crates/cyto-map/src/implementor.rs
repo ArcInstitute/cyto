@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use binseq::{ParallelReader, prelude::*};
-use bitnuc::twobit::{encode, split_packed};
+use bitnuc::twobit::encode_with_invalid;
 use cyto_core::{
     GeometryR1, Mapper, MappingStatistics,
     mappers::{Adjustment, MapperOffset, MappingError},
@@ -38,14 +38,10 @@ pub struct MappingImplementor<M: Mapper> {
     barcode_buf: Vec<u64>,
     umi_buf: Vec<u64>,
 
-    // Temporary decoding buffer for R2 sequences (binseq)
-    dbuf: Vec<u8>,
-
     // Temporary buffer for output
     local_output_buf: Vec<u8>,
 
-    // Output file name
-    // filename: String,
+    // Output file handle
     file: Arc<Mutex<Box<dyn Write + Send>>>,
 
     // Exact matching flag
@@ -98,7 +94,6 @@ impl<M: Mapper> MappingImplementor<M> {
             global_stats,
             barcode_buf: Vec::new(),
             umi_buf: Vec::new(),
-            dbuf: Vec::new(),
             local_output_buf: Vec::new(),
             file,
             exact_matching,
@@ -111,13 +106,12 @@ impl<M: Mapper> MappingImplementor<M> {
         }
     }
 
-    fn encode_r1<R: paraseq::Record>(&mut self, record: &R) -> Result<bool> {
+    fn encode_r1(&mut self, seq: &[u8]) -> Result<bool> {
         // clear encoding buffers
         self.barcode_buf.clear();
         self.umi_buf.clear();
 
         // Split R1 into barcode and UMI
-        let seq = record.seq();
         if seq.len() != self.geometry.barcode + self.geometry.umi {
             bail!("R1 sequence length does not match provided geometry");
         }
@@ -125,10 +119,9 @@ impl<M: Mapper> MappingImplementor<M> {
         let seq_umi = &seq[self.geometry.barcode..];
 
         // encode barcode and UMI
-        if encode(seq_bc, &mut self.barcode_buf).is_err()
-            || encode(seq_umi, &mut self.umi_buf).is_err()
+        if encode_with_invalid(seq_bc, &mut self.barcode_buf).is_err()
+            || encode_with_invalid(seq_umi, &mut self.umi_buf).is_err()
         {
-            // If an error occurs, it is due to an `N` in either the barcode or UMI
             return Ok(false);
         }
 
@@ -138,32 +131,6 @@ impl<M: Mapper> MappingImplementor<M> {
             );
         }
         Ok(true)
-    }
-
-    fn split_r1<B: BinseqRecord>(&mut self, record: &B) -> Result<()> {
-        // Split R1 into barcode and UMI
-        if record.slen() as usize != self.geometry.barcode + self.geometry.umi {
-            bail!("R1 sequence length does not match provided geometry");
-        }
-        split_packed(
-            record.sbuf(),
-            record.slen() as usize,
-            self.geometry.barcode,
-            &mut self.barcode_buf,
-            &mut self.umi_buf,
-        )?;
-        if self.barcode_buf.len() != 1 || self.umi_buf.len() != 1 {
-            bail!(
-                "Barcode split assertion length failed - both barcode and UMI must be under 32bp"
-            );
-        }
-        Ok(())
-    }
-
-    fn decode_r2<B: BinseqRecord>(&mut self, record: &B) -> Result<()> {
-        self.dbuf.clear();
-        record.decode_x(&mut self.dbuf)?;
-        Ok(())
     }
 
     fn statistics(&self) -> Statistics {
@@ -245,13 +212,11 @@ impl<M: Mapper> MappingImplementor<M> {
             ));
         }
     }
-}
-impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImplementor<M> {
-    // fn process_record_pair(&mut self, pair: binseq::RefRecordPair) -> Result<()> {
-    fn process_record_pair(&mut self, r1: Rf, r2: Rf) -> paraseq::parallel::Result<()> {
+
+    fn _process_record(&mut self, r1: &[u8], r2: &[u8], umi_qual: Option<&[u8]>) -> Result<()> {
         // Split R1 into barcode and UMI and 2-bit encode them
-        if !self.encode_r1(&r1)? {
-            return Ok(()); // Skip the record if it contains an `N`
+        if !self.encode_r1(r1)? {
+            return Ok(()); // Skip the record if error on encoding barcode or UMI
         }
 
         // Shorthand the barcode and UMI
@@ -259,9 +224,8 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImpl
         let umi = self.umi_buf[0];
 
         if self.umi_quality_removal
-            && let Some(qual) = r1.qual()
+            && let Some(umi_qual) = umi_qual
         {
-            let (_, umi_qual) = qual.split_at(self.geometry.umi);
             if umi_qual
                 .iter()
                 .any(|q| (*q - ILLUMINA_QUALITY_OFFSET) < UMI_MIN_QUALITY)
@@ -272,11 +236,11 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImpl
         }
 
         // Map the sequence
-        match self.map_sequence(&r2.seq()) {
+        match self.map_sequence(r2) {
             Ok(index) => {
                 // Write the record
                 let record = ibu::Record::new(barcode, umi, index as u64);
-                record.write_bytes(&mut self.local_output_buf)?;
+                self.local_output_buf.write_all(record.as_bytes())?;
                 self.local_stats.increment_mapped();
             }
             Err(why) => {
@@ -284,6 +248,16 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImpl
             }
         }
 
+        Ok(())
+    }
+}
+impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImplementor<M> {
+    fn process_record_pair(&mut self, r1: Rf, r2: Rf) -> paraseq::parallel::Result<()> {
+        self._process_record(
+            &r1.seq(),
+            &r2.seq(),
+            r1.qual().map(|q| q.split_at(self.geometry.barcode).1),
+        )?;
         Ok(())
     }
 
@@ -300,41 +274,14 @@ impl<M: Mapper, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MappingImpl
 }
 
 impl<M: Mapper> binseq::ParallelProcessor for MappingImplementor<M> {
-    fn process_record<B: BinseqRecord>(&mut self, pair: B) -> binseq::Result<()> {
-        // Split R1 into barcode and UMI
-        self.split_r1(&pair)?;
-
-        // Decode R2
-        self.decode_r2(&pair)?;
-
-        // Shorthand the barcode and UMI
-        let barcode = self.barcode_buf[0];
-        let umi = self.umi_buf[0];
-
-        if self.umi_quality_removal && pair.has_quality() {
-            let (_, umi_qual) = pair.squal().split_at(self.geometry.umi);
-            if umi_qual
-                .iter()
-                .any(|q| (*q - ILLUMINA_QUALITY_OFFSET) < UMI_MIN_QUALITY)
-            {
-                self.local_stats.increment_umi_qual_failure();
-                return Ok(());
-            }
-        }
-
-        // Map the sequence
-        match self.map_sequence(&self.dbuf) {
-            Ok(index) => {
-                // Write the record
-                let record = ibu::Record::new(barcode, umi, index as u64);
-                record.write_bytes(&mut self.local_output_buf)?;
-                self.local_stats.increment_mapped();
-            }
-            Err(why) => {
-                self.local_stats.increment_unmapped(why);
-            }
-        }
-
+    fn process_record<B: BinseqRecord>(&mut self, record: B) -> binseq::Result<()> {
+        self._process_record(
+            record.sseq(),
+            record.xseq(),
+            record
+                .has_quality()
+                .then(|| record.squal().split_at(self.geometry.barcode).1),
+        )?;
         Ok(())
     }
 
@@ -370,7 +317,7 @@ where
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
     let mut writer = open_file_handle(filename)?;
-    header.write_bytes(&mut writer)?;
+    writer.write_all(header.as_bytes())?;
     writer.flush()?;
 
     // Wrap the writer in an Arc<Mutex<W>>
@@ -433,7 +380,7 @@ where
     // Initialize the header and write it to the output file
     let header = ibu::Header::try_from(geometry)?;
     let mut writer = open_file_handle(filename)?;
-    header.write_bytes(&mut writer)?;
+    writer.write_all(header.as_bytes())?;
     writer.flush()?;
 
     // Wrap the writer in an Arc<Mutex<W>>

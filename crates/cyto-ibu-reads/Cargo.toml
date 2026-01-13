@@ -1,19 +1,18 @@
 [package]
 name = "cyto-ibu-reads"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
 bitnuc = { workspace = true }
+csv = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 hashbrown = { workspace = true }
 ibu = { workspace = true, features = ["serde"] }
 log = { workspace = true }
 serde = { workspace = true }
-
-csv = "1"
 
 [lints]
 workspace = true

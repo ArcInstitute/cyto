@@ -80,7 +80,7 @@ fn process_records<R: Read, W: Write>(
     for record in &mut *reader {
         let record = record?;
 
-        if !whitelist.matches(record.barcode()) {
+        if !whitelist.matches(record.barcode) {
             continue;
         }
 
@@ -89,19 +89,19 @@ fn process_records<R: Read, W: Write>(
                 bail!("Expected sorted IBU input")
             }
 
-            if record.barcode() == last_record.barcode() {
-                if record.umi() != last_record.umi() {
+            if record.barcode == last_record.barcode {
+                if record.umi != last_record.umi {
                     n_umis += 1;
                 }
                 n_reads += 1;
             } else {
                 print_record_stats(
                     writer,
-                    last_record.barcode(),
+                    last_record.barcode,
                     n_umis,
                     n_reads,
                     encoded,
-                    header.barcode_len(),
+                    header.bc_len,
                     &mut dbuf,
                 )?;
                 n_reads = 1;
@@ -119,11 +119,11 @@ fn process_records<R: Read, W: Write>(
     if let Some(last_record) = last_record {
         print_record_stats(
             writer,
-            last_record.barcode(),
+            last_record.barcode,
             n_umis,
             n_reads,
             encoded,
-            header.barcode_len(),
+            header.bc_len,
             &mut dbuf,
         )?;
     } else {
