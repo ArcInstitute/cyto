@@ -1,280 +1,334 @@
 # cyto
 
-A command-line tool for processing structured single-cell data.
+Ultra-high throughput processing for 10x Genomics Flex single-cell sequencing.
 
 ## Overview
 
-`cyto` is designed to efficiently process single-cell sequencing data that follows fixed sequence geometries.
-It handles sequencing data where:
+`cyto` is a fast, memory-efficient processor for 10x Genomics Flex single-cell RNA sequencing data, designed specifically for production-scale analysis. It handles:
 
-- Read 1 (R1) contains a fixed structure with:
-  - Cell barcode of known length
-  - UMI (Unique Molecular Identifier) of known length
+- **Gene expression profiling** from FFPE samples and fresh tissue
+- **Highly multiplexed experiments** (16-plex Flex-V1)
+- **CRISPR perturbation screens** (Perturb-seq) with efficient guide assignment
+- **Probe-based multiplexing** for clinical and archived samples
 
-- Read 2 (R2) contains target sequences with predictable structure
-
-While cyto can be extended for any single-cell protocol with fixed read geometry, it includes built-in support for:
-
-1. CRISPR screens (with anchor + protospacer structure)
-2. GEX systems
-3. Flex Probe-based multiplexing
+`cyto` achieves dramatic performance improvements through algorithmic innovations optimized for Flex's fixed sequence geometry, making previously prohibitive experiments computationally feasible.
 
 ### Key Features
 
-- Fast parsing of structured single-cell data
-- [BINSEQ](https://github.com/arcinstitute/binseq) file support
-- Efficient [IBU](https://github.com/noamteyssier/ibu) binary storage format (IBU: Index-Barcode-UMI)
-- UMI-aware molecule counting
-- Flexible mapping strategies for different sequence geometries
-- Support for multiplexed [FLEX](https://www.10xgenomics.com/products/flex-gene-expression) experiments via probe sequences
+- **Ultra-fast processing**: Processes 320k-cell datasets in minutes rather than hours
+- **Memory efficient**: Runs on smaller cloud instances with reduced resource requirements
+- **Highly accurate**: 99.85% concordance with standard CellRanger outputs, identical cell clustering
+- **Modular architecture**: Independent, composable tools for flexible workflows
+- **Production-ready**: Built for atlas-scale projects and genome-wide screens
+- **[BINSEQ](https://github.com/arcinstitute/binseq) support**: Efficient binary format for highly parallel sequence parsing
+- **Compact [IBU format](https://github.com/noamteyssier/ibu)**: Binary Index-Barcode-UMI storage for efficient read processing
 
 ## Installation
 
-`cyto` can be installed via cargo:
+Install via cargo:
 
 ```bash
-cargo install --path cyto
+cargo install cyto
 ```
 
 Or from source:
 
 ```bash
-git clone github.com:arcinstitute/cyto
+git clone https://github.com/arcinstitute/cyto
 cd cyto
 cargo install --path crates/cyto
 ```
 
-## Usage
+## Quick Start
 
-### Structure
+### Gene Expression Workflow
 
-`cyto` is organized into two main components:
-
-1. `cyto map`: Mapping reads to target sequences and generating [IBU files](https://github.com/noamteyssier/ibu)
-2. `cyto ibu`: Processing IBU files to sort and count molecules.
-
-The internal subcommands of these components are modular and can be used independently for various stages of the analysis pipeline.
-
-However, `cyto` includes built-in pipelines for common workflows with the `workflow` subcommand.
-
-### Mapping reads to target sequences
-
-`cyto map` is used to map reads to target sequences and generate IBU files.
-
-The general structure of the usage is as follows:
+Process Flex gene expression data with probe demultiplexing:
 
 ```bash
-# Map BINSEQ file(s)
-cyto map <mode> -c <feature_table> -p <probe_file> -o <output_dir> <BINSEQ> <...BINSEQ>
-# Map FASTQ files
-cyto map <mode> -c <feature_table> -p <probe_file> -o <output_dir> <R1> <R2> <...R1> <...R2>
-```
-
-Where:
-
-1. `<mode>` is the mapping mode (e.g. `crispr`, `gex`, `generic`)
-3. `-b` is the path to the BINSEQ file
-3. `-i <R1> -I <R2>` are the paths to the R1 and R2 fastq files, respectively
-4. `-c <feature_table>` is a feature table that maps the target sequences to their corresponding barcodes. Each mode has a specific format for the feature table.
-5. `-p <probe_file>` is an **optional probe file** that can be used to demultiplex the reads by probe sequences.
-6. `-o <output_dir>` is the output directory where results will be written (defaults to `./cyto_out`)
-
-The output of `cyto map` creates a structured directory containing IBU files, statistics, and metadata organized as follows:
-
-```text
-Output Directory Structure
---------------------------
-<output_dir>/
-├── metadata/
-│   └── features.tsv          # Feature index for the target sequences
-├── stats/
-│   └── mapping.json         # Statistics on the mapping process
-└── ibu/
-    ├── output.ibu           # IBU file (single output mode)
-    └── <probe_name>.ibu     # IBU files (one per probe when using probe demultiplexing)
-```
-
-#### CRISPR processing
-
-The CRISPR mode is used to map reads from CRISPR screens to their corresponding guide sequences.
-
-The expected structure of the feature table is a 3 column TSV file with the following columns:
-
-```text
-1. Name of the guide
-2. Anchor sequence nucleotides
-3. Protospacer sequence nucleotides
-```
-
-**Note:** There should be no header in the feature table.
-
-```bash
-cyto map crispr \
-    -c data/libraries/crispr_guides.tsv \
-    -o output_directory \
-    data/sequencing/sample.bq
-```
-
-#### GEX processing
-
-The GEX mode is used to map reads from GEX systems to their corresponding barcodes.
-
-The expected structure of the feature table is a 3 column TSV file with the following columns:
-
-```text
-1. Name of the barcode
-2. Name of the aggregation (duplicate of barcode if not aggregating genes)
-3. Barcode sequence nucleotides
-```
-
-**Note:** There should be no header in the feature table.
-
-```bash
-cyto map gex \
-    -c data/libraries/gex_barcodes.tsv \
-    -o output_directory \
-    data/sequencing/sample.bq
-```
-
-#### Probe-based processing
-
-Both of the above methods can be combined with probe-based multiplexing.
-
-The probe file is a 3 column TSV file with the following columns:
-
-```text
-1. True sequence of the probe
-2. Probe sequence alias
-3. Probe name
-```
-
-**Note:** There should be no header in the probe file.
-
-**Note:** The nucleotide sequence to match of the probe is not necessarily the same as the probe sequence. These sequences should be provided by 10X Genomics or the manufacturer.
-
-```bash
-# Mapping CRISPR - demultiplexing by probe
-cyto map crispr \
-    -c data/libraries/crispr_guides.tsv \
-    -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-    -o output_directory \
-    data/sequencing/sample.bq
-
-# Mapping GEX - demultiplexing by probe
-cyto map gex \
-    -c data/libraries/gex_barcodes.tsv \
-    -p data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-    -o output_directory \
-    data/sequencing/sample.bq
-```
-
-### Multi-threading
-
-You can take advantage of multi-threading by specifying the number of threads with the `-T` flag.
-By default this is set to 8 threads, but it can be set to the number of available cores on your machine with the `-T0` flag.
-If you're running on a machine with limited resources, you can set the number of threads to 1 with the `-T1` flag.
-
-### Processing IBU files
-
-Once the reads have been mapped to target sequences and an IBU file has been generated, the `cyto ibu` command can be used to process the IBU file.
-
-Many of these commands make use of multi-threading, see each subcommands `--help` for details.
-
-#### Sorting IBU files
-
-The output of `cyto map` is an unsorted IBU file. To sort the IBU file, use the `sort` subcommand:
-
-```bash
-# Sorting an IBU file
-cyto ibu sort -i sample.ibu -o sample.sorted.ibu
-```
-
-#### Correcting Cellular Barcodes to a Whitelist
-
-A common operation for single-cell sequencing is to correct observed barcodes that are within a certain Hamming distance of a whitelist of known barcodes.
-This can be done using the `barcode` subcommand:
-
-```bash
-# Correcting cellular barcodes to a whitelist
-cyto ibu barcode -i sample.ibu -o sample.corrected.ibu -w data/metadata/737K-fixed-rna-profiling.txt.gz
-```
-
-#### Correcting Unique Molecular Identifiers (UMIs)
-
-Another common operation is to correct for low-abundance UMIs that are within a minimal Hamming distance to more abundant UMIs within a Cell-Barcode+Transcript.
-This can be done using the `umi` subcommand:
-
-```bash
-# Correcting UMIs to a whitelist
-cyto ibu umi -i sample.ibu -o sample.corrected.ibu
-```
-
-#### Counting molecules
-
-The `count` subcommand is used to generate the barcode-index count matrix after deduplicating UMIs.
-This is the count matrix that would be used for downstream single-cell sequencing analyses.
-It expects a sorted IBU file as input.
-
-```bash
-# Counting molecules from a sorted IBU file
-cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv
-
-# Piping the sort and count commands
-cyto ibu sort -i sample.ibu -p | cyto ibu count -o sample.counts.tsv
-
-# Including the feature names in the output
-# This is useful for downstream analyses
-cyto ibu count -i sample.sorted.ibu -o sample.counts.tsv -f output_directory/metadata/features.tsv
-
-# Write counts as mtx (will be written to a subdirectory)
-cyto ibu count -i sample.sorted.ibu -f output_directory/metadata/features.tsv -o cyto_out_mtx
-```
-
-**Note:** The features are generated from `cyto map` and are located in the `metadata/features.tsv` file within the output directory. These are used to map the feature sequences to their numerical index in the count matrix.
-
-### Workflow Commands
-
-`cyto` includes automated workflow commands that combine mapping and IBU processing steps. These workflows automatically handle the directory structure and process all IBU files (including probe-demultiplexed files) through the complete pipeline:
-
-```bash
-# Complete CRISPR workflow: map → sort → barcode correction → UMI correction → count
-cyto workflow crispr \
-    -c crispr_guides.tsv \
-    -w whitelist.txt \
-    -o workflow_output \
-    sample.bq
-
-# Complete GEX workflow: map → sort → barcode correction → UMI correction → count
 cyto workflow gex \
-    -c gex_barcodes.tsv \
-    -w whitelist.txt \
-    -o workflow_output \
-    sample.bq
+    -c gene_probes.tsv \
+    -w cell_barcode_whitelist.txt \
+    -p probe_barcodes.txt \
+    -o output_dir \
+    sample.vbq
 ```
 
-The workflow commands create an extended directory structure:
+### CRISPR Screen Workflow
 
-```text
-Workflow Output Directory Structure
------------------------------------
-<output_dir>/
+Process Perturb-seq data with guide assignment:
+
+```bash
+cyto workflow crispr \
+    -c guide_library.tsv \
+    -w cell_barcode_whitelist.txt \
+    -p probe_barcodes.txt \
+    -o output_dir \
+    sample.vbq
+```
+
+Both workflows automatically handle:
+- Read mapping to features
+- Barcode correction
+- UMI deduplication
+- Molecule counting
+- Guide assignment (CRISPR mode)
+
+### Output Structure
+
+Workflows generate organized outputs:
+
+```
+output_dir/
 ├── metadata/
-│   └── features.tsv          # Feature index
+│   └── features.tsv         # Feature index
 ├── stats/
 │   └── mapping.json         # Mapping statistics
 ├── ibu/
-│   └── *.sort.ibu           # Final processed IBU files
+│   ├── probe1.sort.ibu      # Processed IBU files
+│   └── probe2.sort.ibu      # (one per probe)
 └── counts/
-    └── *.counts.tsv         # Count matrices (one per sample/probe)
+    ├── probe1.counts.tsv    # Count matrices
+    └── probe2.counts.tsv    # (one per probe)
 ```
 
-To convert the MTX to an [h5ad](https://anndata.readthedocs.io/en/latest/) file, see attached `scripts/mtx_to_h5ad`.
-Dependencies and runtime of script is managed by the python package manager [uv](https://docs.astral.sh/uv/).
+## Input Formats
+
+### Feature Libraries
+
+**Gene Expression** (`-c` flag) - 3-column TSV, no header:
+
+```
+ENSG00000000003    TSPAN6       ACGTACGTACGTACGT
+ENSG00000000005    TNMD         TGCATGCATGCATGCA
+```
+
+Columns: Gene ID | Gene Name | Probe Sequence
+
+**CRISPR Guides** (`-c` flag) - 3-column TSV, no header:
+
+```
+gene1_guide1    GGGGCCCC    ACGTACGTACGTACGTACGT
+gene1_guide2    GGGGCCCC    TGCATGCATGCATGCATGCA
+```
+
+Columns: Guide Name | Anchor Sequence | Protospacer Sequence
+
+### Probe Barcodes (Optional)
+
+For multiplexed experiments (`-p` flag) - 3-column TSV, no header:
+
+```
+ACGTACGT    BC001    ProbeSet1
+TGCATGCA    BC002    ProbeSet2
+```
+
+Columns: True Sequence | Alias | Probe Name
+
+**Note**: Probe sequences should match those provided by 10x Genomics for your specific chemistry.
+
+### Cell Barcode Whitelist
+
+Standard 10x barcode whitelist (`-w` flag):
 
 ```bash
-# make script executable
-chmod +x ./scripts/mtx_to_h5ad.py
-
-# Convert the mtx directory to h5ad
-./scripts/mtx_to_h5ad.py <your_mtx_dir> output.h5ad
+# Example: 737K barcode list for GEM-X
+-w 737K-fixed-rna-profiling.txt.gz
 ```
+
+### Sequence Files
+
+`cyto` accepts both FASTQ and BINSEQ formats:
+
+```bash
+# BINSEQ (recommended - faster parsing)
+cyto workflow gex -c probes.tsv -w whitelist.txt sample.vbq
+
+# FASTQ paired-end
+cyto workflow gex -c probes.tsv -w whitelist.txt sample_R1.fastq.gz sample_R2.fastq.gz
+```
+
+If you have a large collection of sequence files that can be processed as a single input you can provide them all on the CLI:
+```bash
+# BINSEQ
+cyto workflow gex -c probes.tsv -w whitelist.txt *.vbq
+
+# FASTQ paired-end
+cyto workflow gex -c probes.tsv -w whitelist.txt *.fastq.gz
+```
+
+**Note**: Currently supports Flex-V1 (16-plex). Flex-V2 (364-plex) support coming soon.
+
+## Advanced Usage
+
+### Alternative Sequence Geometries
+
+`cyto` has some support for specifying alternative sequence geometries on the different modes.
+
+This is useful when designing custom experimental designs that differ from the original 10X sequence structure.
+
+### GEX
+
+```text
+R1: [barcode][umi]
+R2: [gex-probe][spacer][flex-probe][...]
+```
+
+`cyto` allows you to adjust the `spacer` length using the `--spacer` flag as well as the `barcode` (`--barcode`) and `umi` (`--umi`) lengths.
+
+
+### CRISPR
+```text
+R1: [barcode][umi]
+R2: [...][flex-probe][lookback][anchor][protospacer][...]
+```
+
+`cyto` allows you to adjust the `lookback` length using the `--lookback` flag, as well as the `anchor` offset using the `--offset` flag.
+The `offset` is the number of bases between the start of the sequence and the start of the `anchor`.
+The `lookback` is the number of bases between the start of the `anchor` and the end of the `flex-probe`.
+
+The `barcode` and `umi` lengths can be adjusted using the `--barcode` and `--umi` flags, respectively.
+
+> Note: If you're unsure about the `offset` or `lookback` for your library we suggest doing a quick check using [`bqtools grep`](https://github.com/arcinstitute/bqtools?tab=readme-ov-file#grep) with one of your anchor sequences and one of your flex-probe sequences:
+> 
+> ```bash
+> bqtools grep <input.vbq> <anchor_sequence> <flex_probe_sequence>
+> ```
+>
+> This will highlight the `offset` and `lookback` sequences in your sequences on the command-line and then you can easily count the number of bases between them and identify the start of the anchor sequence.
+
+### Modular Pipeline
+
+For advanced users, `cyto` exposes individual processing steps:
+
+```bash
+# 1. Map reads to features
+cyto map gex -c probes.tsv -p probe_barcodes.txt -o map_out sample.vbq
+
+# 2. Sort IBU files
+cyto ibu sort -i map_out/ibu/probe1.ibu -o probe1.sorted.ibu
+
+# 3. Correct cell barcodes
+cyto ibu barcode -i probe1.sorted.ibu -w whitelist.txt -o probe1.corrected.ibu
+
+# 4. Correct UMIs
+cyto ibu umi -i probe1.corrected.ibu -o probe1.umi.ibu
+
+# 5. Count molecules
+cyto ibu count -i probe1.umi.ibu -f map_out/metadata/features.tsv -o counts.tsv
+```
+
+This modular design allows:
+- Custom processing pipelines
+- Integration with orchestration tools (Snakemake, Nextflow)
+- Independent scaling of pipeline components
+- Checkpointing and resumption
+
+### Multi-threading
+
+Control parallelization with `-T`:
+
+```bash
+# Use all available cores
+cyto workflow gex -c probes.tsv -w whitelist.txt -T0 sample.vbq
+
+# Use specific number of threads
+cyto workflow gex -c probes.tsv -w whitelist.txt -T32 sample.vbq
+
+# Single-threaded (minimal resources)
+cyto workflow gex -c probes.tsv -w whitelist.txt -T1 sample.vbq
+```
+
+Default: All available threads
+
+### Output Formats
+
+#### TSV Format (default)
+
+Tab-separated sparse matrix:
+
+```
+barcode    feature    count
+ACGTACGT   ENSG00000000003   5
+ACGTACGT   ENSG00000000005   12
+```
+
+#### Matrix Market Format
+
+For downstream analysis with scanpy/Seurat:
+
+```bash
+cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --format mtx
+```
+
+Generates:
+- `matrix.mtx` - Sparse count matrix
+- `barcodes.tsv` - Cell barcodes
+- `features.tsv` - Feature names
+
+#### Convert to h5ad
+
+Use [pycyto](https://github.com/arcinstitute/pycyto) utilities for format conversion and aggregation:
+
+```bash
+# Convert MTX to h5ad
+pycyto mtx-to-h5ad counts_mtx/ output.h5ad
+
+# Aggregate cyto output into a single h5ad per sample
+pycyto aggregate <config>.json <cyto_output_dir> <aggr_dir>
+```
+
+## Guide Assignment (Perturb-seq)
+
+The CRISPR workflow includes automatic guide assignment using the [geomux](https://github.com/noamteyssier/geomux) algorithm, which:
+
+- Scales linearly with data sparsity (not total dimensions)
+- Handles multi-guide perturbations
+- Works on unfiltered cells (no pre-filtering needed)
+- Performs hypergeometric testing with FDR correction
+
+Guide assignments are included in the count matrix output.
+
+## Performance Considerations
+
+`cyto` is optimized for:
+- **Fixed-geometry protocols**: Flex libraries with predetermined sequence structures
+- **Multiplexed datasets**: Efficient probe demultiplexing at scale
+- **Large-scale screens**: Million-cell perturbation experiments
+
+`cyto` is **not** designed for:
+- Splice-aware alignment (use STAR, kallisto|bustools, Alevin-fry)
+- Transcript discovery or quantification
+- Variable read architectures
+- Full-length transcript sequencing
+
+## Software Availability
+
+All components are available under the MIT license:
+
+- **cyto**: https://github.com/arcinstitute/cyto
+- **pycyto utilities**: https://github.com/arcinstitute/pycyto
+- **geomux**: https://github.com/noamteyssier/geomux
+- **cell-filter**: https://github.com/arcinstitute/cell-filter
+- **IBU format**: https://github.com/noamteyssier/ibu
+
+Rust packages on crates.io | Python packages on PyPI
+
+## Citation
+
+If you use `cyto` in your research, please cite:
+
+```
+Teyssier, N. and Dobin, A. (2025). cyto: ultra-high throughput processing 
+of 10x-flex single cell sequencing. bioRxiv.
+```
+
+## Support
+
+- **Issues**: https://github.com/arcinstitute/cyto/issues
+- **Documentation**: See `--help` for any command
+- **Examples**: See `justfile` for complete workflows
+
+## Acknowledgements
+
+Developed at Arc Institute with support for computational resources.
