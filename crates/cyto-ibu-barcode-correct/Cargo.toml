@@ -2,6 +2,12 @@
 name = "cyto-ibu-barcode-correct"
 version = "0.1.5"
 edition = "2024"
+license = "BSD-3-Clause"
+authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
+description = "Ultra high-throughput processing of 10x-flex single-cell sequencing data"
+repository = "https://github.com/arcinstitute/cyto"
+categories = ["command-line-utilities", "science::bioinformatics"]
+keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 
 [dependencies]
 anyhow = { workspace = true }
