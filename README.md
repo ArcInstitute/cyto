@@ -25,9 +25,14 @@ Ultra-high throughput processing for 10x Genomics Flex single-cell sequencing.
 
 ## Installation
 
+> Note:
+> This crate makes use of SIMD instructions for improved performance.
+> To make sure you take advantage of SIMD instructions on your machine set the following environment variable before compiling:
+
 Install via cargo:
 
 ```bash
+export RUSTFLAGS="-C target-cpu=native";
 cargo install cyto
 ```
 
@@ -36,7 +41,13 @@ Or from source:
 ```bash
 git clone https://github.com/arcinstitute/cyto
 cd cyto
+
+# install with cargo
+export RUSTFLAGS="-C target-cpu=native"
 cargo install --path crates/cyto
+
+# or with just
+just install
 ```
 
 ## Quick Start
@@ -316,10 +327,10 @@ Rust packages on crates.io | Python packages on PyPI
 
 ## Citation
 
-If you use `cyto` in your research, please cite:
+If you use `cyto` in your research, please cite our [BioRxiv preprint](https://www.biorxiv.org/content/10.64898/2026.01.21.700936v1):
 
 ```
-Teyssier, N. and Dobin, A. (2025). cyto: ultra-high throughput processing 
+Teyssier, N. and Dobin, A. (2025). cyto: ultra high-throughput processing 
 of 10x-flex single cell sequencing. bioRxiv.
 ```
 
