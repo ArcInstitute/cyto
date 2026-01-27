@@ -60,7 +60,7 @@ impl MultiPairedInput {
     pub fn is_binseq(&self) -> bool {
         self.inputs
             .iter()
-            .all(|path| path.ends_with(".bq") || path.ends_with(".vbq"))
+            .all(|path| path.ends_with(".bq") || path.ends_with(".vbq") || path.ends_with("cbq"))
     }
 
     pub fn to_fx_readers(&self) -> Result<Vec<FxReaderPair>> {

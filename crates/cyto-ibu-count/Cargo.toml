@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-count"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]

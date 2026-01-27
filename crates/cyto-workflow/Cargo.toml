@@ -1,6 +1,6 @@
 [package]
 name = "cyto-workflow"
-version = "0.2.21"
+version = "0.2.22"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]

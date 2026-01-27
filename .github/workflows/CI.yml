@@ -70,9 +70,13 @@ jobs:
           retention-days: 1
 
   integration-map-crispr:
-    name: Integration map CRISPR
+    name: Integration map CRISPR (${{ matrix.format }})
     needs: [build-binary]
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq"]
+        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -84,43 +88,35 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: run test (fastq)
+      - name: run test (${{ matrix.format }}-${{ matrix.probe }})
         run: |
-          export CYTO_LOG=trace; \
+          export CYTO_LOG=trace
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/crispr_R1.fastq.gz ./data/sequencing/crispr_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
+          fi
+
+          if [ "${{ matrix.probe }}" = "probe" ]; then
+            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
+          else
+            PROBE_FLAG=""
+          fi
+
           ./cyto map crispr \
             -c ./data/libraries/crispr_guides.tsv \
+            $PROBE_FLAG \
             --force \
-            ./data/sequencing/crispr_R1.fastq.gz \
-            ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            --force \
-            ./data/sequencing/crispr.bq
-      - name: run test (fastq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force \
-            ./data/sequencing/crispr_R1.fastq.gz \
-            ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force \
-            ./data/sequencing/crispr.bq
+            $INPUT_FILES
 
   integration-map-gex:
-    name: Integration map GEX
+    name: Integration map GEX (${{ matrix.format }})
     needs: [build-binary]
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq"]
+        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -132,43 +128,35 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: run test (fastq)
+      - name: run test (${{ matrix.format }}-${{ matrix.probe }})
         run: |
-          export CYTO_LOG=trace; \
+          export CYTO_LOG=trace
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/gex_R1.fastq.gz ./data/sequencing/gex_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
+          fi
+
+          if [ "${{ matrix.probe }}" = "probe" ]; then
+            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
+          else
+            PROBE_FLAG=""
+          fi
+
           ./cyto map gex \
             -c ./data/libraries/gex_probes.tsv \
+            $PROBE_FLAG \
             --force \
-            ./data/sequencing/gex_R1.fastq.gz \
-            ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map gex \
-            -c ./data/libraries/gex_probes.tsv \
-            --force \
-            ./data/sequencing/gex.bq
-      - name: run test (fastq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map gex \
-            -c ./data/libraries/gex_probes.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force \
-            ./data/sequencing/gex_R1.fastq.gz \
-            ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto map gex \
-            -c ./data/libraries/gex_probes.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            --force \
-            ./data/sequencing/gex.bq
+            $INPUT_FILES
 
   integration-wf-crispr:
-    name: Integration workflow CRISPR
+    name: Integration workflow CRISPR (${{ matrix.format }})
     needs: [build-binary]
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq", "vbq", "cbq"]
+        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -180,55 +168,38 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: run test (fastq)
+      - name: run test (${{ matrix.format }}-${{ matrix.probe }})
         run: |
-          export CYTO_LOG=trace; \
+          export CYTO_LOG=trace
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/crispr_R1.fastq.gz ./data/sequencing/crispr_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
+          fi
+
+          if [ "${{ matrix.probe }}" = "probe" ]; then
+            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
+          else
+            PROBE_FLAG=""
+          fi
+
           ./cyto workflow crispr \
             -c ./data/libraries/crispr_guides.tsv \
+            $PROBE_FLAG \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
             --force \
-            ./data/sequencing/crispr_R1.fastq.gz \
-            ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/crispr.bq
-      - name: run test (fastq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/crispr_R1.fastq.gz \
-            ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow crispr \
-            -c ./data/libraries/crispr_guides.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/crispr.bq
+            $INPUT_FILES
 
   integration-wf-gex:
-    name: Integration workflow GEX
+    name: Integration workflow GEX (${{ matrix.format }})
     needs: [build-binary]
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq", "vbq", "cbq"]
+        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -240,47 +211,26 @@ jobs:
           path: .
       - name: make binary executable
         run: chmod +x cyto
-      - name: run test (fastq)
+      - name: run test (${{ matrix.format }}-${{ matrix.probe }})
         run: |
-          export CYTO_LOG=trace; \
+          export CYTO_LOG=trace
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/gex_R1.fastq.gz ./data/sequencing/gex_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
+          fi
+
+          if [ "${{ matrix.probe }}" = "probe" ]; then
+            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
+          else
+            PROBE_FLAG=""
+          fi
+
           ./cyto workflow gex \
             -c ./data/libraries/gex_probes.tsv \
+            $PROBE_FLAG \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
             --force \
-            ./data/sequencing/gex_R1.fastq.gz \
-            ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow gex \
-            -c ./data/libraries/gex_probes.tsv \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/gex.bq
-      - name: run test (fastq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow gex \
-            -c ./data/libraries/gex_probes.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/gex_R1.fastq.gz \
-            ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq-probe)
-        run: |
-          export CYTO_LOG=trace; \
-          ./cyto workflow gex \
-            -c ./data/libraries/gex_probes.tsv \
-            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            -T 1 \
-            --sort-in-memory \
-            --force \
-            ./data/sequencing/gex.bq
+            $INPUT_FILES
