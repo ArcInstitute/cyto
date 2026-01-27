@@ -21,7 +21,7 @@ serde_json = { workspace = true }
 
 regex = "1.12.2"
 
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 disambiseq = "0.2.2"
 
 
