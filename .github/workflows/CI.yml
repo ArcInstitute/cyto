@@ -191,7 +191,7 @@ jobs:
             --force \
             ./data/sequencing/crispr_R1.fastq.gz \
             ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq)
+      - name: run test (bq)
         run: |
           export CYTO_LOG=trace; \
           ./cyto workflow crispr \
@@ -201,6 +201,26 @@ jobs:
             --sort-in-memory \
             --force \
             ./data/sequencing/crispr.bq
+      - name: run test (vbq)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/crispr.vbq
+      - name: run test (cbq)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/crispr.cbq
       - name: run test (fastq-probe)
         run: |
           export CYTO_LOG=trace; \
@@ -213,7 +233,7 @@ jobs:
             --force \
             ./data/sequencing/crispr_R1.fastq.gz \
             ./data/sequencing/crispr_R2.fastq.gz
-      - name: run test (binseq-probe)
+      - name: run test (bq-probe)
         run: |
           export CYTO_LOG=trace; \
           ./cyto workflow crispr \
@@ -224,6 +244,28 @@ jobs:
             --sort-in-memory \
             --force \
             ./data/sequencing/crispr.bq
+      - name: run test (vbq-probe)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/crispr.vbq
+      - name: run test (cbq-probe)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/crispr.cbq
 
   integration-wf-gex:
     name: Integration workflow GEX
@@ -251,7 +293,7 @@ jobs:
             --force \
             ./data/sequencing/gex_R1.fastq.gz \
             ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq)
+      - name: run test (bq)
         run: |
           export CYTO_LOG=trace; \
           ./cyto workflow gex \
@@ -261,6 +303,26 @@ jobs:
             --sort-in-memory \
             --force \
             ./data/sequencing/gex.bq
+      - name: run test (vbq)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/gex.vbq
+      - name: run test (cbq)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/gex.cbq
       - name: run test (fastq-probe)
         run: |
           export CYTO_LOG=trace; \
@@ -273,7 +335,7 @@ jobs:
             --force \
             ./data/sequencing/gex_R1.fastq.gz \
             ./data/sequencing/gex_R2.fastq.gz
-      - name: run test (binseq-probe)
+      - name: run test (bq-probe)
         run: |
           export CYTO_LOG=trace; \
           ./cyto workflow gex \
@@ -284,3 +346,25 @@ jobs:
             --sort-in-memory \
             --force \
             ./data/sequencing/gex.bq
+      - name: run test (vbq-probe)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/gex.vbq
+      - name: run test (cbq-probe)
+        run: |
+          export CYTO_LOG=trace; \
+          ./cyto workflow gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/gex.cbq
