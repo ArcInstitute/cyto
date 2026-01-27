@@ -1,6 +1,6 @@
 [package]
 name = "cyto-ibu-cat"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]

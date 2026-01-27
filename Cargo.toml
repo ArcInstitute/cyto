@@ -3,19 +3,19 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.dependencies]
-cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct", version = "0.1.6" }
-cyto-ibu-barcode-correct = { path = "crates/cyto-ibu-barcode-correct", version = "0.1.5" }
-cyto-ibu-cat = { path = "crates/cyto-ibu-cat", version = "0.1.1" }
-cyto-ibu-count = { path = "crates/cyto-ibu-count", version = "0.1.7" }
-cyto-ibu-reads = { path = "crates/cyto-ibu-reads", version = "0.1.4" }
-cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.1.2" }
-cyto-ibu-view = { path = "crates/cyto-ibu-view", version = "0.1.4" }
-cyto-core = { path = "crates/cyto-core", version = "0.4.6" }
-cyto-cli = { path = "crates/cyto-cli", version = "0.6.18" }
-cyto-view = { path = "crates/cyto-view", version = "0.1.3" }
-cyto-io = { path = "crates/cyto-io", version = "0.1.4" }
-cyto-map = { path = "crates/cyto-map", version = "0.4.8" }
-cyto-workflow = { path = "crates/cyto-workflow", version = "0.2.21" }
+cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct", version = "0.1.7" }
+cyto-ibu-barcode-correct = { path = "crates/cyto-ibu-barcode-correct", version = "0.1.6" }
+cyto-ibu-cat = { path = "crates/cyto-ibu-cat", version = "0.1.2" }
+cyto-ibu-count = { path = "crates/cyto-ibu-count", version = "0.1.8" }
+cyto-ibu-reads = { path = "crates/cyto-ibu-reads", version = "0.1.5" }
+cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.1.3" }
+cyto-ibu-view = { path = "crates/cyto-ibu-view", version = "0.1.5" }
+cyto-core = { path = "crates/cyto-core", version = "0.4.7" }
+cyto-cli = { path = "crates/cyto-cli", version = "0.6.19" }
+cyto-view = { path = "crates/cyto-view", version = "0.1.4" }
+cyto-io = { path = "crates/cyto-io", version = "0.1.5" }
+cyto-map = { path = "crates/cyto-map", version = "0.4.9" }
+cyto-workflow = { path = "crates/cyto-workflow", version = "0.2.22" }
 
 anyhow = "1.0.100"
 binseq = "0.9.0"

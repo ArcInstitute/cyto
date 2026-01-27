@@ -1,6 +1,6 @@
 [package]
 name = "cyto"
-version = "0.3.26"
+version = "0.3.27"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
