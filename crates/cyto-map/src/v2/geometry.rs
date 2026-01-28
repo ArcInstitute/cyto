@@ -178,9 +178,10 @@ fn parse_geometry(input: &str) -> Result<Geometry, ParseError> {
     let mut seen = std::collections::HashSet::new();
     for region in r1.regions.iter().chain(r2.regions.iter()) {
         if let Region::Component { kind, .. } = region
-            && !seen.insert(*kind) {
-                return Err(ParseError::DuplicateComponent { component: *kind });
-            }
+            && !seen.insert(*kind)
+        {
+            return Err(ParseError::DuplicateComponent { component: *kind });
+        }
     }
 
     Ok(Geometry { r1, r2 })

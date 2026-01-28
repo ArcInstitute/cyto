@@ -228,10 +228,10 @@ impl<M: Mapper> MappingImplementor<M> {
             && umi_qual
                 .iter()
                 .any(|q| (*q - ILLUMINA_QUALITY_OFFSET) < UMI_MIN_QUALITY)
-            {
-                self.local_stats.increment_umi_qual_failure();
-                return Ok(());
-            }
+        {
+            self.local_stats.increment_umi_qual_failure();
+            return Ok(());
+        }
 
         // Map the sequence
         match self.map_sequence(r2) {

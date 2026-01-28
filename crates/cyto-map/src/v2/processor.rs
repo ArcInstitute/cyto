@@ -125,7 +125,9 @@ impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
             .passes_quality_threshold(select_qual(&record, self.umi_mapper.mate()));
 
         // handle match conditions
-        if let (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) = (probe_idx, feat_idx, wl_idx, umi, pass_qual) {
+        if let (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) =
+            (probe_idx, feat_idx, wl_idx, umi, pass_qual)
+        {
             // increment mapped reads
             self.t_stats.mapped_reads += 1;
 

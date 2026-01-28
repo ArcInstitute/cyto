@@ -22,8 +22,7 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
             .expect("Missing probes filepath"),
     )?;
     let whitelist = WhitelistMapper::from_file(
-        args
-            .map
+        args.map
             .whitelist
             .as_ref()
             .expect("Missing whitelist filepath"),
