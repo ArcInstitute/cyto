@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::v2::geometry::ReadMate;
+use crate::{ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY, v2::geometry::ReadMate};
 
 /// An extraction struct for the UMI of a read
 #[derive(Clone, Copy)]
@@ -37,5 +37,18 @@ impl UmiMapper {
     pub fn extract_2bit_umi<'a>(&self, seq: &'a [u8]) -> Option<Result<u64>> {
         self.extract_umi(seq)
             .map(|umi| bitnuc::as_2bit_lossy(umi).map_err(|e| anyhow::Error::new(e)))
+    }
+
+    /// Validates that all quality scores are above the required threshold
+    #[inline]
+    pub fn passes_quality_threshold(&self, qual: &[u8]) -> bool {
+        qual.get(self.range()) // pull the range
+            .map(|sub_qual| {
+                // iter over all quality scores and ensure all are above the threshold
+                sub_qual
+                    .iter()
+                    .all(|q| (*q - ILLUMINA_QUALITY_OFFSET) >= UMI_MIN_QUALITY)
+            })
+            .unwrap_or(true) // default to true
     }
 }
