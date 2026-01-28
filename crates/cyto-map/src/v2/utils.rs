@@ -37,7 +37,7 @@ pub fn initialize_output_ibus<P: AsRef<Path>>(
         geometry.get_barcode_length()? as u32,
         geometry.get_umi_length()? as u32,
     );
-    let filepaths = build_filepaths(outdir, &bijection)?;
+    let filepaths = build_filepaths(outdir, bijection)?;
     let mut writers = Vec::default();
     for path in filepaths {
         let mut handle = open_file_handle(path)?;

@@ -50,14 +50,14 @@ impl<M: Mapper> MapProcessor<M> {
         bijection: Bijection<String>,
     ) -> Self {
         let t_output = vec![Vec::default(); writers.len()];
-        let shared_writers = writers.into_iter().map(|w| Mutex::new(w)).collect();
+        let shared_writers = writers.into_iter().map(Mutex::new).collect();
         Self {
             umi_mapper,
             probe_mapper: Arc::new(probe_mapper),
             whitelist_mapper: Arc::new(whitelist_mapper),
             feature_mapper: Arc::new(feature_mapper),
             t_stats: MappingStatistics::default(),
-            t_output: t_output,
+            t_output,
             bijection: Arc::new(bijection),
             writers: Arc::new(shared_writers),
             stats: Arc::new(Mutex::new(MappingStatistics::default())),
@@ -72,7 +72,7 @@ impl<M: Mapper> MapProcessor<M> {
             stats.frac_mapped() * 100.0,
         );
 
-        println!("{:#?}", stats);
+        println!("{stats:#?}");
     }
     pub fn total(&self) -> usize {
         self.stats.lock().total_reads
@@ -82,14 +82,14 @@ impl<M: Mapper> MapProcessor<M> {
     }
 }
 
-fn select_seq<'a, R: binseq::BinseqRecord>(record: &'a R, mate: ReadMate) -> &'a [u8] {
+fn select_seq<R: binseq::BinseqRecord>(record: &R, mate: ReadMate) -> &[u8] {
     match mate {
         ReadMate::R1 => record.sseq(),
         ReadMate::R2 => record.xseq(),
     }
 }
 
-fn select_qual<'a, R: binseq::BinseqRecord>(record: &'a R, mate: ReadMate) -> &'a [u8] {
+fn select_qual<R: binseq::BinseqRecord>(record: &R, mate: ReadMate) -> &[u8] {
     match mate {
         ReadMate::R1 => record.squal(),
         ReadMate::R2 => record.xqual(),
@@ -125,48 +125,45 @@ impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
             .passes_quality_threshold(select_qual(&record, self.umi_mapper.mate()));
 
         // handle match conditions
-        match (probe_idx, feat_idx, wl_idx, umi, pass_qual) {
-            (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) => {
-                // increment mapped reads
-                self.t_stats.mapped_reads += 1;
+        if let (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) = (probe_idx, feat_idx, wl_idx, umi, pass_qual) {
+            // increment mapped reads
+            self.t_stats.mapped_reads += 1;
 
-                // convert barcode
-                let bc = self
-                    .whitelist_mapper
-                    .get_parent_2bit(wl_idx)
-                    .expect("Failed to get whitelist parent index when expected in bounds")
-                    .map_err(IntoBinseqError::into_binseq_error)?;
+            // convert barcode
+            let bc = self
+                .whitelist_mapper
+                .get_parent_2bit(wl_idx)
+                .expect("Failed to get whitelist parent index when expected in bounds")
+                .map_err(IntoBinseqError::into_binseq_error)?;
 
-                // build IBU record
-                let ibu = ibu::Record::new(bc, umi, f_idx as u64);
+            // build IBU record
+            let ibu = ibu::Record::new(bc, umi, f_idx as u64);
 
-                // identify correct output head
-                let output_idx = self
-                    .probe_mapper
-                    .get_parent(p_idx)
-                    .map(|seq| self.bijection.get_index(seq))
-                    .expect("Failed to recover probe index")
-                    .expect("Failed to biject probe parent sequence");
+            // identify correct output head
+            let output_idx = self
+                .probe_mapper
+                .get_parent(p_idx)
+                .map(|seq| self.bijection.get_index(seq))
+                .expect("Failed to recover probe index")
+                .expect("Failed to biject probe parent sequence");
 
-                self.t_output
-                    .get_mut(output_idx)
-                    .expect("Failed to get mutable reference to output head")
-                    .write_all(&ibu.as_bytes())?;
-            }
-            _ => {
-                probe_idx
-                    .is_none()
-                    .then(|| self.t_stats.unmapped.missing_probe += 1);
-                feat_idx
-                    .is_none()
-                    .then(|| self.t_stats.unmapped.missing_feature += 1);
-                wl_idx
-                    .is_none()
-                    .then(|| self.t_stats.unmapped.missing_whitelist += 1);
-                umi.is_none()
-                    .then(|| self.t_stats.unmapped.umi_truncated += 1);
-                (!pass_qual).then(|| self.t_stats.unmapped.failed_umi_qual += 1);
-            }
+            self.t_output
+                .get_mut(output_idx)
+                .expect("Failed to get mutable reference to output head")
+                .write_all(ibu.as_bytes())?;
+        } else {
+            probe_idx
+                .is_none()
+                .then(|| self.t_stats.unmapped.missing_probe += 1);
+            feat_idx
+                .is_none()
+                .then(|| self.t_stats.unmapped.missing_feature += 1);
+            wl_idx
+                .is_none()
+                .then(|| self.t_stats.unmapped.missing_whitelist += 1);
+            umi.is_none()
+                .then(|| self.t_stats.unmapped.umi_truncated += 1);
+            (!pass_qual).then(|| self.t_stats.unmapped.failed_umi_qual += 1);
         }
         Ok(())
     }

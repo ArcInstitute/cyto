@@ -9,7 +9,7 @@ impl<T: Eq + Hash + Clone> Bijection<T> {
     pub fn new(elements: &[T]) -> Self {
         let mut fwd = HashMap::default();
         let mut rev = HashMap::default();
-        for e in elements.into_iter() {
+        for e in elements {
             let map_len = fwd.len();
             fwd.entry(e.clone()).or_insert_with(|| {
                 rev.insert(map_len, e.clone());

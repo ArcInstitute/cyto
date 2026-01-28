@@ -177,11 +177,10 @@ fn parse_geometry(input: &str) -> Result<Geometry, ParseError> {
     // Check for duplicate components across both reads
     let mut seen = std::collections::HashSet::new();
     for region in r1.regions.iter().chain(r2.regions.iter()) {
-        if let Region::Component { kind, .. } = region {
-            if !seen.insert(*kind) {
+        if let Region::Component { kind, .. } = region
+            && !seen.insert(*kind) {
                 return Err(ParseError::DuplicateComponent { component: *kind });
             }
-        }
     }
 
     Ok(Geometry { r1, r2 })
@@ -237,8 +236,7 @@ fn parse_region(content: &str, position: usize) -> Result<Region, ParseError> {
         return Err(ParseError::EmptyBracket { position });
     }
 
-    if content.starts_with(':') {
-        let len_str = &content[1..];
+    if let Some(len_str) = content.strip_prefix(':') {
         let length = parse_length(len_str)?;
 
         if length == 0 {
@@ -402,33 +400,30 @@ where
                     length_fn(*kind)
                 };
 
-                match len {
-                    Some(l) => {
-                        result.insert(
-                            *kind,
-                            ResolvedRegion {
-                                offset,
-                                length: Some(l),
-                                mate,
-                            },
-                        );
-                        offset += l;
-                        if let Some(ref mut total) = total_length {
-                            *total += l;
-                        }
+                if let Some(l) = len {
+                    result.insert(
+                        *kind,
+                        ResolvedRegion {
+                            offset,
+                            length: Some(l),
+                            mate,
+                        },
+                    );
+                    offset += l;
+                    if let Some(ref mut total) = total_length {
+                        *total += l;
                     }
-                    None => {
-                        // Variable-length component
-                        result.insert(
-                            *kind,
-                            ResolvedRegion {
-                                offset,
-                                length: None,
-                                mate,
-                            },
-                        );
-                        total_length = None;
-                    }
+                } else {
+                    // Variable-length component
+                    result.insert(
+                        *kind,
+                        ResolvedRegion {
+                            offset,
+                            length: None,
+                            mate,
+                        },
+                    );
+                    total_length = None;
                 }
             }
         }

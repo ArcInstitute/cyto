@@ -60,7 +60,7 @@ impl MappingStatistics {
     }
     /// Resets all counters on the statistics
     pub fn clear(&mut self) {
-        *self = Self::default()
+        *self = Self::default();
     }
 }
 

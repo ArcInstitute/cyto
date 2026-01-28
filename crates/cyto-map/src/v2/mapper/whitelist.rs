@@ -84,7 +84,7 @@ impl<T> WhitelistMapper<T> {
     pub fn get_parent_2bit(&self, idx: usize) -> Option<Result<u64, bitnuc::Error>> {
         self.hash
             .get_parent(idx)
-            .map(|seq| bitnuc::twobit::as_2bit_lossy(seq))
+            .map(bitnuc::twobit::as_2bit_lossy)
     }
 }
 

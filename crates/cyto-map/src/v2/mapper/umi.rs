@@ -34,21 +34,20 @@ impl UmiMapper {
 
     /// Extracts the UMI from the given sequence as a 2-bit encoded u64 (bitnuc)
     #[inline]
-    pub fn extract_2bit_umi<'a>(&self, seq: &'a [u8]) -> Option<Result<u64>> {
+    pub fn extract_2bit_umi(&self, seq: &[u8]) -> Option<Result<u64>> {
         self.extract_umi(seq)
-            .map(|umi| bitnuc::as_2bit_lossy(umi).map_err(|e| anyhow::Error::new(e)))
+            .map(|umi| bitnuc::as_2bit_lossy(umi).map_err(anyhow::Error::new))
     }
 
     /// Validates that all quality scores are above the required threshold
     #[inline]
     pub fn passes_quality_threshold(&self, qual: &[u8]) -> bool {
         qual.get(self.range()) // pull the range
-            .map(|sub_qual| {
+            .is_none_or(|sub_qual| {
                 // iter over all quality scores and ensure all are above the threshold
                 sub_qual
                     .iter()
                     .all(|q| (*q - ILLUMINA_QUALITY_OFFSET) >= UMI_MIN_QUALITY)
-            })
-            .unwrap_or(true) // default to true
+            }) // default to true
     }
 }
