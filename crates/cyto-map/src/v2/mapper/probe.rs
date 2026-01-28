@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
+use log::trace;
 use seqhash::SeqHash;
 
 use crate::v2::REMAP_WINDOW;
@@ -43,15 +44,21 @@ impl ProbeMapper<Unpositioned> {
             aliases.push(record.alias);
         }
 
+        trace!("[PROBE seqhash] - Starting build");
         let hash = SeqHash::new(&sequences)?;
+        let init_time = start.elapsed().as_secs_f64();
+        trace!(
+            "[PROBE seqhash] - Build complete ({:.2} ms)",
+            init_time * 1000.0
+        );
 
         Ok(Self {
             hash,
             aliases,
             pos: 0,
             mate: ReadMate::R1,
-            init_time: start.elapsed().as_secs_f64(),
             _state: PhantomData,
+            init_time,
         })
     }
 

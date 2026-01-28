@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
+use log::trace;
 use seqhash::{SeqHash, SeqHashBuilder};
 
 use crate::v2::REMAP_WINDOW;
@@ -39,16 +40,22 @@ impl WhitelistMapper<Unpositioned> {
             sequences.push(record.seq);
         }
 
+        trace!("[WHITELIST seqhash] - Starting build");
         let hash = SeqHashBuilder::default()
             .threads(threads)
             .build(&sequences)?;
+        let init_time = start.elapsed().as_secs_f64();
+        trace!(
+            "[WHITELIST seqhash] - Build complete ({:.2} ms)",
+            init_time * 1000.0
+        );
 
         Ok(Self {
             hash,
             pos: 0,
             mate: ReadMate::R1,
-            init_time: start.elapsed().as_secs_f64(),
             _state: PhantomData,
+            init_time,
         })
     }
 

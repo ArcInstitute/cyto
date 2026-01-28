@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
+use log::trace;
 use seqhash::SplitSeqHash;
 
 use crate::v2::geometry::ReadMate;
@@ -48,7 +49,13 @@ impl GexMapper<Unpositioned> {
             sequences.push(record.seq);
         }
 
+        trace!("[GEX seqhash] - Starting build");
         let split_hash = SplitSeqHash::new(&sequences)?;
+        let init_time = start.elapsed().as_secs_f64();
+        trace!(
+            "[GEX seqhash] - Build complete ({:.2} ms)",
+            init_time * 1000.0
+        );
 
         Ok(Self {
             split_hash,
@@ -57,7 +64,7 @@ impl GexMapper<Unpositioned> {
             pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
-            init_time: start.elapsed().as_secs_f64(),
+            init_time,
         })
     }
 

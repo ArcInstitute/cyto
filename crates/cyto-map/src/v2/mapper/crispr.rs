@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
+use log::trace;
 use seqhash::{MultiLenSeqHash, SeqHash};
 
 use crate::v2::REMAP_WINDOW;
@@ -52,8 +53,14 @@ impl CrisprMapper<Unpositioned> {
             protospacers.push(record.protospacer);
         }
 
+        trace!("[CRISPR seqhash] - Starting build");
         let anchor_hash = MultiLenSeqHash::new(&anchors)?;
         let protospacer_hash = SeqHash::new(&protospacers)?;
+        let init_time = start.elapsed().as_secs_f64();
+        trace!(
+            "[CRISPR seqhash] - Build complete ({:.2} ms)",
+            init_time * 1000.0
+        );
 
         Ok(Self {
             anchor_hash,
@@ -61,8 +68,8 @@ impl CrisprMapper<Unpositioned> {
             _names: names,
             anchor_pos: 0,
             mate: ReadMate::R1,
-            init_time: start.elapsed().as_secs_f64(),
             _state: PhantomData,
+            init_time,
         })
     }
 
