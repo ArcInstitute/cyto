@@ -2,11 +2,14 @@ use std::time::Instant;
 
 use anyhow::{Result, anyhow};
 use binseq::ParallelReader;
-use cyto_cli::{ArgsCrispr2, ArgsGex2};
+use cyto_cli::{
+    ArgsCrispr2, ArgsGex2,
+    map2::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
+};
 
 use crate::v2::{
-    Component, CrisprMapper, GEOMETRY_CRISPR_PROPERSEQ, GEOMETRY_GEX_FLEX_V1, Geometry, GexMapper,
-    Library, MapProcessor, ProbeMapper, UmiMapper, WhitelistMapper, initialize_output_ibus,
+    Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, ProbeMapper, UmiMapper,
+    WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
 };
 
@@ -20,23 +23,15 @@ fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<
 
 pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     // Parse geometry from args
-    let geometry =
-        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)?;
+    let geometry = if let Some(preset) = args.map2.preset {
+        Ok(preset.into_geometry_str().parse()?)
+    } else {
+        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)
+    }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(
-        args.map2
-            .probes
-            .as_ref()
-            .expect("Missing probes filepath - not yet implemented without probes"),
-    )?;
-    let whitelist = WhitelistMapper::from_file(
-        args.map2
-            .whitelist
-            .as_ref()
-            .expect("Missing whitelist filepath - not yet implemented without whitelist"),
-        args.runtime.num_threads,
-    )?;
+    let probe = ProbeMapper::from_file(&args.map2.probes)?;
+    let whitelist = WhitelistMapper::from_file(&args.map2.whitelist, args.runtime.num_threads)?;
     let gex = GexMapper::from_file(&args.gex.gex_filepath)?;
 
     // Resolve geometry
@@ -107,23 +102,15 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
 
 pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     // Parse geometry from args
-    let geometry =
-        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_CRISPR_PROPERSEQ)?;
+    let geometry = if let Some(geometry) = args.map2.preset {
+        Ok(geometry.into_geometry_str().parse()?)
+    } else {
+        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_CRISPR_FLEX_V1)
+    }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(
-        args.map2
-            .probes
-            .as_ref()
-            .expect("Missing probes filepath - not yet implemented without probes"),
-    )?;
-    let whitelist = WhitelistMapper::from_file(
-        args.map2
-            .whitelist
-            .as_ref()
-            .expect("Missing whitelist filepath - not yet implemented without whitelist"),
-        args.runtime.num_threads,
-    )?;
+    let probe = ProbeMapper::from_file(&args.map2.probes)?;
+    let whitelist = WhitelistMapper::from_file(&args.map2.whitelist, args.runtime.num_threads)?;
     let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath)?;
 
     // Resolve geometry
