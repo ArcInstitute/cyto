@@ -28,6 +28,8 @@ pub struct Map2Options {
     pub exact: bool,
 
     /// Remap window size for position adjustment (0 to disable)
+    ///
+    /// This is the position window size for remapping an element (+/-) on failed match
     #[clap(long, default_value = "1")]
     pub remap_window: usize,
 
