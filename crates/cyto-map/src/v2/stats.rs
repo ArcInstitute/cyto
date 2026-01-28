@@ -42,6 +42,9 @@ pub struct LibraryStatistics {
 
     /// The read mate searched for this library
     pub mate: ReadMate,
+
+    /// The amount of time taken to initialize the library (seconds)
+    pub init_time: f64,
 }
 
 #[derive(Clone, Copy, Default, Debug, AddAssign, serde::Serialize)]

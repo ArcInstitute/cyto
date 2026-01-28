@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::path::Path;
+use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
@@ -23,11 +24,13 @@ pub struct CrisprMapper<S = Ready> {
     _names: Vec<String>,
     anchor_pos: usize,
     mate: ReadMate,
+    init_time: f64,
     _state: PhantomData<S>,
 }
 
 impl CrisprMapper<Unpositioned> {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let start = Instant::now();
         let ihandle = match_input_transparent(Some(path))?;
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b'\t')
@@ -58,6 +61,7 @@ impl CrisprMapper<Unpositioned> {
             _names: names,
             anchor_pos: 0,
             mate: ReadMate::R1,
+            init_time: start.elapsed().as_secs_f64(),
             _state: PhantomData,
         })
     }
@@ -81,6 +85,7 @@ impl CrisprMapper<Unpositioned> {
             _names: self._names,
             anchor_pos,
             mate,
+            init_time: self.init_time,
             _state: PhantomData,
         }
     }
@@ -114,6 +119,7 @@ impl Library for CrisprMapper<Ready> {
             total_hash: self.protospacer_hash.num_entries(),
             position: self.anchor_pos,
             mate: self.mate,
+            init_time: self.init_time,
         }
     }
 }

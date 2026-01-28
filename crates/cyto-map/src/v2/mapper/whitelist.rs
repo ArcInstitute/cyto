@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::path::Path;
+use std::time::Instant;
 
 use anyhow::Result;
 use cyto_io::match_input_transparent;
@@ -19,35 +20,34 @@ pub struct WhitelistMapper<S = Ready> {
     hash: SeqHash,
     pos: usize,
     mate: ReadMate,
+    init_time: f64,
     _state: PhantomData<S>,
 }
 
 impl WhitelistMapper<Unpositioned> {
     pub fn from_file<P: AsRef<Path>>(path: P, threads: usize) -> Result<Self> {
+        let start = Instant::now();
         let ihandle = match_input_transparent(Some(path))?;
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b'\t')
             .has_headers(false)
             .from_reader(ihandle);
 
-        eprintln!("Loading whitelist sequences...");
         let mut sequences = Vec::new();
         for result in reader.deserialize() {
             let record: Whitelist = result?;
             sequences.push(record.seq);
         }
 
-        eprintln!("Building whitelist hash...");
         let hash = SeqHashBuilder::default()
             .threads(threads)
             .build(&sequences)?;
-
-        eprintln!("Whitelist hash built");
 
         Ok(Self {
             hash,
             pos: 0,
             mate: ReadMate::R1,
+            init_time: start.elapsed().as_secs_f64(),
             _state: PhantomData,
         })
     }
@@ -63,6 +63,7 @@ impl WhitelistMapper<Unpositioned> {
             hash: self.hash,
             pos,
             mate,
+            init_time: self.init_time,
             _state: PhantomData,
         }
     }
@@ -101,6 +102,7 @@ impl Library for WhitelistMapper<Ready> {
             total_hash: self.hash.num_entries(),
             position: self.pos,
             mate: self.mate,
+            init_time: self.init_time,
         }
     }
 }
