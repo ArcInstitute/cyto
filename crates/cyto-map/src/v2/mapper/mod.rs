@@ -12,7 +12,7 @@ pub use probe::ProbeMapper;
 pub use umi::UmiMapper;
 pub use whitelist::WhitelistMapper;
 
-use crate::v2::geometry::ReadMate;
+use crate::v2::{geometry::ReadMate, stats::LibraryStatistics};
 
 pub trait Mapper {
     /// Queries the mapper for the parent index of the given sequence.
@@ -28,6 +28,15 @@ impl<T: Mapper + ?Sized> Mapper for Box<T> {
     }
     fn mate(&self) -> ReadMate {
         (**self).mate()
+    }
+}
+
+pub trait Library {
+    fn statistics(&self) -> LibraryStatistics;
+}
+impl<T: Library + ?Sized> Library for Box<T> {
+    fn statistics(&self) -> LibraryStatistics {
+        (**self).statistics()
     }
 }
 

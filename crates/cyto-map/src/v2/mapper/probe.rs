@@ -7,7 +7,8 @@ use seqhash::SeqHash;
 
 use crate::v2::REMAP_WINDOW;
 use crate::v2::geometry::ReadMate;
-use crate::v2::mapper::{Bijection, Mapper, Ready, Unpositioned};
+use crate::v2::mapper::{Bijection, Library, Mapper, Ready, Unpositioned};
+use crate::v2::stats::LibraryStatistics;
 
 #[derive(serde::Deserialize)]
 struct ProbeRecord {
@@ -92,5 +93,19 @@ impl Mapper for ProbeMapper<Ready> {
 
     fn mate(&self) -> ReadMate {
         self.mate
+    }
+}
+
+impl Library for ProbeMapper<Ready> {
+    fn statistics(&self) -> LibraryStatistics {
+        let biject = Bijection::new(&self.aliases);
+        LibraryStatistics {
+            name: "probe",
+            total_elem: self.n_parents(),
+            total_aggr: biject.len(),
+            total_hash: self.hash.num_entries(),
+            position: self.pos,
+            mate: self.mate,
+        }
     }
 }

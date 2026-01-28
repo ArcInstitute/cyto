@@ -77,6 +77,9 @@ impl<M: Mapper> MapProcessor<M> {
     pub fn total(&self) -> usize {
         self.stats.lock().total_reads
     }
+    pub fn stats(&self) -> MappingStatistics {
+        *self.stats.lock()
+    }
 }
 
 fn select_seq<'a, R: binseq::BinseqRecord>(record: &'a R, mate: ReadMate) -> &'a [u8] {

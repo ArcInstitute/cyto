@@ -7,7 +7,8 @@ use seqhash::{SeqHash, SeqHashBuilder};
 
 use crate::v2::REMAP_WINDOW;
 use crate::v2::geometry::ReadMate;
-use crate::v2::mapper::{Mapper, Ready, Unpositioned};
+use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::v2::stats::LibraryStatistics;
 
 #[derive(serde::Deserialize)]
 struct Whitelist {
@@ -88,5 +89,18 @@ impl Mapper for WhitelistMapper<Ready> {
 
     fn mate(&self) -> ReadMate {
         self.mate
+    }
+}
+
+impl Library for WhitelistMapper<Ready> {
+    fn statistics(&self) -> LibraryStatistics {
+        LibraryStatistics {
+            name: "whitelist",
+            total_elem: self.hash.num_parents(),
+            total_aggr: self.hash.num_parents(),
+            total_hash: self.hash.num_entries(),
+            position: self.pos,
+            mate: self.mate,
+        }
     }
 }

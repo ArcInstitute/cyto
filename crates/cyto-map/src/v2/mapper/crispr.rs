@@ -7,7 +7,8 @@ use seqhash::{MultiLenSeqHash, SeqHash};
 
 use crate::v2::REMAP_WINDOW;
 use crate::v2::geometry::ReadMate;
-use crate::v2::mapper::{Mapper, Ready, Unpositioned};
+use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::v2::stats::LibraryStatistics;
 
 #[derive(serde::Deserialize)]
 struct CrisprRecord {
@@ -101,5 +102,18 @@ impl Mapper for CrisprMapper<Ready> {
 
     fn mate(&self) -> ReadMate {
         self.mate
+    }
+}
+
+impl Library for CrisprMapper<Ready> {
+    fn statistics(&self) -> LibraryStatistics {
+        LibraryStatistics {
+            name: "crispr",
+            total_elem: self.protospacer_hash.num_parents(),
+            total_aggr: self.protospacer_hash.num_parents(),
+            total_hash: self.protospacer_hash.num_entries(),
+            position: self.anchor_pos,
+            mate: self.mate,
+        }
     }
 }

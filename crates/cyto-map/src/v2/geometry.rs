@@ -3,7 +3,7 @@ use std::fmt;
 use std::str::FromStr;
 
 /// Which read of the pair a component appears in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ReadMate {
     R1,
     R2,

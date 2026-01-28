@@ -11,8 +11,8 @@ type BoxedWriter = Box<dyn std::io::Write + Send>;
 
 pub use geometry::{Component, Geometry, ReadMate, ResolvedGeometry};
 pub use mapper::{
-    Bijection, CrisprMapper, GexMapper, Mapper, ProbeMapper, Ready, UmiMapper, Unpositioned,
-    WhitelistMapper,
+    Bijection, CrisprMapper, GexMapper, Library, Mapper, ProbeMapper, Ready, UmiMapper,
+    Unpositioned, WhitelistMapper,
 };
 pub use processor::MapProcessor;
 pub use run::run_gex;

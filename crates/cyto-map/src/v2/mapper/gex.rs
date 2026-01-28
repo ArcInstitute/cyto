@@ -5,9 +5,10 @@ use anyhow::Result;
 use cyto_io::match_input_transparent;
 use seqhash::SplitSeqHash;
 
-use crate::v2::GEX_MAX_HDIST;
 use crate::v2::geometry::ReadMate;
-use crate::v2::mapper::{Mapper, Ready, Unpositioned};
+use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::v2::stats::LibraryStatistics;
+use crate::v2::{Bijection, GEX_MAX_HDIST};
 
 #[derive(serde::Deserialize)]
 struct GexRecord {
@@ -19,7 +20,7 @@ struct GexRecord {
 pub struct GexMapper<S = Ready> {
     split_hash: SplitSeqHash,
     _probe_names: Vec<String>,
-    _gene_names: Vec<String>,
+    gene_names: Vec<String>,
     pos: usize,
     mate: ReadMate,
     _state: PhantomData<S>,
@@ -48,8 +49,8 @@ impl GexMapper<Unpositioned> {
 
         Ok(Self {
             split_hash,
+            gene_names,
             _probe_names: probe_names,
-            _gene_names: gene_names,
             pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
@@ -66,7 +67,7 @@ impl GexMapper<Unpositioned> {
         GexMapper {
             split_hash: self.split_hash,
             _probe_names: self._probe_names,
-            _gene_names: self._gene_names,
+            gene_names: self.gene_names,
             pos,
             mate,
             _state: PhantomData,
@@ -94,5 +95,19 @@ impl Mapper for GexMapper<Ready> {
 
     fn mate(&self) -> ReadMate {
         self.mate
+    }
+}
+
+impl Library for GexMapper<Ready> {
+    fn statistics(&self) -> LibraryStatistics {
+        let biject = Bijection::new(&self.gene_names);
+        LibraryStatistics {
+            name: "gex",
+            total_elem: self.split_hash.num_parents(),
+            total_aggr: biject.len(),
+            total_hash: self.split_hash.num_entries(),
+            position: self.pos,
+            mate: self.mate,
+        }
     }
 }

@@ -5,8 +5,9 @@ use binseq::ParallelReader;
 use cyto_cli::ArgsGex;
 
 use crate::v2::{
-    Component, GEOMETRY_GEX_FLEX_V1, Geometry, GexMapper, MapProcessor, ProbeMapper, UmiMapper,
-    WhitelistMapper, initialize_output_ibus,
+    Component, GEOMETRY_GEX_FLEX_V1, Geometry, GexMapper, Library, MapProcessor, ProbeMapper,
+    UmiMapper, WhitelistMapper, initialize_output_ibus,
+    stats::{InputRuntimeStatistics, write_statistics},
 };
 
 pub fn run_gex(args: &ArgsGex) -> Result<()> {
@@ -64,6 +65,7 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
         umi_region.length.expect("length missing [umi]"),
         umi_region.mate,
     );
+    let libstats = vec![probe.statistics(), whitelist.statistics(), gex.statistics()];
 
     // 5. build output handles
     let bijection = probe.bijection();
@@ -71,17 +73,25 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
 
     // 6. Process
     let proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
-    for reader in args.input.to_binseq_readers()? {
+    let mut runstats = Vec::default();
+    for (input_id, reader) in args.input.to_binseq_readers()?.into_iter().enumerate() {
+        let num_records = reader.num_records()?;
+
         let start = Instant::now();
         reader.process_parallel(proc.clone(), args.runtime.num_threads())?;
         let elapsed = start.elapsed();
-        eprintln!(
-            "Throughput: {:.3}M/s",
-            proc.total() as f64 / elapsed.as_micros() as f64
-        );
-    }
 
-    proc.pprint();
+        runstats.push(InputRuntimeStatistics {
+            input_id,
+            records: num_records,
+            elapsed_time: elapsed.as_secs_f64(),
+            mrps: num_records as f64 / elapsed.as_micros() as f64,
+        });
+    }
+    let mapstats = proc.stats();
+
+    // 7. Print statistics
+    write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
 
     Ok(())
 }
