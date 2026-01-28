@@ -2,6 +2,7 @@ mod geometry;
 mod mapper;
 mod processor;
 mod run;
+mod stats;
 mod utils;
 
 const REMAP_WINDOW: usize = 1;
