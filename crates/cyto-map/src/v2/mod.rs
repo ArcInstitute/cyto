@@ -1,6 +1,7 @@
 mod geometry;
 mod mapper;
 mod processor;
+mod run;
 mod utils;
 
 const REMAP_WINDOW: usize = 1;
@@ -13,4 +14,7 @@ pub use mapper::{
     WhitelistMapper,
 };
 pub use processor::MapProcessor;
+pub use run::run_gex;
 pub use utils::initialize_output_ibus;
+
+const GEOMETRY_GEX_FLEX_V1: &str = "[barcode][umi:12]|[gex][:18][probe]";

@@ -1,8 +1,16 @@
 use clap::Parser;
 
-#[derive(Debug, Clone, Copy, Parser)]
+#[derive(Debug, Clone, Parser)]
 #[clap(next_help_heading = "Mapping Options")]
 pub struct MapOptions {
+    /// Use version 2 of the mapping algorithm
+    #[clap(long, requires = "whitelist")]
+    pub v2: bool,
+
+    /// Path to whitelist file
+    #[clap(short = 'w', long)]
+    pub whitelist: Option<String>,
+
     /// Use exact matching for sequences and/or probes.
     ///
     /// Default allows for unambiguous 1-hamming distance mismatches
