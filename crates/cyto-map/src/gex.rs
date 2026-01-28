@@ -5,8 +5,6 @@ use cyto_cli::ArgsGex;
 use cyto_core::mappers::{GexMapper, MapperOffset, ProbeMapper};
 use cyto_io::{write_features, write_statistics};
 
-use crate::v2;
-
 use super::{
     ibu_map_pairs_binseq, ibu_map_pairs_paraseq, ibu_map_probed_pairs_binseq,
     ibu_map_probed_pairs_paraseq,
@@ -174,10 +172,6 @@ pub fn probed_bus_binseq(args: &ArgsGex) -> Result<()> {
 }
 
 pub fn run(args: &ArgsGex) -> Result<()> {
-    if args.map.v2 {
-        return v2::run_gex(args);
-    }
-
     if args.probe.probes_filepath.is_some() {
         if args.input.is_binseq() {
             probed_bus_binseq(args)

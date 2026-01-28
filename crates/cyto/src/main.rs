@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
+use cyto_cli::{Cli, Commands, IbuCommand, Map2Command, MapCommand, WorkflowCommand};
 use log::info;
 
 mod logging;
@@ -12,6 +12,10 @@ fn main() -> Result<()> {
         Commands::Map(map) => {
             map.validate_outdir()?;
             setup_workflow_logging(map.log_path())?;
+        }
+        Commands::Map2(map2) => {
+            map2.validate_outdir()?;
+            setup_workflow_logging(map2.log_path())?;
         }
         Commands::Workflow(wf) => {
             wf.validate_outdir()?;
@@ -27,6 +31,10 @@ fn main() -> Result<()> {
             MapCommand::Crispr(args) => cyto_map::crispr::run(&args),
             MapCommand::Gex(args) => cyto_map::gex::run(&args),
             MapCommand::Generic(args) => cyto_map::generic::run(&args),
+        },
+        Commands::Map2(map2) => match map2 {
+            Map2Command::Gex(args) => cyto_map::v2::run_gex2(&args),
+            Map2Command::Crispr(args) => cyto_map::v2::run_crispr2(&args),
         },
         Commands::Ibu(ibu) => match ibu {
             IbuCommand::View(args) => cyto_ibu_view::run(&args),
