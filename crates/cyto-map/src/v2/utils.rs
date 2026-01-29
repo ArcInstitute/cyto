@@ -59,5 +59,5 @@ fn delete_empty_ibu<P: AsRef<Path>>(filepath: P) -> Result<(), std::io::Error> {
 }
 
 pub fn delete_empty_ibus<P: AsRef<Path>>(filepaths: &[P]) -> Result<(), std::io::Error> {
-    filepaths.iter().try_for_each(|path| delete_empty_ibu(path))
+    filepaths.iter().try_for_each(delete_empty_ibu)
 }
