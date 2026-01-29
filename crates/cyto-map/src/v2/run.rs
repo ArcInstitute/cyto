@@ -67,7 +67,7 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
+    let mut proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
     let mut runstats = Vec::default();
     for (input_id, reader) in args.input.to_binseq_readers()?.into_iter().enumerate() {
         let num_records = reader.num_records()?;
@@ -83,7 +83,9 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
             mrps: num_records as f64 / elapsed.as_micros() as f64,
         });
     }
+    proc.finish_pbar();
     let mapstats = proc.stats();
+
     info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 
     // Write statistics
@@ -147,7 +149,7 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
+    let mut proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
     let mut runstats = Vec::default();
     for (input_id, reader) in args.input.to_binseq_readers()?.into_iter().enumerate() {
         let num_records = reader.num_records()?;
@@ -163,6 +165,7 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
             mrps: num_records as f64 / elapsed.as_micros() as f64,
         });
     }
+    proc.finish_pbar();
     let mapstats = proc.stats();
     info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 

@@ -1,6 +1,7 @@
-use std::{io::Write, sync::Arc};
+use std::{io::Write, sync::Arc, time::Instant};
 
 use binseq::{IntoBinseqError, ParallelProcessor};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use parking_lot::Mutex;
 
 use crate::v2::{
@@ -15,14 +16,17 @@ pub struct MapProcessor<M: Mapper> {
     whitelist_mapper: Arc<WhitelistMapper>,
     feature_mapper: Arc<M>,
     bijection: Arc<Bijection<String>>,
+    map_time: Instant,
 
     /* Local Variables */
+    tid: usize,
     t_stats: MappingStatistics,
     t_output: Vec<Vec<u8>>,
 
     /* Global Variables */
     stats: Arc<Mutex<MappingStatistics>>,
     writers: Arc<Vec<Mutex<BoxedWriter>>>,
+    pbar: Arc<Mutex<Option<ProgressBar>>>,
 }
 impl<M: Mapper> Clone for MapProcessor<M> {
     fn clone(&self) -> Self {
@@ -32,10 +36,13 @@ impl<M: Mapper> Clone for MapProcessor<M> {
             whitelist_mapper: Arc::clone(&self.whitelist_mapper),
             feature_mapper: Arc::clone(&self.feature_mapper),
             t_stats: self.t_stats,
+            tid: self.tid,
             t_output: self.t_output.clone(),
             bijection: Arc::clone(&self.bijection),
             writers: Arc::clone(&self.writers),
             stats: Arc::clone(&self.stats),
+            map_time: self.map_time.clone(),
+            pbar: self.pbar.clone(),
         }
     }
 }
@@ -61,6 +68,9 @@ impl<M: Mapper> MapProcessor<M> {
             bijection: Arc::new(bijection),
             writers: Arc::new(shared_writers),
             stats: Arc::new(Mutex::new(MappingStatistics::default())),
+            tid: 0,
+            map_time: Instant::now(),
+            pbar: initialize_pbar(),
         }
     }
     pub fn pprint(&self) {
@@ -79,6 +89,49 @@ impl<M: Mapper> MapProcessor<M> {
     }
     pub fn stats(&self) -> MappingStatistics {
         *self.stats.lock()
+    }
+
+    fn update_pbar(&self) {
+        if self.tid == 0 {
+            let (total, map_pc) = {
+                let stats = self.stats.lock();
+                (
+                    stats.total_reads as f64 / 1_000_000.0,
+                    stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
+                )
+            };
+            let elapsed = self.map_time.elapsed().as_secs_f64();
+            let throughput = total / elapsed;
+            // Lock the progress bar and update the message
+            {
+                if let Some(pb) = self.pbar.lock().as_mut() {
+                    pb.set_message(format!(
+                        "Processed: {total:.3}M reads ( Mapped: {map_pc:.2}%, Throughput: {throughput:.3}M/s )",
+                    ));
+                }
+            }
+        }
+    }
+
+    pub fn finish_pbar(&mut self) {
+        let (total, map_pc) = {
+            let stats = self.stats.lock();
+            (
+                stats.total_reads as f64 / 1_000_000.0,
+                stats.mapped_reads as f64 / stats.total_reads as f64 * 100.0,
+            )
+        };
+        let elapsed = self.map_time.elapsed().as_secs_f64();
+        let throughput = total / elapsed;
+
+        // Lock the progress bar and finish the message
+        {
+            if let Some(pb) = self.pbar.lock().as_mut().take() {
+                pb.finish_with_message(format!(
+                        "Mapping complete: {total:.3}M reads ( Mapped: {map_pc:.2}%, Throughput: {throughput:.3}M/s )",
+                    ));
+            }
+        }
     }
 }
 
@@ -190,6 +243,26 @@ impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
             self.t_stats.clear();
         }
 
+        // update pbar
+        self.update_pbar();
+
         Ok(())
     }
+    fn set_tid(&mut self, tid: usize) {
+        self.tid = tid
+    }
+    fn get_tid(&self) -> Option<usize> {
+        Some(self.tid)
+    }
+}
+
+fn initialize_pbar() -> Arc<Mutex<Option<ProgressBar>>> {
+    let pbar = ProgressBar::new_spinner();
+    pbar.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.cyan} [{elapsed_precise}] {msg}")
+            .unwrap(),
+    );
+    pbar.set_draw_target(ProgressDrawTarget::stderr_with_hz(20));
+    Arc::new(Mutex::new(Some(pbar)))
 }
