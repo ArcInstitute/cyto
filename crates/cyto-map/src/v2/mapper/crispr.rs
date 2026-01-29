@@ -3,8 +3,8 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
-use cyto_io::match_input_transparent;
-use log::trace;
+use cyto_io::{FeatureWriter, match_input_transparent};
+use log::{info, trace};
 use seqhash::{MultiLenSeqHash, SeqHash};
 
 use crate::v2::REMAP_WINDOW;
@@ -22,7 +22,7 @@ struct CrisprRecord {
 pub struct CrisprMapper<S = Ready> {
     anchor_hash: MultiLenSeqHash,
     protospacer_hash: SeqHash,
-    _names: Vec<String>,
+    names: Vec<String>,
     anchor_pos: usize,
     mate: ReadMate,
     init_time: f64,
@@ -57,7 +57,7 @@ impl CrisprMapper<Unpositioned> {
         let anchor_hash = MultiLenSeqHash::new(&anchors)?;
         let protospacer_hash = SeqHash::new(&protospacers)?;
         let init_time = start.elapsed().as_secs_f64();
-        trace!(
+        info!(
             "[CRISPR seqhash] - Build complete ({:.2} ms)",
             init_time * 1000.0
         );
@@ -65,7 +65,7 @@ impl CrisprMapper<Unpositioned> {
         Ok(Self {
             anchor_hash,
             protospacer_hash,
-            _names: names,
+            names,
             anchor_pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
@@ -89,7 +89,7 @@ impl CrisprMapper<Unpositioned> {
         CrisprMapper {
             anchor_hash: self.anchor_hash,
             protospacer_hash: self.protospacer_hash,
-            _names: self._names,
+            names: self.names,
             anchor_pos,
             mate,
             init_time: self.init_time,
@@ -128,5 +128,13 @@ impl Library for CrisprMapper<Ready> {
             mate: self.mate,
             init_time: self.init_time,
         }
+    }
+}
+
+impl<'a, T> FeatureWriter<'a> for CrisprMapper<T> {
+    type Record = (&'a str, &'a str);
+
+    fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
+        self.names.iter().map(|name| (name.as_str(), name.as_str()))
     }
 }

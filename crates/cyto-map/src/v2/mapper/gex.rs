@@ -3,8 +3,8 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
-use cyto_io::match_input_transparent;
-use log::trace;
+use cyto_io::{FeatureWriter, match_input_transparent};
+use log::{info, trace};
 use seqhash::SplitSeqHash;
 
 use crate::v2::geometry::ReadMate;
@@ -21,7 +21,7 @@ struct GexRecord {
 
 pub struct GexMapper<S = Ready> {
     split_hash: SplitSeqHash,
-    _probe_names: Vec<String>,
+    probe_names: Vec<String>,
     gene_names: Vec<String>,
     pos: usize,
     mate: ReadMate,
@@ -52,7 +52,7 @@ impl GexMapper<Unpositioned> {
         trace!("[GEX seqhash] - Starting build");
         let split_hash = SplitSeqHash::new(&sequences)?;
         let init_time = start.elapsed().as_secs_f64();
-        trace!(
+        info!(
             "[GEX seqhash] - Build complete ({:.2} ms)",
             init_time * 1000.0
         );
@@ -60,7 +60,7 @@ impl GexMapper<Unpositioned> {
         Ok(Self {
             split_hash,
             gene_names,
-            _probe_names: probe_names,
+            probe_names,
             pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
@@ -77,7 +77,7 @@ impl GexMapper<Unpositioned> {
     pub fn with_position(self, pos: usize, mate: ReadMate) -> GexMapper<Ready> {
         GexMapper {
             split_hash: self.split_hash,
-            _probe_names: self._probe_names,
+            probe_names: self.probe_names,
             gene_names: self.gene_names,
             pos,
             mate,
@@ -122,5 +122,16 @@ impl Library for GexMapper<Ready> {
             mate: self.mate,
             init_time: self.init_time,
         }
+    }
+}
+
+impl<'a, T> FeatureWriter<'a> for GexMapper<T> {
+    type Record = (&'a str, &'a str);
+
+    fn record_stream(&'a self) -> impl Iterator<Item = Self::Record> {
+        self.probe_names
+            .iter()
+            .zip(self.gene_names.iter())
+            .map(|(probe_name, gene_name)| (probe_name.as_str(), gene_name.as_str()))
     }
 }

@@ -6,6 +6,7 @@ use cyto_cli::{
     ArgsCrispr2, ArgsGex2,
     map2::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
+use cyto_io::write_features2;
 
 use crate::v2::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, ProbeMapper, UmiMapper,
@@ -70,6 +71,9 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     );
 
     let libstats = vec![probe.statistics(), whitelist.statistics(), gex.statistics()];
+
+    // write features
+    write_features2(&args.output.outdir, &gex)?;
 
     // Build output handles
     let bijection = probe.bijection();
@@ -153,6 +157,9 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
         whitelist.statistics(),
         crispr.statistics(),
     ];
+
+    // Write features
+    write_features2(&args.output.outdir, &crispr)?;
 
     // Build output handles
     let bijection = probe.bijection();

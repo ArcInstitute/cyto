@@ -72,3 +72,20 @@ pub fn write_features<'a, P: AsRef<Path>, F: FeatureWriter<'a>>(
 
     Ok(())
 }
+
+pub fn write_features2<'a, P: AsRef<Path>, F: crate::FeatureWriter<'a>>(
+    outdir: P,
+    collection: &'a F,
+) -> Result<()> {
+    // Designate the output path
+    let output_path = outdir.as_ref().join("metadata").join("features.tsv");
+
+    // Open the output file
+    let output_handle = open_file_handle(&output_path)?;
+
+    // Write the features to the output file
+    debug!("Saving features to: {}", output_path.display());
+    collection.write_to(output_handle)?;
+
+    Ok(())
+}
