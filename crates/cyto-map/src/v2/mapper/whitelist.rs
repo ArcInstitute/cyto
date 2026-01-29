@@ -131,6 +131,8 @@ impl Library for WhitelistMapper<Ready> {
             position: self.pos,
             mate: self.mate,
             init_time: self.init_time,
+            window: self.window,
+            exact: self.exact,
         }
     }
 }

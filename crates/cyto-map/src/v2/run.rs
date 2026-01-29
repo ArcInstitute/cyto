@@ -40,7 +40,7 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
         args.map2.remap_window,
         args.runtime.num_threads,
     )?;
-    let gex = GexMapper::from_file(&args.gex.gex_filepath)?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map2.remap_window)?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {

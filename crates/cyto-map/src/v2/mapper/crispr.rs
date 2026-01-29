@@ -147,6 +147,8 @@ impl Library for CrisprMapper<Ready> {
             position: self.anchor_pos,
             mate: self.mate,
             init_time: self.init_time,
+            exact: self.exact,
+            window: self.window,
         }
     }
 }
