@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::{debug, error};
 
-use super::{ArgsCrispr, ArgsGex};
+use crate::{ArgsCrispr2, ArgsGex2};
 
 pub const VERSION_GEOMUX: &str = "0.5.5";
 pub const VERSION_CELL_FILTER: &str = "0.1.2";
@@ -39,7 +39,7 @@ impl WorkflowCommand {
 #[derive(Parser, Debug)]
 pub struct GexMappingCommand {
     #[clap(flatten)]
-    pub gex_args: ArgsGex,
+    pub gex_args: ArgsGex2,
 
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
@@ -53,7 +53,7 @@ impl GexMappingCommand {
 #[derive(Parser, Debug)]
 pub struct CrisprMappingCommand {
     #[clap(flatten)]
-    pub crispr_args: ArgsCrispr,
+    pub crispr_args: ArgsCrispr2,
 
     #[clap(flatten)]
     pub geomux_args: ArgsGeomux,
@@ -84,10 +84,6 @@ impl WorkflowMode {
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Workflow Options")]
 pub struct ArgsWorkflow {
-    /// Skip barcode correction step
-    #[clap(long)]
-    pub skip_barcode: bool,
-
     /// Skip UMI correction step
     #[clap(long)]
     pub skip_umi: bool,
@@ -125,22 +121,6 @@ pub struct ArgsWorkflow {
     /// Memory limit for sorting (ignored if `sort_in_memory` is true)
     #[clap(long, default_value = "5GiB")]
     pub memory_limit: String,
-
-    /// Exact barcode matching only
-    ///
-    /// Default allows barcode correction of 1 unambiguous mismatch from whitelist
-    #[clap(long)]
-    pub bc_exact: bool,
-
-    /// Skip barcode correction second pass step.
-    ///
-    /// This skips recovery of ambiguous one-offs barcodes by parent abundance.
-    #[clap(long, conflicts_with = "skip_barcode")]
-    pub skip_bc_second_pass: bool,
-
-    /// Cell Barcode Whitelist
-    #[clap(short, long, required_unless_present = "skip_barcode")]
-    pub whitelist: String,
 
     #[clap(short = 'F', long, default_value = "h5ad")]
     pub format: CountFormat,

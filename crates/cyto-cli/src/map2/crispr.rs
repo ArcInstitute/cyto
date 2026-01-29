@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use anyhow::Result;
 use clap::Parser;
 
 use crate::map::{MultiPairedInput, RuntimeOptions};
@@ -29,4 +32,13 @@ pub struct Crispr2Options {
     /// Path to CRISPR guides library file
     #[clap(short = 'c', long = "guides")]
     pub guides_filepath: String,
+}
+
+impl ArgsCrispr2 {
+    pub fn validate_outdir(&self) -> Result<()> {
+        self.output.validate_outdir()
+    }
+    pub fn log_path(&self) -> PathBuf {
+        self.output.log_path()
+    }
 }
