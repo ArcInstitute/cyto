@@ -5,12 +5,12 @@ use std::time::Instant;
 use anyhow::{Result, bail};
 use cyto_io::{FeatureWriter, match_input_transparent};
 use log::{info, trace};
-use seqhash::{MultiLenSeqHash, SeqHash};
+use seqhash::{MultiLenSeqHash, SeqHash, SeqHashBuilder};
 
 use crate::v2::geometry::ReadMate;
 use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
 use crate::v2::stats::LibraryStatistics;
-use crate::v2::{Component, REMAP_WINDOW, ResolvedGeometry};
+use crate::v2::{Component, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct CrisprRecord {
@@ -26,11 +26,13 @@ pub struct CrisprMapper<S = Ready> {
     anchor_pos: usize,
     mate: ReadMate,
     init_time: f64,
+    window: usize,
+    exact: bool,
     _state: PhantomData<S>,
 }
 
 impl CrisprMapper<Unpositioned> {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P, exact: bool, window: usize) -> Result<Self> {
         let start = Instant::now();
         let ihandle = match_input_transparent(Some(path))?;
         let mut reader = csv::ReaderBuilder::new()
@@ -55,7 +57,11 @@ impl CrisprMapper<Unpositioned> {
 
         trace!("[CRISPR seqhash] - Starting build");
         let anchor_hash = MultiLenSeqHash::new(&anchors)?;
-        let protospacer_hash = SeqHash::new(&protospacers)?;
+        let protospacer_hash = if exact {
+            SeqHashBuilder::default().exact().build(&protospacers)
+        } else {
+            SeqHash::new(&protospacers)
+        }?;
         let init_time = start.elapsed().as_secs_f64();
         info!(
             "[CRISPR seqhash] - Build complete ({:.2} ms)",
@@ -70,6 +76,8 @@ impl CrisprMapper<Unpositioned> {
             mate: ReadMate::R1,
             _state: PhantomData,
             init_time,
+            window,
+            exact,
         })
     }
 
@@ -94,6 +102,8 @@ impl CrisprMapper<Unpositioned> {
             mate,
             init_time: self.init_time,
             _state: PhantomData,
+            window: self.window,
+            exact: self.exact,
         }
     }
 
@@ -112,13 +122,13 @@ impl Mapper for CrisprMapper<Ready> {
     fn query(&self, seq: &[u8]) -> Option<usize> {
         let (mat, remap_offset) =
             self.anchor_hash
-                .query_at_with_remap_offset(seq, self.anchor_pos, REMAP_WINDOW)?;
+                .query_at_with_remap_offset(seq, self.anchor_pos, self.window)?;
 
         let protospacer_offset =
             ((self.anchor_pos + mat.seq_len()) as isize + remap_offset) as usize;
 
         self.protospacer_hash
-            .query_at_with_remap(seq, protospacer_offset, REMAP_WINDOW)
+            .query_at_with_remap(seq, protospacer_offset, self.window)
             .map(|m| m.parent_idx())
     }
 

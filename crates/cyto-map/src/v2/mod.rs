@@ -5,7 +5,6 @@ mod run;
 mod stats;
 mod utils;
 
-const REMAP_WINDOW: usize = 1;
 const GEX_MAX_HDIST: usize = 3;
 type BoxedWriter = Box<dyn std::io::Write + Send>;
 

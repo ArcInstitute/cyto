@@ -7,6 +7,7 @@ use cyto_cli::{
     map2::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
 use cyto_io::write_features2;
+use log::info;
 
 use crate::v2::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, ProbeMapper, UmiMapper,
@@ -32,8 +33,13 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(&args.map2.probes)?;
-    let whitelist = WhitelistMapper::from_file(&args.map2.whitelist, args.runtime.num_threads)?;
+    let probe = ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)?;
+    let whitelist = WhitelistMapper::from_file(
+        &args.map2.whitelist,
+        args.map2.exact,
+        args.map2.remap_window,
+        args.runtime.num_threads,
+    )?;
     let gex = GexMapper::from_file(&args.gex.gex_filepath)?;
 
     // Resolve geometry
@@ -78,6 +84,7 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
         });
     }
     let mapstats = proc.stats();
+    info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
@@ -97,9 +104,18 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(&args.map2.probes)?;
-    let whitelist = WhitelistMapper::from_file(&args.map2.whitelist, args.runtime.num_threads)?;
-    let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath)?;
+    let probe = ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)?;
+    let whitelist = WhitelistMapper::from_file(
+        &args.map2.whitelist,
+        args.map2.exact,
+        args.map2.remap_window,
+        args.runtime.num_threads,
+    )?;
+    let crispr = CrisprMapper::from_file(
+        &args.crispr.guides_filepath,
+        args.map2.exact,
+        args.map2.remap_window,
+    )?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {
@@ -148,6 +164,7 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
         });
     }
     let mapstats = proc.stats();
+    info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;

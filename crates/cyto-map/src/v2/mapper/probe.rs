@@ -5,12 +5,12 @@ use std::time::Instant;
 use anyhow::{Result, bail};
 use cyto_io::match_input_transparent;
 use log::{info, trace};
-use seqhash::SeqHash;
+use seqhash::{SeqHash, SeqHashBuilder};
 
 use crate::v2::geometry::ReadMate;
 use crate::v2::mapper::{Bijection, Library, Mapper, Ready, Unpositioned};
 use crate::v2::stats::LibraryStatistics;
-use crate::v2::{Component, REMAP_WINDOW, ResolvedGeometry};
+use crate::v2::{Component, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct ProbeRecord {
@@ -24,11 +24,13 @@ pub struct ProbeMapper<S = Ready> {
     pos: usize,
     mate: ReadMate,
     init_time: f64,
+    window: usize,
+    exact: bool,
     _state: PhantomData<S>,
 }
 
 impl ProbeMapper<Unpositioned> {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P, exact: bool, window: usize) -> Result<Self> {
         let start = Instant::now();
         let ihandle = match_input_transparent(Some(path))?;
         let mut reader = csv::ReaderBuilder::new()
@@ -45,7 +47,11 @@ impl ProbeMapper<Unpositioned> {
         }
 
         trace!("[PROBE seqhash] - Starting build");
-        let hash = SeqHash::new(&sequences)?;
+        let hash = if exact {
+            SeqHashBuilder::default().exact().build(&sequences)
+        } else {
+            SeqHash::new(&sequences)
+        }?;
         let init_time = start.elapsed().as_secs_f64();
         info!(
             "[PROBE seqhash] - Build complete ({:.2} ms)",
@@ -58,6 +64,8 @@ impl ProbeMapper<Unpositioned> {
             pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
+            window,
+            exact,
             init_time,
         })
     }
@@ -69,8 +77,10 @@ impl ProbeMapper<Unpositioned> {
             aliases: self.aliases,
             pos,
             mate,
-            init_time: self.init_time,
             _state: PhantomData,
+            window: self.window,
+            exact: self.exact,
+            init_time: self.init_time,
         }
     }
 
@@ -106,7 +116,7 @@ impl<T> ProbeMapper<T> {
 impl Mapper for ProbeMapper<Ready> {
     fn query(&self, seq: &[u8]) -> Option<usize> {
         self.hash
-            .query_at_with_remap(seq, self.pos, REMAP_WINDOW)
+            .query_at_with_remap(seq, self.pos, self.window)
             .map(|m| m.parent_idx())
     }
 
