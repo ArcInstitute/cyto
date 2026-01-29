@@ -4,14 +4,14 @@ use anyhow::Result;
 use binseq::ParallelReader;
 use cyto_cli::{
     ArgsCrispr2, ArgsGex2,
+    map::MultiPairedInput,
     map2::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
 use cyto_io::write_features2;
-use log::info;
 
 use crate::v2::{
-    Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, ProbeMapper, UmiMapper,
-    WhitelistMapper, initialize_output_ibus,
+    Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
+    UmiMapper, WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
     utils::{build_filepaths, delete_empty_ibus},
 };
@@ -22,6 +22,39 @@ fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<
     } else {
         Ok(default.parse()?)
     }
+}
+
+fn process_input<M>(
+    inputs: &MultiPairedInput,
+    mut proc: MapProcessor<M>,
+    threads: usize,
+) -> Result<Vec<InputRuntimeStatistics>>
+where
+    M: Mapper + Send + Sync + 'static,
+{
+    let mut runstats = Vec::default();
+    if inputs.is_binseq() {
+        for (input_id, reader) in inputs.to_binseq_readers()?.into_iter().enumerate() {
+            let start = Instant::now();
+            reader.process_parallel(proc.clone(), threads)?;
+            let elapsed_sec = start.elapsed().as_secs_f64();
+            runstats.push(InputRuntimeStatistics {
+                input_id,
+                elapsed_sec,
+            });
+        }
+    } else {
+        let collection = inputs.to_paraseq_collection()?;
+        let start = Instant::now();
+        collection.process_parallel_paired(&mut proc, threads, None)?;
+        let elapsed_sec = start.elapsed().as_secs_f64();
+        runstats.push(InputRuntimeStatistics {
+            input_id: 0,
+            elapsed_sec,
+        });
+    }
+    proc.finish_pbar();
+    Ok(runstats)
 }
 
 pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
@@ -67,26 +100,9 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let mut proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
-    let mut runstats = Vec::default();
-    for (input_id, reader) in args.input.to_binseq_readers()?.into_iter().enumerate() {
-        let num_records = reader.num_records()?;
-
-        let start = Instant::now();
-        reader.process_parallel(proc.clone(), args.runtime.num_threads())?;
-        let elapsed = start.elapsed();
-
-        runstats.push(InputRuntimeStatistics {
-            input_id,
-            records: num_records,
-            elapsed_time: elapsed.as_secs_f64(),
-            mrps: num_records as f64 / elapsed.as_micros() as f64,
-        });
-    }
-    proc.finish_pbar();
+    let proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
+    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
-
-    info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
@@ -149,25 +165,9 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let mut proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
-    let mut runstats = Vec::default();
-    for (input_id, reader) in args.input.to_binseq_readers()?.into_iter().enumerate() {
-        let num_records = reader.num_records()?;
-
-        let start = Instant::now();
-        reader.process_parallel(proc.clone(), args.runtime.num_threads())?;
-        let elapsed = start.elapsed();
-
-        runstats.push(InputRuntimeStatistics {
-            input_id,
-            records: num_records,
-            elapsed_time: elapsed.as_secs_f64(),
-            mrps: num_records as f64 / elapsed.as_micros() as f64,
-        });
-    }
-    proc.finish_pbar();
+    let proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
+    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
-    info!("Map Rate: {:.3}", mapstats.frac_mapped() * 100.0);
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;

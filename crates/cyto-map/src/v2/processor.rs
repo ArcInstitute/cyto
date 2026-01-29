@@ -1,7 +1,8 @@
 use std::{io::Write, sync::Arc, time::Instant};
 
-use binseq::{IntoBinseqError, ParallelProcessor};
+use binseq::IntoBinseqError;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use paraseq::prelude::PairedParallelProcessor;
 use parking_lot::Mutex;
 
 use crate::v2::{
@@ -133,49 +134,42 @@ impl<M: Mapper> MapProcessor<M> {
             }
         }
     }
-}
 
-fn select_seq<R: binseq::BinseqRecord>(record: &R, mate: ReadMate) -> &[u8] {
-    match mate {
-        ReadMate::R1 => record.sseq(),
-        ReadMate::R2 => record.xseq(),
-    }
-}
-
-fn select_qual<R: binseq::BinseqRecord>(record: &R, mate: ReadMate) -> &[u8] {
-    match mate {
-        ReadMate::R1 => record.squal(),
-        ReadMate::R2 => record.xqual(),
-    }
-}
-
-impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
-    fn process_record<R: binseq::BinseqRecord>(&mut self, record: R) -> binseq::Result<()> {
+    fn _process_record(
+        &mut self,
+        s_seq: &[u8],
+        x_seq: &[u8],
+        s_qual: &[u8],
+        x_qual: &[u8],
+    ) -> anyhow::Result<()> {
         // increment total reads
         self.t_stats.total_reads += 1;
 
         // query each mapper
-        let probe_idx = self
-            .probe_mapper
-            .query(select_seq(&record, self.probe_mapper.mate()));
-        let feat_idx = self
-            .feature_mapper
-            .query(select_seq(&record, self.feature_mapper.mate()));
-        let wl_idx = self
-            .whitelist_mapper
-            .query(select_seq(&record, self.whitelist_mapper.mate()));
+        let probe_idx =
+            self.probe_mapper
+                .query(select_mate(s_seq, x_seq, self.probe_mapper.mate()));
+        let feat_idx =
+            self.feature_mapper
+                .query(select_mate(s_seq, x_seq, self.feature_mapper.mate()));
+        let wl_idx =
+            self.whitelist_mapper
+                .query(select_mate(s_seq, x_seq, self.whitelist_mapper.mate()));
 
-        let umi = match self
-            .umi_mapper
-            .extract_2bit_umi(select_seq(&record, self.umi_mapper.mate()))
-        {
+        let umi = match self.umi_mapper.extract_2bit_umi(select_mate(
+            s_seq,
+            x_seq,
+            self.umi_mapper.mate(),
+        )) {
             Some(res) => Some(res?),
             None => None,
         };
 
-        let pass_qual = self
-            .umi_mapper
-            .passes_quality_threshold(select_qual(&record, self.umi_mapper.mate()));
+        let pass_qual = self.umi_mapper.passes_quality_threshold(select_mate(
+            s_qual,
+            x_qual,
+            self.umi_mapper.mate(),
+        ));
 
         // handle match conditions
         if let (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) =
@@ -222,7 +216,8 @@ impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
         }
         Ok(())
     }
-    fn on_batch_complete(&mut self) -> binseq::Result<()> {
+
+    fn _on_batch_complete(&mut self) -> anyhow::Result<()> {
         // write local (in-memory) outputs to global outputs
         {
             // Write all local output buffers to the corresponding files
@@ -248,11 +243,51 @@ impl<M: Mapper + Send + Sync> ParallelProcessor for MapProcessor<M> {
 
         Ok(())
     }
+}
+
+fn select_mate<'a>(m1: &'a [u8], m2: &'a [u8], mate: ReadMate) -> &'a [u8] {
+    match mate {
+        ReadMate::R1 => m1,
+        ReadMate::R2 => m2,
+    }
+}
+
+impl<M: Mapper + Send + Sync> binseq::ParallelProcessor for MapProcessor<M> {
+    fn process_record<R: binseq::BinseqRecord>(&mut self, record: R) -> binseq::Result<()> {
+        self._process_record(record.sseq(), record.xseq(), record.squal(), record.xqual())?;
+        Ok(())
+    }
+    fn on_batch_complete(&mut self) -> binseq::Result<()> {
+        self._on_batch_complete()?;
+        Ok(())
+    }
     fn set_tid(&mut self, tid: usize) {
         self.tid = tid
     }
     fn get_tid(&self) -> Option<usize> {
         Some(self.tid)
+    }
+}
+
+impl<M: Mapper + Send + Sync, Rf: paraseq::Record> PairedParallelProcessor<Rf> for MapProcessor<M> {
+    fn process_record_pair(&mut self, record1: Rf, record2: Rf) -> paraseq::Result<()> {
+        self._process_record(
+            record1.seq().as_ref(),
+            record2.seq().as_ref(),
+            record1.qual().unwrap_or_default(), // TODO: handle potentially missing quality scores
+            record2.qual().unwrap_or_default(),
+        )?;
+        Ok(())
+    }
+    fn on_batch_complete(&mut self) -> paraseq::Result<()> {
+        self._on_batch_complete()?;
+        Ok(())
+    }
+    fn set_thread_id(&mut self, thread_id: usize) {
+        self.tid = thread_id;
+    }
+    fn get_thread_id(&self) -> usize {
+        self.tid
     }
 }
 

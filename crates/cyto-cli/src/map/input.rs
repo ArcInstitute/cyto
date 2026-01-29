@@ -7,7 +7,7 @@ use clap::Parser;
 pub use anyhow::bail;
 pub use binseq::bq::MmapReader;
 use log::{debug, error};
-use paraseq::fastx;
+use paraseq::{fastx, BoxedReader};
 
 type FxReader = fastx::Reader<Box<dyn Read + Send>>;
 type FxReaderPair = (FxReader, FxReader);
@@ -87,6 +87,19 @@ impl MultiPairedInput {
             readers.push(reader);
         }
         Ok(readers)
+    }
+
+    pub fn to_paraseq_collection(&self) -> Result<fastx::Collection<BoxedReader>> {
+        if !self.inputs.len().is_multiple_of(2) {
+            error!(
+                "Found {} inputs, expecting an even number of file pairs",
+                self.inputs.len()
+            );
+            bail!("Number of pairs must be even");
+        }
+        let collection =
+            fastx::Collection::from_paths(&self.inputs, fastx::CollectionType::Paired)?;
+        Ok(collection)
     }
 }
 

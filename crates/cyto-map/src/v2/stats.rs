@@ -11,12 +11,8 @@ use crate::v2::ReadMate;
 pub struct InputRuntimeStatistics {
     /// The input identity
     pub input_id: usize,
-    /// The number of records in this input
-    pub records: usize,
     /// The amount of time taken to map the input (seconds)
-    pub elapsed_time: f64,
-    /// Million reads per second
-    pub mrps: f64,
+    pub elapsed_sec: f64,
 }
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
