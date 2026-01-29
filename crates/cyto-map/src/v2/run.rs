@@ -12,6 +12,7 @@ use crate::v2::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, ProbeMapper, UmiMapper,
     WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
+    utils::{build_filepaths, delete_empty_ibus},
 };
 
 fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<Geometry> {
@@ -77,7 +78,8 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
 
     // Build output handles
     let bijection = probe.bijection();
-    let writers = initialize_output_ibus(&args.output.outdir, &resolved, &bijection)?;
+    let filepaths = build_filepaths(&args.output.outdir, &bijection)?;
+    let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
     let proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
@@ -100,6 +102,9 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
+
+    // Delete empty IBUs
+    delete_empty_ibus(&filepaths)?;
 
     Ok(())
 }
@@ -163,7 +168,8 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
 
     // Build output handles
     let bijection = probe.bijection();
-    let writers = initialize_output_ibus(&args.output.outdir, &resolved, &bijection)?;
+    let filepaths = build_filepaths(&args.output.outdir, &bijection)?;
+    let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
     let proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
@@ -186,6 +192,9 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
 
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
+
+    // Delete empty IBUs
+    delete_empty_ibus(&filepaths)?;
 
     Ok(())
 }
