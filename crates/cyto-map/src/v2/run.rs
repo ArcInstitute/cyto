@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use binseq::ParallelReader;
 use cyto_cli::{
     ArgsCrispr2, ArgsGex2,
@@ -47,29 +47,10 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     })?;
 
     // Finalize mappers with positions
-    let probe_region = resolved
-        .get(Component::Probe)
-        .ok_or_else(|| anyhow!("geometry missing [probe]"))?;
-    let probe = probe.with_position(probe_region.offset, probe_region.mate);
-
-    let barcode_region = resolved
-        .get(Component::Barcode)
-        .ok_or_else(|| anyhow!("geometry missing [barcode]"))?;
-    let whitelist = whitelist.with_position(barcode_region.offset, barcode_region.mate);
-
-    let gex_region = resolved
-        .get(Component::Gex)
-        .ok_or_else(|| anyhow!("geometry missing [gex]"))?;
-    let gex = gex.with_position(gex_region.offset, gex_region.mate);
-
-    let umi_region = resolved
-        .get(Component::Umi)
-        .ok_or_else(|| anyhow!("geometry missing [umi]"))?;
-    let umi = UmiMapper::new(
-        umi_region.offset,
-        umi_region.length.expect("length missing [umi]"),
-        umi_region.mate,
-    );
+    let probe = probe.resolve(&resolved)?;
+    let whitelist = whitelist.resolve(&resolved)?;
+    let gex = gex.resolve(&resolved)?;
+    let umi = UmiMapper::resolve(&resolved)?;
 
     let libstats = vec![probe.statistics(), whitelist.statistics(), gex.statistics()];
 
@@ -133,29 +114,10 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     })?;
 
     // Finalize mappers with positions
-    let probe_region = resolved
-        .get(Component::Probe)
-        .ok_or_else(|| anyhow!("geometry missing [probe]"))?;
-    let probe = probe.with_position(probe_region.offset, probe_region.mate);
-
-    let barcode_region = resolved
-        .get(Component::Barcode)
-        .ok_or_else(|| anyhow!("geometry missing [barcode]"))?;
-    let whitelist = whitelist.with_position(barcode_region.offset, barcode_region.mate);
-
-    let anchor_region = resolved
-        .get(Component::Anchor)
-        .ok_or_else(|| anyhow!("geometry missing [anchor]"))?;
-    let crispr = crispr.with_position(anchor_region.offset, anchor_region.mate);
-
-    let umi_region = resolved
-        .get(Component::Umi)
-        .ok_or_else(|| anyhow!("geometry missing [umi]"))?;
-    let umi = UmiMapper::new(
-        umi_region.offset,
-        umi_region.length.expect("length missing [umi]"),
-        umi_region.mate,
-    );
+    let probe = probe.resolve(&resolved)?;
+    let whitelist = whitelist.resolve(&resolved)?;
+    let crispr = crispr.resolve(&resolved)?;
+    let umi = UmiMapper::resolve(&resolved)?;
 
     let libstats = vec![
         probe.statistics(),

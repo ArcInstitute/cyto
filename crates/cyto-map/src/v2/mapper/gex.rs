@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use cyto_io::{FeatureWriter, match_input_transparent};
 use log::{info, trace};
 use seqhash::SplitSeqHash;
@@ -10,7 +10,7 @@ use seqhash::SplitSeqHash;
 use crate::v2::geometry::ReadMate;
 use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
 use crate::v2::stats::LibraryStatistics;
-use crate::v2::{Bijection, GEX_MAX_HDIST};
+use crate::v2::{Bijection, Component, GEX_MAX_HDIST, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct GexRecord {
@@ -84,6 +84,13 @@ impl GexMapper<Unpositioned> {
             init_time: self.init_time,
             _state: PhantomData,
         }
+    }
+
+    pub fn resolve(self, geometry: &ResolvedGeometry) -> Result<GexMapper<Ready>> {
+        let Some(region) = geometry.get(Component::Gex) else {
+            bail!("geometry missing [gex]")
+        };
+        Ok(self.with_position(region.offset, region.mate))
     }
 }
 

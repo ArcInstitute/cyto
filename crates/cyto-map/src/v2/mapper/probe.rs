@@ -2,15 +2,15 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use cyto_io::match_input_transparent;
 use log::{info, trace};
 use seqhash::SeqHash;
 
-use crate::v2::REMAP_WINDOW;
 use crate::v2::geometry::ReadMate;
 use crate::v2::mapper::{Bijection, Library, Mapper, Ready, Unpositioned};
 use crate::v2::stats::LibraryStatistics;
+use crate::v2::{Component, REMAP_WINDOW, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct ProbeRecord {
@@ -72,6 +72,13 @@ impl ProbeMapper<Unpositioned> {
             init_time: self.init_time,
             _state: PhantomData,
         }
+    }
+
+    pub fn resolve(self, geometry: &ResolvedGeometry) -> Result<ProbeMapper<Ready>> {
+        let Some(region) = geometry.get(Component::Probe) else {
+            bail!("geometry missing [probe]")
+        };
+        Ok(self.with_position(region.offset, region.mate))
     }
 }
 

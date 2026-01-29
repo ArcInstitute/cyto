@@ -2,15 +2,15 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use cyto_io::{FeatureWriter, match_input_transparent};
 use log::{info, trace};
 use seqhash::{MultiLenSeqHash, SeqHash};
 
-use crate::v2::REMAP_WINDOW;
 use crate::v2::geometry::ReadMate;
 use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
 use crate::v2::stats::LibraryStatistics;
+use crate::v2::{Component, REMAP_WINDOW, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct CrisprRecord {
@@ -95,6 +95,16 @@ impl CrisprMapper<Unpositioned> {
             init_time: self.init_time,
             _state: PhantomData,
         }
+    }
+
+    pub fn resolve(self, geometry: &ResolvedGeometry) -> Result<CrisprMapper<Ready>> {
+        let Some(anchor_region) = geometry.get(Component::Anchor) else {
+            bail!("geometry missing [anchor]")
+        };
+        let Some(_protospacer_region) = geometry.get(Component::Protospacer) else {
+            bail!("geometry missing [protospacer]")
+        };
+        Ok(self.with_position(anchor_region.offset, anchor_region.mate))
     }
 }
 

@@ -1,6 +1,9 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 
-use crate::{ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY, v2::geometry::ReadMate};
+use crate::{
+    ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY,
+    v2::{Component, ResolvedGeometry, geometry::ReadMate},
+};
 
 /// An extraction struct for the UMI of a read
 #[derive(Clone, Copy)]
@@ -12,6 +15,16 @@ pub struct UmiMapper {
 impl UmiMapper {
     pub fn new(pos: usize, len: usize, mate: ReadMate) -> Self {
         Self { pos, len, mate }
+    }
+
+    pub fn resolve(geometry: &ResolvedGeometry) -> Result<Self> {
+        let Some(region) = geometry.get(Component::Umi) else {
+            bail!("geometry missing [umi]")
+        };
+        let Some(len) = region.length else {
+            bail!("length missing [umi]")
+        };
+        Ok(Self::new(region.offset, len, region.mate))
     }
 
     /// Returns the mate of the read
