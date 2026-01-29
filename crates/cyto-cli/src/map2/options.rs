@@ -36,6 +36,12 @@ pub struct Map2Options {
     /// Skip UMI quality check
     #[clap(long)]
     pub no_umi_qual_check: bool,
+
+    /// Regex pattern for probe alias
+    ///
+    /// Used to select/filter probes that are known to be in the dataset
+    #[clap(long)]
+    pub probe_regex: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]

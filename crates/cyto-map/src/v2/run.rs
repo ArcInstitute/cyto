@@ -66,7 +66,16 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)?;
+    let probe = if let Some(regex) = args.map2.probe_regex.as_ref() {
+        ProbeMapper::from_file_with_alias_regex(
+            &args.map2.probes,
+            args.map2.exact,
+            args.map2.remap_window,
+            regex,
+        )
+    } else {
+        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)
+    }?;
     let whitelist = WhitelistMapper::from_file(
         &args.map2.whitelist,
         args.map2.exact,
@@ -122,7 +131,16 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     }?;
 
     // Load mappers (unpositioned)
-    let probe = ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)?;
+    let probe = if let Some(regex) = args.map2.probe_regex.as_ref() {
+        ProbeMapper::from_file_with_alias_regex(
+            &args.map2.probes,
+            args.map2.exact,
+            args.map2.remap_window,
+            regex,
+        )
+    } else {
+        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)
+    }?;
     let whitelist = WhitelistMapper::from_file(
         &args.map2.whitelist,
         args.map2.exact,
