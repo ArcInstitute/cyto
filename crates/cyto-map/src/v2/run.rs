@@ -41,9 +41,7 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
         Component::Barcode => Some(whitelist.seq_len()),
         Component::Probe => Some(probe.seq_len()),
         Component::Gex => Some(gex.seq_len()),
-        Component::Umi => None,
-        Component::Anchor => None,
-        Component::Protospacer => None,
+        _ => None,
     })?;
 
     // Finalize mappers with positions
@@ -107,10 +105,9 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
     let resolved = geometry.resolve(|component| match component {
         Component::Barcode => Some(whitelist.seq_len()),
         Component::Probe => Some(probe.seq_len()),
-        Component::Gex => None,
-        Component::Umi => None,
         Component::Anchor => crispr.anchor_len(),
         Component::Protospacer => Some(crispr.protospacer_len()),
+        _ => None,
     })?;
 
     // Finalize mappers with positions
