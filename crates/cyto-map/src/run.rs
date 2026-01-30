@@ -68,20 +68,20 @@ pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     // Load mappers (unpositioned)
     let probe = if let Some(regex) = args.map2.probe_regex() {
         ProbeMapper::from_file_with_alias_regex(
-            &args.map2.probe_path(),
+            args.map2.probe_path(),
             args.map2.exact,
             args.map2.remap_window(),
             regex,
         )
     } else {
         ProbeMapper::from_file(
-            &args.map2.probe_path(),
+            args.map2.probe_path(),
             args.map2.exact,
             args.map2.remap_window(),
         )
     }?;
     let whitelist = WhitelistMapper::from_file(
-        &args.map2.whitelist_path(),
+        args.map2.whitelist_path(),
         args.map2.exact,
         args.map2.remap_window(),
         args.runtime.num_threads,
@@ -137,20 +137,20 @@ pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
     // Load mappers (unpositioned)
     let probe = if let Some(regex) = args.map2.probe_regex() {
         ProbeMapper::from_file_with_alias_regex(
-            &args.map2.probe_path(),
+            args.map2.probe_path(),
             args.map2.exact,
             args.map2.remap_window(),
             regex,
         )
     } else {
         ProbeMapper::from_file(
-            &args.map2.probe_path(),
+            args.map2.probe_path(),
             args.map2.exact,
             args.map2.remap_window(),
         )
     }?;
     let whitelist = WhitelistMapper::from_file(
-        &args.map2.whitelist_path(),
+        args.map2.whitelist_path(),
         args.map2.exact,
         args.map2.remap_window(),
         args.runtime.num_threads,
