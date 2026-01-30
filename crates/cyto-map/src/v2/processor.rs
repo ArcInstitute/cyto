@@ -42,7 +42,7 @@ impl<M: Mapper> Clone for MapProcessor<M> {
             bijection: Arc::clone(&self.bijection),
             writers: Arc::clone(&self.writers),
             stats: Arc::clone(&self.stats),
-            map_time: self.map_time.clone(),
+            map_time: self.map_time,
             pbar: self.pbar.clone(),
         }
     }
@@ -127,7 +127,7 @@ impl<M: Mapper> MapProcessor<M> {
 
         // Lock the progress bar and finish the message
         {
-            if let Some(pb) = self.pbar.lock().as_mut().take() {
+            if let Some(pb) = self.pbar.lock().as_mut() {
                 pb.finish_with_message(format!(
                         "Mapping complete: {total:.3}M reads ( Mapped: {map_pc:.2}%, Throughput: {throughput:.3}M/s )",
                     ));
@@ -262,7 +262,7 @@ impl<M: Mapper + Send + Sync> binseq::ParallelProcessor for MapProcessor<M> {
         Ok(())
     }
     fn set_tid(&mut self, tid: usize) {
-        self.tid = tid
+        self.tid = tid;
     }
     fn get_tid(&self) -> Option<usize> {
         Some(self.tid)

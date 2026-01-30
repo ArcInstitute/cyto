@@ -86,10 +86,9 @@ impl MultiPairedInput {
             let reader = BinseqReader::new(path)?;
             if !reader.is_paired() {
                 error!(
-                    "Provided BINSEQ path is not paired. All inputs are expected to be paired: {}",
-                    path
+                    "Provided BINSEQ path is not paired. All inputs are expected to be paired: {path}"
                 );
-                bail!("Input file is not paired: {}", path);
+                bail!("Input file is not paired: {path}");
             }
             readers.push(reader);
         }

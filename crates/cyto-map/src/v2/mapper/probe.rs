@@ -31,13 +31,13 @@ pub struct ProbeMapper<S = Ready> {
 }
 
 impl ProbeMapper<Unpositioned> {
-    /// Load probe sequences and aliases from a file, then build a SeqHash.
+    /// Load probe sequences and aliases from a file, then build a `SeqHash`.
     pub fn from_file<P: AsRef<Path>>(path: P, exact: bool, window: usize) -> Result<Self> {
         let (sequences, aliases) = Self::load_from_file(path)?;
         Self::build(sequences, aliases, exact, window)
     }
 
-    /// Load probe sequences and aliases from a file, filter aliases that match a regex, then build a SeqHash.
+    /// Load probe sequences and aliases from a file, filter aliases that match a regex, then build a `SeqHash`.
     pub fn from_file_with_alias_regex<P: AsRef<Path>>(
         path: P,
         exact: bool,
@@ -49,7 +49,7 @@ impl ProbeMapper<Unpositioned> {
         let num_og_sequences = og_sequences.len();
         let (sequences, aliases): (Vec<_>, Vec<_>) = og_sequences
             .into_iter()
-            .zip(og_aliases.into_iter())
+            .zip(og_aliases)
             .filter(|(_, alias)| regex.is_match(alias))
             .unzip();
         trace!(
