@@ -12,7 +12,6 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 [dependencies]
 anyhow = { workspace = true }
 csv = { workspace = true }
-cyto-core = { workspace = true }
 log = { workspace = true }
 niffler = { workspace = true }
 serde = { workspace = true }

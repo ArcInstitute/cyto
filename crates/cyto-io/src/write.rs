@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use cyto_core::{io::FeatureWriter, statistics::Statistics};
 use log::{debug, warn};
 
 /// Validates output directory and handles force flag
@@ -41,39 +40,7 @@ pub fn open_file_handle<P: AsRef<Path>>(output_path: P) -> Result<Box<dyn Write 
     Ok(Box::new(buffer))
 }
 
-/// Writes the mapping statistics to a file
-pub fn write_statistics<P: AsRef<Path>>(outdir: P, statistics: &Statistics) -> Result<()> {
-    // Designate the output path
-    let output_path = outdir.as_ref().join("stats").join("mapping.json");
-
-    // Open the output file
-    let output_handle = open_file_handle(&output_path)?;
-
-    // Write the statistics to the output file
-    debug!("Saving statistics to: {}", output_path.display());
-    statistics.save_json(output_handle)?;
-
-    Ok(())
-}
-
-pub fn write_features<'a, P: AsRef<Path>, F: FeatureWriter<'a>>(
-    outdir: P,
-    collection: &'a F,
-) -> Result<()> {
-    // Designate the output path
-    let output_path = outdir.as_ref().join("metadata").join("features.tsv");
-
-    // Open the output file
-    let output_handle = open_file_handle(&output_path)?;
-
-    // Write the features to the output file
-    debug!("Saving features to: {}", output_path.display());
-    collection.write_to(output_handle)?;
-
-    Ok(())
-}
-
-pub fn write_features2<'a, P: AsRef<Path>, F: crate::FeatureWriter<'a>>(
+pub fn write_features<'a, P: AsRef<Path>, F: crate::FeatureWriter<'a>>(
     outdir: P,
     collection: &'a F,
 ) -> Result<()> {
