@@ -70,19 +70,19 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
         ProbeMapper::from_file_with_alias_regex(
             &args.map2.probes,
             args.map2.exact,
-            args.map2.remap_window,
+            args.map2.remap_window(),
             regex,
         )
     } else {
-        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)
+        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window())
     }?;
     let whitelist = WhitelistMapper::from_file(
         &args.map2.whitelist,
         args.map2.exact,
-        args.map2.remap_window,
+        args.map2.remap_window(),
         args.runtime.num_threads,
     )?;
-    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map2.remap_window)?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map2.remap_window())?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {
@@ -135,22 +135,22 @@ pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
         ProbeMapper::from_file_with_alias_regex(
             &args.map2.probes,
             args.map2.exact,
-            args.map2.remap_window,
+            args.map2.remap_window(),
             regex,
         )
     } else {
-        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window)
+        ProbeMapper::from_file(&args.map2.probes, args.map2.exact, args.map2.remap_window())
     }?;
     let whitelist = WhitelistMapper::from_file(
         &args.map2.whitelist,
         args.map2.exact,
-        args.map2.remap_window,
+        args.map2.remap_window(),
         args.runtime.num_threads,
     )?;
     let crispr = CrisprMapper::from_file(
         &args.crispr.guides_filepath,
         args.map2.exact,
-        args.map2.remap_window,
+        args.map2.remap_window(),
     )?;
 
     // Resolve geometry
