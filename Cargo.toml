@@ -12,7 +12,6 @@ cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.1.3" }
 cyto-ibu-view = { path = "crates/cyto-ibu-view", version = "0.1.5" }
 cyto-core = { path = "crates/cyto-core", version = "0.4.7" }
 cyto-cli = { path = "crates/cyto-cli", version = "0.6.19" }
-cyto-view = { path = "crates/cyto-view", version = "0.1.4" }
 cyto-io = { path = "crates/cyto-io", version = "0.1.5" }
 cyto-map = { path = "crates/cyto-map", version = "0.4.9" }
 cyto-workflow = { path = "crates/cyto-workflow", version = "0.2.22" }

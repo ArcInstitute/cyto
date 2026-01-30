@@ -1,8 +1,7 @@
 use anyhow::{Result, bail};
 
 use crate::{
-    ILLUMINA_QUALITY_OFFSET, UMI_MIN_QUALITY,
-    v2::{Component, ResolvedGeometry, geometry::ReadMate},
+    Component, ILLUMINA_QUALITY_OFFSET, ResolvedGeometry, UMI_MIN_QUALITY, geometry::ReadMate,
 };
 
 /// An extraction struct for the UMI of a read

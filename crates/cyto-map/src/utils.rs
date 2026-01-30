@@ -4,7 +4,7 @@ use anyhow::Result;
 use cyto_io::open_file_handle;
 use log::debug;
 
-use crate::v2::{Bijection, BoxedWriter, ResolvedGeometry};
+use crate::{Bijection, BoxedWriter, ResolvedGeometry};
 
 fn build_filepath<P: AsRef<Path>>(outdir: P, name: Option<&str>) -> PathBuf {
     outdir.as_ref().join(if let Some(name) = name {

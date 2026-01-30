@@ -7,10 +7,10 @@ use cyto_io::{FeatureWriter, match_input_transparent};
 use log::{info, trace};
 use seqhash::{MultiLenSeqHash, SeqHash, SeqHashBuilder};
 
-use crate::v2::geometry::ReadMate;
-use crate::v2::mapper::{Library, Mapper, Ready, Unpositioned};
-use crate::v2::stats::LibraryStatistics;
-use crate::v2::{Component, ResolvedGeometry};
+use crate::geometry::ReadMate;
+use crate::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::stats::LibraryStatistics;
+use crate::{Component, ResolvedGeometry};
 
 #[derive(serde::Deserialize)]
 struct CrisprRecord {

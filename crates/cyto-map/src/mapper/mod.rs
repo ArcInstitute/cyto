@@ -12,7 +12,7 @@ pub use probe::ProbeMapper;
 pub use umi::UmiMapper;
 pub use whitelist::WhitelistMapper;
 
-use crate::v2::{geometry::ReadMate, stats::LibraryStatistics};
+use crate::{geometry::ReadMate, stats::LibraryStatistics};
 
 pub trait Mapper {
     /// Queries the mapper for the parent index of the given sequence.

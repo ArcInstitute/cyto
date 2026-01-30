@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::{debug, error};
 
-use crate::{ArgsCrispr2, ArgsGex2};
+use crate::{ArgsCrispr, ArgsGex};
 
 pub const VERSION_GEOMUX: &str = "0.5.5";
 pub const VERSION_CELL_FILTER: &str = "0.1.2";
@@ -39,7 +39,7 @@ impl WorkflowCommand {
 #[derive(Parser, Debug)]
 pub struct GexMappingCommand {
     #[clap(flatten)]
-    pub gex_args: ArgsGex2,
+    pub gex_args: ArgsGex,
 
     #[clap(flatten)]
     pub wf_args: ArgsWorkflow,
@@ -53,7 +53,7 @@ impl GexMappingCommand {
 #[derive(Parser, Debug)]
 pub struct CrisprMappingCommand {
     #[clap(flatten)]
-    pub crispr_args: ArgsCrispr2,
+    pub crispr_args: ArgsCrispr,
 
     #[clap(flatten)]
     pub geomux_args: ArgsGeomux,

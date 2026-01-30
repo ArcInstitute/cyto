@@ -26,7 +26,7 @@ pub fn run(args: &CrisprMappingCommand) -> Result<()> {
 
     info!("Running CRISPR Mapping Workflow");
     let start = Instant::now();
-    cyto_map::v2::run_crispr2(&args.crispr_args)?;
+    cyto_map::run_crispr2(&args.crispr_args)?;
     let elapsed = start.elapsed();
     all_timings
         .lock()

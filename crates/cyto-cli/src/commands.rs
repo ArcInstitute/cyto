@@ -1,6 +1,6 @@
 use clap::Subcommand;
 
-use super::{ArgsView, IbuCommand, Map2Command, MapCommand, WorkflowCommand};
+use super::{IbuCommand, MapCommand, WorkflowCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -12,14 +12,7 @@ pub enum Commands {
     #[clap(subcommand)]
     Map(MapCommand),
 
-    /// Map sequences to a library (v2)
-    #[clap(subcommand)]
-    Map2(Map2Command),
-
     /// Perform operations on an IBU library
     #[clap(subcommand)]
     Ibu(IbuCommand),
-
-    /// Separate the Barcode, UMI, and R2 sequence and view as plain text
-    View(ArgsView),
 }

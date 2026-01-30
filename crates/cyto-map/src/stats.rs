@@ -5,7 +5,7 @@ use cyto_io::open_file_handle;
 use derive_more::AddAssign;
 use log::debug;
 
-use crate::v2::ReadMate;
+use crate::ReadMate;
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
 pub struct InputRuntimeStatistics {

@@ -5,7 +5,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use paraseq::prelude::PairedParallelProcessor;
 use parking_lot::Mutex;
 
-use crate::v2::{
+use crate::{
     Bijection, BoxedWriter, Mapper, ProbeMapper, ReadMate, UmiMapper, WhitelistMapper,
     stats::MappingStatistics,
 };

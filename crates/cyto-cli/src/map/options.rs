@@ -1,12 +1,12 @@
 use clap::Parser;
 
-use crate::map2::GEOMETRY_GEX_FLEX_V2;
+use crate::map::GEOMETRY_GEX_FLEX_V2;
 
 use super::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_CRISPR_PROPERSEQ, GEOMETRY_GEX_FLEX_V1};
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Mapping Options")]
-pub struct Map2Options {
+pub struct MapOptions {
     /// Custom Geometry DSL string
     ///
     /// If unsure, try a preset first.
@@ -47,7 +47,7 @@ pub struct Map2Options {
     #[clap(long)]
     pub probe_regex: Option<String>,
 }
-impl Map2Options {
+impl MapOptions {
     pub fn remap_window(&self) -> usize {
         match self.preset {
             Some(GeometryPreset::GexV2) => 5,

@@ -3,13 +3,13 @@ use std::time::Instant;
 use anyhow::Result;
 use binseq::ParallelReader;
 use cyto_cli::{
-    ArgsCrispr2, ArgsGex2,
+    ArgsCrispr, ArgsGex,
     map::MultiPairedInput,
-    map2::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
+    map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
 use cyto_io::write_features2;
 
-use crate::v2::{
+use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
     UmiMapper, WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
@@ -57,7 +57,7 @@ where
     Ok(runstats)
 }
 
-pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
+pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(preset) = args.map2.preset {
         Ok(preset.into_geometry_str().parse()?)
@@ -122,7 +122,7 @@ pub fn run_gex2(args: &ArgsGex2) -> Result<()> {
     Ok(())
 }
 
-pub fn run_crispr2(args: &ArgsCrispr2) -> Result<()> {
+pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(geometry) = args.map2.preset {
         Ok(geometry.into_geometry_str().parse()?)
