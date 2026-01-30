@@ -12,11 +12,11 @@ pub const VERSION_PYCYTO: &str = "0.1.13";
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
-    /// Executes a gex mapping workflow (map => sort => barcode => sort => umi => sort => count)
+    /// Executes a gex mapping workflow (map => sort => umi-correct => count => filter)
     #[clap(name = "gex")]
     GexMapping(GexMappingCommand),
 
-    /// Executes a crispr mapping workflow (map => sort => barcode => sort => umi => sort => count)
+    /// Executes a crispr mapping workflow (map => sort => umi-correct => count => assign)
     #[clap(name = "crispr")]
     CrisprMapping(CrisprMappingCommand),
 }

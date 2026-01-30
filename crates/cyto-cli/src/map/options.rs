@@ -17,35 +17,27 @@ pub struct MapOptions {
     #[clap(long)]
     pub preset: Option<GeometryPreset>,
 
-    /// Path to whitelist file
-    #[clap(short = 'w', long)]
-    pub whitelist: String,
-
-    /// Path to probe file
-    #[clap(short = 'p', long)]
-    pub probes: String,
-
-    /// Use exact matching (no hamming distance correction)
-    #[clap(short = 'x', long)]
-    pub exact: bool,
-
     /// Remap window size for position adjustment (0 to disable)
     ///
     /// This is the position window size for remapping an element (+/-) on failed match
     ///
     /// If preset to a v2 condition this is ignored and set to 5
-    #[clap(long, default_value = "1")]
+    #[clap(long, default_value = "1", conflicts_with = "preset")]
     remap_window: usize,
+
+    /// Use exact matching (no hamming distance correction)
+    #[clap(short = 'x', long)]
+    pub exact: bool,
 
     /// Skip UMI quality check
     #[clap(long)]
     pub no_umi_qual_check: bool,
 
-    /// Regex pattern for probe alias
-    ///
-    /// Used to select/filter probes that are known to be in the dataset
-    #[clap(long)]
-    pub probe_regex: Option<String>,
+    #[clap(flatten)]
+    whitelist: WhitelistOptions,
+
+    #[clap(flatten)]
+    probe: ProbeOptions,
 }
 impl MapOptions {
     pub fn remap_window(&self) -> usize {
@@ -54,6 +46,40 @@ impl MapOptions {
             _ => self.remap_window,
         }
     }
+
+    pub fn probe_regex(&self) -> Option<&str> {
+        self.probe.probe_regex.as_deref()
+    }
+
+    pub fn probe_path(&self) -> &str {
+        &self.probe.probes
+    }
+
+    pub fn whitelist_path(&self) -> &str {
+        &self.whitelist.whitelist
+    }
+}
+
+#[derive(Parser, Debug)]
+#[clap(next_help_heading = "Probe Options")]
+pub struct ProbeOptions {
+    /// Path to probe file
+    #[clap(short = 'p', long)]
+    pub probes: String,
+
+    /// Regex pattern for probe alias
+    ///
+    /// Used to select/filter probes that are known to be in the dataset
+    #[clap(long)]
+    pub probe_regex: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+#[clap(next_help_heading = "Whitelist Options")]
+pub struct WhitelistOptions {
+    /// Path to whitelist file
+    #[clap(short = 'w', long)]
+    pub whitelist: String,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
