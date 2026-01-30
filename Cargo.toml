@@ -4,7 +4,6 @@ resolver = "3"
 
 [workspace.dependencies]
 cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct", version = "0.1.7" }
-cyto-ibu-barcode-correct = { path = "crates/cyto-ibu-barcode-correct", version = "0.1.6" }
 cyto-ibu-cat = { path = "crates/cyto-ibu-cat", version = "0.1.2" }
 cyto-ibu-count = { path = "crates/cyto-ibu-count", version = "0.1.8" }
 cyto-ibu-reads = { path = "crates/cyto-ibu-reads", version = "0.1.5" }

@@ -31,7 +31,6 @@ fn main() -> Result<()> {
             IbuCommand::Sort(args) => cyto_ibu_sort::run(&args),
             IbuCommand::Count(args) => cyto_ibu_count::run(&args),
             IbuCommand::Cat(args) => cyto_ibu_cat::run(&args),
-            IbuCommand::Barcode(args) => cyto_ibu_barcode_correct::run(&args),
             IbuCommand::Umi(args) => cyto_ibu_umi_correct::run(&args),
             IbuCommand::Reads(args) => cyto_ibu_reads::run(&args),
         },

@@ -1,4 +1,3 @@
-mod barcode;
 mod cat;
 mod count;
 mod input;
@@ -7,7 +6,6 @@ mod sort;
 mod umi;
 mod view;
 
-pub use barcode::ArgsBarcode;
 pub use cat::ArgsCat;
 pub use count::ArgsCount;
 pub use input::{IbuInput, MultiIbuInput};
@@ -30,11 +28,6 @@ pub enum IbuCommand {
 
     /// Create barcode-index count matrix from an IBU library
     Count(ArgsCount),
-
-    /// Correct barcode errors in an IBU library
-    ///
-    /// Does not require a sorted IBU library as input
-    Barcode(ArgsBarcode),
 
     /// Correct UMI errors in an IBU library
     ///
