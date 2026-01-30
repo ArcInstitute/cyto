@@ -35,7 +35,9 @@ impl Map2Command {
     }
 }
 
-pub const GEOMETRY_GEX_FLEX_V1: &str = "[barcode][umi:12]|[gex][:18][probe]";
-pub const GEOMETRY_GEX_FLEX_V2: &str = "[barcode][umi:12][:10][probe]|[gex]";
-pub const GEOMETRY_CRISPR_FLEX_V1: &str = "[barcode][umi:12]|[probe][anchor][protospacer]";
-pub const GEOMETRY_CRISPR_PROPERSEQ: &str = "[barcode][umi:12]|[:18][probe][anchor][protospacer]";
+pub const GEOMETRY_GEX_FLEX_V1: &str = "[barcode][umi:12] | [gex][:18][probe]";
+pub const GEOMETRY_GEX_FLEX_V2: &str = "[barcode][umi:12][:10][probe] | [gex]";
+pub const GEOMETRY_CRISPR_FLEX_V1: &str = "[barcode][umi:12] | [probe][anchor][protospacer]";
+pub const GEOMETRY_CRISPR_FLEX_V2: &str =
+    "[barcode][umi:12][:10][probe] | [:14][anchor][protospacer]";
+pub const GEOMETRY_CRISPR_PROPERSEQ: &str = "[barcode][umi:12] | [:18][probe][anchor][protospacer]";
