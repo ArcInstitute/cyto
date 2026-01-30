@@ -96,11 +96,10 @@ jobs:
             INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
           fi
 
-          PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-
           ./cyto map crispr \
             -c ./data/libraries/crispr_guides.tsv \
-            $PROBE_FLAG \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             --force \
             $INPUT_FILES
 
@@ -131,11 +130,10 @@ jobs:
             INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
           fi
 
-          PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-
           ./cyto map gex \
             -c ./data/libraries/gex_probes.tsv \
-            $PROBE_FLAG \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             --force \
             $INPUT_FILES
 
@@ -166,11 +164,9 @@ jobs:
             INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
           fi
 
-          PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-
           ./cyto workflow crispr \
             -c ./data/libraries/crispr_guides.tsv \
-            $PROBE_FLAG \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
@@ -204,11 +200,9 @@ jobs:
             INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
           fi
 
-          PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-
           ./cyto workflow gex \
             -c ./data/libraries/gex_probes.tsv \
-            $PROBE_FLAG \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
