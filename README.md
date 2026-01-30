@@ -197,7 +197,7 @@ Available presets:
 | `gex-v1` | `[barcode][umi:12] \| [gex][:18][probe]` |
 | `gex-v2` | `[barcode][umi:12][:10][probe] \| [gex]` |
 | `crispr-v1` | `[barcode][umi:12] \| [probe][anchor][protospacer]` |
-| `crispr-proper` | `[barcode][umi:12][:10][probe] \| [:14][anchor][protospacer]` |
+| `crispr-v2` | `[barcode][umi:12][:10][probe] \| [:14][anchor][protospacer]` |
 
 > Note: White space is allowed between components and separators.
 
