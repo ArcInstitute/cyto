@@ -1,9 +1,38 @@
 use anyhow::Result;
-use cyto_cli::{Cli, Commands, IbuCommand, MapCommand, WorkflowCommand};
+use cyto_cli::{Commands, IbuCommand, MapCommand, WorkflowCommand};
 use log::info;
+
+use clap::{
+    Parser,
+    builder::{
+        Styles,
+        styling::{AnsiColor, Effects},
+    },
+};
 
 mod logging;
 use crate::logging::{setup_default_logging, setup_workflow_logging};
+
+// Configures Clap v3-style help menu colors
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Yellow.on_default());
+
+#[derive(Parser)]
+#[command(styles = STYLES)]
+#[clap(author, version, about, long_about = None)]
+pub struct Cli {
+    #[clap(subcommand)]
+    pub command: Commands,
+}
+impl Cli {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self::parse()
+    }
+}
 
 fn main() -> Result<()> {
     let args = Cli::new();

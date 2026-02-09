@@ -12,6 +12,7 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 
 [dependencies]
 anyhow = { workspace = true }
+clap = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-ibu-umi-correct = { workspace = true }
 cyto-ibu-view = { workspace = true }
