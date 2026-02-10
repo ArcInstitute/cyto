@@ -23,8 +23,6 @@ impl ModuleTiming {
 pub enum Module {
     Mapping,
     InitialSort,
-    BarcodeCorrection,
-    PostBarcodeCorrectionSort,
     UmiCorrection,
     ReadsDump,
     Counting,
@@ -37,8 +35,6 @@ impl Display for Module {
         match self {
             Module::Mapping => write!(f, "Mapping"),
             Module::InitialSort => write!(f, "InitialSort"),
-            Module::BarcodeCorrection => write!(f, "BarcodeCorrection"),
-            Module::PostBarcodeCorrectionSort => write!(f, "PostBarcodeCorrectionSort"),
             Module::UmiCorrection => write!(f, "UmiCorrection"),
             Module::ReadsDump => write!(f, "ReadsDump"),
             Module::Counting => write!(f, "Counting"),

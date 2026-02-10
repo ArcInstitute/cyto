@@ -2,7 +2,6 @@ use std::{io::Write, path::Path};
 
 use anyhow::{Result, bail};
 use cyto_cli::ibu::ArgsCount;
-use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
 use cyto_io::{match_input, match_output};
 use gzp::{
     ZWriter,
@@ -12,6 +11,9 @@ use gzp::{
 use hashbrown::HashMap;
 use ibu::{Header, Reader};
 use log::{debug, error, info};
+
+mod dedup;
+pub use dedup::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
 
 /// Extends a barcode buffer with an optional suffix
 fn extend_suffix(buffer: &mut Vec<u8>, suffix: Option<&str>) {

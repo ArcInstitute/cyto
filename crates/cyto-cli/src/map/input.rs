@@ -1,48 +1,10 @@
-use std::io::Read;
-
 use anyhow::Result;
 use binseq::BinseqReader;
 use clap::Parser;
 
 pub use anyhow::bail;
-pub use binseq::bq::MmapReader;
-use log::{debug, error};
-use paraseq::fastx;
-
-type FxReader = fastx::Reader<Box<dyn Read + Send>>;
-type FxReaderPair = (FxReader, FxReader);
-
-#[derive(Parser, Debug)]
-#[clap(next_help_heading = "Paired Input Options")]
-pub struct PairedInput {
-    #[clap(
-        short = 'i',
-        long,
-        conflicts_with = "input",
-        required_unless_present = "input"
-    )]
-    pub r1: Option<String>,
-    #[clap(
-        short = 'I',
-        long,
-        conflicts_with = "input",
-        required_unless_present = "input"
-    )]
-    pub r2: Option<String>,
-}
-impl PairedInput {
-    pub fn to_readers(&self) -> Result<FxReaderPair> {
-        match (self.r1.as_ref(), self.r2.as_ref()) {
-            (Some(r1), Some(r2)) => {
-                debug!("Opening readers for {r1} and {r2}");
-                Ok((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?))
-            }
-            _ => {
-                bail!("Both R1 and R2 must be provided for paired input")
-            }
-        }
-    }
-}
+use log::error;
+use paraseq::{fastx, BoxedReader};
 
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Paired input options")]
@@ -63,8 +25,22 @@ impl MultiPairedInput {
             .all(|path| path.ends_with(".bq") || path.ends_with(".vbq") || path.ends_with("cbq"))
     }
 
-    pub fn to_fx_readers(&self) -> Result<Vec<FxReaderPair>> {
+    pub fn to_binseq_readers(&self) -> Result<Vec<BinseqReader>> {
         let mut readers = Vec::new();
+        for path in &self.inputs {
+            let reader = BinseqReader::new(path)?;
+            if !reader.is_paired() {
+                error!(
+                    "Provided BINSEQ path is not paired. All inputs are expected to be paired: {path}"
+                );
+                bail!("Input file is not paired: {path}");
+            }
+            readers.push(reader);
+        }
+        Ok(readers)
+    }
+
+    pub fn to_paraseq_collection(&self) -> Result<fastx::Collection<BoxedReader>> {
         if !self.inputs.len().is_multiple_of(2) {
             error!(
                 "Found {} inputs, expecting an even number of file pairs",
@@ -72,53 +48,8 @@ impl MultiPairedInput {
             );
             bail!("Number of pairs must be even");
         }
-        for pair in self.inputs.chunks(2) {
-            let r1 = pair[0].clone();
-            let r2 = pair[1].clone();
-            readers.push((fastx::Reader::from_path(r1)?, fastx::Reader::from_path(r2)?));
-        }
-        Ok(readers)
-    }
-
-    pub fn to_binseq_readers(&self) -> Result<Vec<BinseqReader>> {
-        let mut readers = Vec::new();
-        for path in &self.inputs {
-            let reader = BinseqReader::new(path)?;
-            readers.push(reader);
-        }
-        Ok(readers)
-    }
-}
-
-#[derive(Parser, Debug)]
-#[clap(next_help_heading = "Binseq input options")]
-pub struct BinseqInput {
-    #[clap(
-        short = 'b',
-        long,
-        conflicts_with = "pairs",
-        required_unless_present = "pairs"
-    )]
-    pub input: Option<String>,
-}
-impl BinseqInput {
-    #[allow(clippy::wrong_self_convention)]
-    pub fn into_reader(&self) -> Result<BinseqReader> {
-        let path = self.path()?;
-        debug!("Opening binseq reader for {path}");
-        let rdr = BinseqReader::new(path)?;
-        if !rdr.is_paired() {
-            error!("Found unpaired BINSEQ file: {path}");
-            bail!("Input BINSEQ file must be paired!");
-        }
-        Ok(rdr)
-    }
-
-    pub fn path(&self) -> Result<&str> {
-        if let Some(input) = &self.input {
-            Ok(input)
-        } else {
-            bail!("No input file provided to BINSEQ input");
-        }
+        let collection =
+            fastx::Collection::from_paths(&self.inputs, fastx::CollectionType::Paired)?;
+        Ok(collection)
     }
 }

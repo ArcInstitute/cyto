@@ -1,0 +1,184 @@
+use std::marker::PhantomData;
+use std::path::Path;
+use std::time::Instant;
+
+use anyhow::{Result, bail};
+use cyto_io::match_input_transparent;
+use log::{info, trace};
+use regex::Regex;
+use seqhash::{SeqHash, SeqHashBuilder};
+
+use crate::geometry::ReadMate;
+use crate::mapper::{Bijection, Library, Mapper, Ready, Unpositioned};
+use crate::stats::LibraryStatistics;
+use crate::{Component, ResolvedGeometry};
+
+#[derive(serde::Deserialize)]
+struct ProbeRecord {
+    seq: String,
+    _nuc: String,
+    alias: String,
+}
+pub struct ProbeMapper<S = Ready> {
+    hash: SeqHash,
+    aliases: Vec<String>,
+    pos: usize,
+    mate: ReadMate,
+    init_time: f64,
+    window: usize,
+    exact: bool,
+    _state: PhantomData<S>,
+}
+
+impl ProbeMapper<Unpositioned> {
+    /// Load probe sequences and aliases from a file, then build a `SeqHash`.
+    pub fn from_file<P: AsRef<Path>>(path: P, exact: bool, window: usize) -> Result<Self> {
+        let (sequences, aliases) = Self::load_from_file(path)?;
+        Self::build(sequences, aliases, exact, window)
+    }
+
+    /// Load probe sequences and aliases from a file, filter aliases that match a regex, then build a `SeqHash`.
+    pub fn from_file_with_alias_regex<P: AsRef<Path>>(
+        path: P,
+        exact: bool,
+        window: usize,
+        alias_regex: &str,
+    ) -> Result<Self> {
+        let regex = Regex::new(alias_regex)?;
+        let (og_sequences, og_aliases) = Self::load_from_file(path)?;
+        let num_og_sequences = og_sequences.len();
+        let (sequences, aliases): (Vec<_>, Vec<_>) = og_sequences
+            .into_iter()
+            .zip(og_aliases)
+            .filter(|(_, alias)| regex.is_match(alias))
+            .unzip();
+        trace!(
+            "Kept {} of {} probe sequences ({:.2}%) after filtering regex: {}",
+            sequences.len(),
+            num_og_sequences,
+            (sequences.len() as f64 / num_og_sequences as f64) * 100.0,
+            alias_regex,
+        );
+        Self::build(sequences, aliases, exact, window)
+    }
+
+    /// Load probe sequences and aliases from a file.
+    fn load_from_file<P: AsRef<Path>>(path: P) -> Result<(Vec<String>, Vec<String>)> {
+        let ihandle = match_input_transparent(Some(path))?;
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(false)
+            .from_reader(ihandle);
+
+        let mut sequences = Vec::new();
+        let mut aliases = Vec::new();
+        for record in reader.deserialize() {
+            let record: ProbeRecord = record?;
+            sequences.push(record.seq);
+            aliases.push(record.alias);
+        }
+
+        Ok((sequences, aliases))
+    }
+
+    fn build(
+        sequences: Vec<String>,
+        aliases: Vec<String>,
+        exact: bool,
+        window: usize,
+    ) -> Result<Self> {
+        trace!("[PROBE seqhash] - Starting build");
+        let start = Instant::now();
+        let hash = if exact {
+            SeqHashBuilder::default().exact().build(&sequences)
+        } else {
+            SeqHash::new(&sequences)
+        }?;
+        let init_time = start.elapsed().as_secs_f64();
+        info!(
+            "[PROBE seqhash] - Build complete ({:.2} ms)",
+            init_time * 1000.0
+        );
+        Ok(Self {
+            hash,
+            aliases,
+            pos: 0,
+            mate: ReadMate::R1,
+            _state: PhantomData,
+            window,
+            exact,
+            init_time,
+        })
+    }
+
+    /// Finalize the mapper with a position and read mate.
+    pub fn with_position(self, pos: usize, mate: ReadMate) -> ProbeMapper<Ready> {
+        ProbeMapper {
+            hash: self.hash,
+            aliases: self.aliases,
+            pos,
+            mate,
+            _state: PhantomData,
+            window: self.window,
+            exact: self.exact,
+            init_time: self.init_time,
+        }
+    }
+
+    pub fn resolve(self, geometry: &ResolvedGeometry) -> Result<ProbeMapper<Ready>> {
+        let Some(region) = geometry.get(Component::Probe) else {
+            bail!("geometry missing [probe]")
+        };
+        Ok(self.with_position(region.offset, region.mate))
+    }
+}
+
+impl<T> ProbeMapper<T> {
+    /// Returns the sequence length of probes in this mapper.
+    pub fn seq_len(&self) -> usize {
+        self.hash.seq_len()
+    }
+
+    /// Returns the number of parent sequences used to make this mapper
+    pub fn n_parents(&self) -> usize {
+        self.hash.num_parents()
+    }
+
+    /// Returns the parent sequence for a given index
+    pub fn get_parent(&self, idx: usize) -> Option<&String> {
+        self.aliases.get(idx)
+    }
+
+    pub fn bijection(&self) -> Bijection<String> {
+        Bijection::new(&self.aliases)
+    }
+}
+
+impl Mapper for ProbeMapper<Ready> {
+    fn query(&self, seq: &[u8]) -> Option<usize> {
+        self.hash
+            .query_at_with_remap(seq, self.pos, self.window)
+            .map(|m| m.parent_idx())
+    }
+
+    fn mate(&self) -> ReadMate {
+        self.mate
+    }
+}
+
+impl Library for ProbeMapper<Ready> {
+    fn statistics(&self) -> LibraryStatistics {
+        let biject = Bijection::new(&self.aliases);
+        LibraryStatistics {
+            name: "probe",
+            total_elem: self.n_parents(),
+            total_aggr: biject.len(),
+            total_hash: self.hash.num_entries(),
+            position: self.pos,
+            mate: self.mate,
+            init_time: self.init_time,
+            window: self.window,
+            exact: self.exact,
+        }
+    }
+}

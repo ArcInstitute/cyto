@@ -13,15 +13,20 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 anyhow = { workspace = true }
 binseq = { workspace = true }
 bitnuc = { workspace = true }
-cyto-core = { workspace = true }
+csv = { workspace = true }
 cyto-cli = { workspace = true }
 cyto-io = { workspace = true }
 ibu = { workspace = true }
 log = { workspace = true }
 paraseq = { workspace = true }
 parking_lot = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
+derive_more = { version = "2.1.1", features = ["add_assign"] }
 indicatif = "0.18.3"
+seqhash = "0.1.5"
+regex = { version = "1.12.2" }
 
 [lints]
 workspace = true

@@ -75,8 +75,7 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
-        format: ["fastq", "bq"]
-        probe: ["no-probe", "probe"]
+        format: ["fastq", "bq", "vbq", "cbq"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -97,15 +96,10 @@ jobs:
             INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
           fi
 
-          if [ "${{ matrix.probe }}" = "probe" ]; then
-            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-          else
-            PROBE_FLAG=""
-          fi
-
           ./cyto map crispr \
             -c ./data/libraries/crispr_guides.tsv \
-            $PROBE_FLAG \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             --force \
             $INPUT_FILES
 
@@ -115,8 +109,7 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
-        format: ["fastq", "bq"]
-        probe: ["no-probe", "probe"]
+        format: ["fastq", "bq", "vbq", "cbq"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -137,15 +130,10 @@ jobs:
             INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
           fi
 
-          if [ "${{ matrix.probe }}" = "probe" ]; then
-            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-          else
-            PROBE_FLAG=""
-          fi
-
           ./cyto map gex \
             -c ./data/libraries/gex_probes.tsv \
-            $PROBE_FLAG \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             --force \
             $INPUT_FILES
 
@@ -156,7 +144,6 @@ jobs:
     strategy:
       matrix:
         format: ["fastq", "bq", "vbq", "cbq"]
-        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -177,15 +164,9 @@ jobs:
             INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
           fi
 
-          if [ "${{ matrix.probe }}" = "probe" ]; then
-            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-          else
-            PROBE_FLAG=""
-          fi
-
           ./cyto workflow crispr \
             -c ./data/libraries/crispr_guides.tsv \
-            $PROBE_FLAG \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
@@ -199,7 +180,6 @@ jobs:
     strategy:
       matrix:
         format: ["fastq", "bq", "vbq", "cbq"]
-        probe: ["no-probe", "probe"]
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -220,15 +200,9 @@ jobs:
             INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
           fi
 
-          if [ "${{ matrix.probe }}" = "probe" ]; then
-            PROBE_FLAG="-p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt"
-          else
-            PROBE_FLAG=""
-          fi
-
           ./cyto workflow gex \
             -c ./data/libraries/gex_probes.tsv \
-            $PROBE_FLAG \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
             --sort-in-memory \
