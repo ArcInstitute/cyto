@@ -19,7 +19,11 @@ cyto-io = { workspace = true }
 ibu = { workspace = true }
 log = { workspace = true }
 hashbrown = { workspace = true }
-
+anndata = { workspace = true }
+anndata-zarr = { workspace = true }
+nalgebra-sparse = { workspace = true }
+itertools = { workspace = true }
+rayon = { workspace = true }
 gzp = "2.0.2"
 
 [lints]

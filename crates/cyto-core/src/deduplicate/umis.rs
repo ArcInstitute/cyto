@@ -68,6 +68,15 @@ impl BarcodeIndexCounts {
         })
     }
 
+    pub fn iter_barcodes(&self) -> impl Iterator<Item = (u64, (Vec<u64>, Vec<u64>))> + '_ {
+        self.inner.iter().map(|(barcode, index_counts)| {
+            let mut entries: Vec<(&u64, &u64)> = index_counts.into_iter().collect();
+            entries.sort_by_key(|(k, _)| *k);
+            let (features, counts) = entries.into_iter().unzip();
+            (*barcode, (features, counts))
+        })
+    }
+
     /// Used for testing purposes
     #[allow(dead_code)]
     fn get_abundance(&self, barcode: u64, index: u64) -> Option<u64> {
