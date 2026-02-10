@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::map::GEOMETRY_GEX_FLEX_V2;
+use crate::map::{GEOMETRY_CRISPR_FLEX_V2, GEOMETRY_GEX_FLEX_V2};
 
 use super::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_CRISPR_PROPERSEQ, GEOMETRY_GEX_FLEX_V1};
 
@@ -90,6 +90,8 @@ pub enum GeometryPreset {
     GexV2,
     /// [barcode][umi:12]|[probe][anchor][protospacer]
     CrisprV1,
+    /// [barcode][umi:12][:10][probe]|[:14][anchor][protospacer]
+    CrisprV2,
     /// [barcode][umi:12]|[:18][probe][anchor][protospacer]
     CrisprProper,
 }
@@ -99,6 +101,7 @@ impl GeometryPreset {
             Self::GexV1 => GEOMETRY_GEX_FLEX_V1,
             Self::GexV2 => GEOMETRY_GEX_FLEX_V2,
             Self::CrisprV1 => GEOMETRY_CRISPR_FLEX_V1,
+            Self::CrisprV2 => GEOMETRY_CRISPR_FLEX_V2,
             Self::CrisprProper => GEOMETRY_CRISPR_PROPERSEQ,
         }
     }
