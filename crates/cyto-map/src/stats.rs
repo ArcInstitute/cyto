@@ -76,7 +76,7 @@ impl MappingStatistics {
         Self {
             total_reads: self.total_reads,
             mapped_reads: self.mapped_reads,
-            unmapped_reads: self.unmapped_reads,
+            unmapped_reads: total_unmapped,
             mapped_reads_frac: self.mapped_reads as f64 / self.total_reads as f64,
             unmapped_reads_frac: total_unmapped as f64 / self.total_reads as f64,
             unmapped: self.unmapped.with_fractions(total_unmapped),
