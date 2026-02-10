@@ -49,10 +49,16 @@ pub struct LibraryStatistics {
     pub init_time: f64,
 }
 
+/// Aggregate mapping statistics for a library
+///
+/// Note: fraction values should not be trusted on accumulated, they are recalculated on `with_fractions`
 #[derive(Clone, Copy, Default, Debug, AddAssign, serde::Serialize)]
 pub struct MappingStatistics {
     pub total_reads: usize,
     pub mapped_reads: usize,
+    pub unmapped_reads: usize,
+    pub mapped_reads_frac: f64,
+    pub unmapped_reads_frac: f64,
     pub unmapped: UnmappedStatistics,
 }
 impl MappingStatistics {
@@ -64,8 +70,23 @@ impl MappingStatistics {
     pub fn clear(&mut self) {
         *self = Self::default();
     }
+    /// Prepare statistics with computed fractions for output
+    pub fn with_fractions(self) -> Self {
+        let total_unmapped = self.total_reads - self.mapped_reads;
+        Self {
+            total_reads: self.total_reads,
+            mapped_reads: self.mapped_reads,
+            unmapped_reads: self.unmapped_reads,
+            mapped_reads_frac: self.mapped_reads as f64 / self.total_reads as f64,
+            unmapped_reads_frac: total_unmapped as f64 / self.total_reads as f64,
+            unmapped: self.unmapped.with_fractions(total_unmapped),
+        }
+    }
 }
 
+/// Aggregate mapping statistics for a library focused on unmapped reads
+///
+/// Note: fraction values should not be trusted from accumulated, they are recalculated on `with_fractions`
 #[derive(Clone, Copy, Default, Debug, AddAssign, serde::Serialize)]
 pub struct UnmappedStatistics {
     pub missing_probe: usize,
@@ -73,6 +94,34 @@ pub struct UnmappedStatistics {
     pub missing_whitelist: usize,
     pub failed_umi_qual: usize,
     pub umi_truncated: usize,
+    pub missing_probe_frac: f64,
+    pub missing_feature_frac: f64,
+    pub missing_whitelist_frac: f64,
+    pub failed_umi_qual_frac: f64,
+    pub umi_truncated_frac: f64,
+}
+
+impl UnmappedStatistics {
+    /// Calculate fractions based on the total unmapped reads
+    pub fn with_fractions(self, total_unmapped: usize) -> Self {
+        let total = total_unmapped as f64;
+        // simple function to handle saturated division
+        let frac = |x: usize| {
+            if total > 0.0 { x as f64 / total } else { 0.0 }
+        };
+        Self {
+            missing_probe: self.missing_probe,
+            missing_feature: self.missing_feature,
+            missing_whitelist: self.missing_whitelist,
+            failed_umi_qual: self.failed_umi_qual,
+            umi_truncated: self.umi_truncated,
+            missing_probe_frac: frac(self.missing_probe),
+            missing_feature_frac: frac(self.missing_feature),
+            missing_whitelist_frac: frac(self.missing_whitelist),
+            failed_umi_qual_frac: frac(self.failed_umi_qual),
+            umi_truncated_frac: frac(self.umi_truncated),
+        }
+    }
 }
 
 pub fn write_statistics<P: AsRef<Path>>(
@@ -84,7 +133,10 @@ pub fn write_statistics<P: AsRef<Path>>(
     let stats_outdir = outdir.as_ref().join("stats");
 
     impl_write_statistics(stats_outdir.join("mapping_lib.json"), libstats)?;
-    impl_write_statistics(stats_outdir.join("mapping_map.json"), mapstats)?;
+    impl_write_statistics(
+        stats_outdir.join("mapping_map.json"),
+        mapstats.with_fractions(),
+    )?;
     impl_write_statistics(stats_outdir.join("mapping_run.json"), runstats)?;
     Ok(())
 }
