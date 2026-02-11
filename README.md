@@ -79,6 +79,7 @@ cyto workflow crispr \
 ```
 
 Both workflows automatically handle:
+
 - Read mapping to features (with integrated barcode correction)
 - UMI deduplication
 - Molecule counting
@@ -159,6 +160,7 @@ cyto workflow gex -c probes.tsv -w whitelist.txt sample_R1.fastq.gz sample_R2.fa
 ```
 
 If you have a large collection of sequence files that can be processed as a single input you can provide them all on the CLI:
+
 ```bash
 # BINSEQ
 cyto workflow gex -c probes.tsv -w whitelist.txt *.vbq
@@ -219,14 +221,14 @@ A geometry string describes the structure of paired-end reads (R1 and R2), separ
 
 **Components** are functional elements enclosed in brackets:
 
-| Component | Alias | Description | Length |
-|-----------|-------|-------------|--------|
-| `[barcode]` | `[bc]` | Cell barcode | Inferred from whitelist |
-| `[umi:N]` | — | Unique Molecular Identifier | Required (e.g., `[umi:12]`) |
-| `[probe]` | — | Flex probe barcode | Inferred from probe file |
-| `[gex]` | — | Gene expression sequence | Inferred from library |
-| `[anchor]` | — | CRISPR anchor sequence | Inferred from guide library |
-| `[protospacer]` | — | CRISPR protospacer | Inferred from guide library |
+| Component       | Alias  | Description                 | Length                      |
+| --------------- | ------ | --------------------------- | --------------------------- |
+| `[barcode]`     | `[bc]` | Cell barcode                | Inferred from whitelist     |
+| `[umi:N]`       | —      | Unique Molecular Identifier | Required (e.g., `[umi:12]`) |
+| `[probe]`       | —      | Flex probe barcode          | Inferred from probe file    |
+| `[gex]`         | —      | Gene expression sequence    | Inferred from library       |
+| `[anchor]`      | —      | CRISPR anchor sequence      | Inferred from guide library |
+| `[protospacer]` | —      | CRISPR protospacer          | Inferred from guide library |
 
 **Skip regions** are anonymous spacers with explicit lengths:
 
@@ -237,23 +239,29 @@ A geometry string describes the structure of paired-end reads (R1 and R2), separ
 #### Examples
 
 **Standard GEX with Flex probe:**
+
 ```
 [barcode][umi:12]|[gex][:18][probe]
 ```
+
 - R1: 16bp barcode, 12bp UMI
 - R2: Gene expression sequence, 18bp spacer, 8bp probe
 
 **GEX V2 (probe on R1):**
+
 ```
 [barcode][umi:12][:10][probe]|[gex]
 ```
+
 - R1: 16bp barcode, 12bp UMI, 10bp spacer, 8bp probe
 - R2: Gene expression sequence
 
 **CRISPR with custom spacing:**
+
 ```
 [barcode][umi:12]|[:20][probe][:6][anchor][protospacer]
 ```
+
 - R1: 16bp barcode, 12bp UMI
 - R2: 20bp offset, probe, 6bp spacer, anchor, protospacer
 
@@ -280,7 +288,7 @@ cyto workflow gex --geometry "..." --remap-window 0 ...
 > **Note**: Default is 1. For V2 presets, this is automatically set to 5.
 
 > **Pro-Tip**: If you're unsure about spacer lengths for your library, use [`bqtools grep`](https://github.com/arcinstitute/bqtools?tab=readme-ov-file#grep) to visualize your sequences:
-> 
+>
 > ```bash
 > bqtools grep <input.vbq> <anchor_sequence> <probe_sequence>
 > ```
@@ -306,6 +314,7 @@ cyto ibu count -i probe1.umi.ibu -f map_out/metadata/features.tsv -o counts.tsv
 ```
 
 This modular design allows:
+
 - Custom processing pipelines
 - Integration with orchestration tools (Snakemake, Nextflow)
 - Independent scaling of pipeline components
@@ -349,6 +358,7 @@ cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --format mtx
 ```
 
 Generates:
+
 - `matrix.mtx` - Sparse count matrix
 - `barcodes.tsv` - Cell barcodes
 - `features.tsv` - Feature names
@@ -379,11 +389,13 @@ Guide assignments are included in the count matrix output.
 ## Performance Considerations
 
 `cyto` is optimized for:
+
 - **Fixed-geometry protocols**: Flex libraries with predetermined sequence structures
 - **Multiplexed datasets**: Efficient probe demultiplexing at scale
 - **Large-scale screens**: Million-cell perturbation experiments
 
 `cyto` is **not** designed for:
+
 - Splice-aware alignment (use STAR, kallisto|bustools, Alevin-fry)
 - Transcript discovery or quantification
 - Variable read architectures
@@ -406,7 +418,7 @@ Rust packages on crates.io | Python packages on PyPI
 If you use `cyto` in your research, please cite our [BioRxiv preprint](https://www.biorxiv.org/content/10.64898/2026.01.21.700936v1):
 
 ```
-Teyssier, N. and Dobin, A. (2025). cyto: ultra high-throughput processing 
+Teyssier, N. and Dobin, A. (2025). cyto: ultra high-throughput processing
 of 10x-flex single cell sequencing. bioRxiv.
 ```
 
