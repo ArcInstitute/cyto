@@ -19,10 +19,10 @@ use crate::{
 
 fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<Geometry> {
     if let Some(g) = geometry {
-        info!("Using geometry: `{}`", g);
+        info!("Using geometry: `{g}`");
         Ok(g.parse()?)
     } else {
-        info!("Using default geometry: `{}`", default);
+        info!("Using default geometry: `{default}`");
         Ok(default.parse()?)
     }
 }
@@ -64,7 +64,7 @@ pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(preset) = args.map2.preset {
         let geometry_str = preset.into_geometry_str();
-        info!("Using preset ({:?}) geometry: `{}`", preset, geometry_str);
+        info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
         Ok(geometry_str.parse()?)
     } else {
         parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)
@@ -135,7 +135,7 @@ pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(geometry) = args.map2.preset {
         let geometry_str = geometry.into_geometry_str();
-        info!("Using preset ({:?}) geometry: `{}`", geometry, geometry_str);
+        info!("Using preset ({geometry:?}) geometry: `{geometry_str}`");
         Ok(geometry_str.parse()?)
     } else {
         parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_CRISPR_FLEX_V1)
