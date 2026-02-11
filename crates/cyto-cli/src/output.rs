@@ -19,7 +19,10 @@ pub struct ArgsOutput {
     ///
     /// IBU files with fewer records than this threshold will be removed.
     /// A value of 0 disables the filter (only truly empty files are removed).
-    #[clap(long, default_value_t = 0)]
+    ///
+    /// This is useful when you have a large number of possible probes but are only expecting a smaller number of observed probes.
+    /// If you want to specify probes see the `--probe-regex` flag.
+    #[clap(long, default_value_t = 1_000)]
     pub min_ibu_records: u64,
 }
 impl ArgsOutput {
