@@ -240,9 +240,12 @@ fn write_adata<P: AsRef<Path>>(
             .chunks(10_000)
             .into_iter()
             .map(|rows| {
+                // Split off the row indices for later storage in `obs_names` from the actual barcode info (features/counts).
                 let (row_idxs, barcode_rows): (Vec<u64>, Vec<FeatureCounts>) =
                     rows.map(Into::into).unzip();
                 obs_names_idxs.extend(row_idxs);
+
+                // Generate the indptr, which is bascially a running nnz by row
                 let indptr: Vec<usize> = std::iter::once(0)
                     .chain(
                         barcode_rows
@@ -254,6 +257,8 @@ fn write_adata<P: AsRef<Path>>(
                             }),
                     )
                     .collect();
+
+                // Indices and data (i.e., feature/column indexes and counts) for the CSR matrix need to just be flattened.
                 let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) =
                     barcode_rows.into_iter().map(Into::into).unzip();
                 let indices: Vec<usize> = indices_by_row
@@ -262,14 +267,15 @@ fn write_adata<P: AsRef<Path>>(
                     .map(|e| usize::try_from(e).unwrap())
                     .collect();
                 let data: Vec<u64> = data_by_row.into_iter().flatten().collect();
-                let csr_mat = CsrMatrix::try_from_csr_data(
+                let Ok(csr_mat) = CsrMatrix::try_from_csr_data(
                     indptr.len() - 1,
                     features.len(),
                     indptr,
                     indices,
                     data,
-                )
-                .unwrap(); // TODO: unwraps
+                ) else {
+                    panic!("Runtime issue generating CSR matrix for anndata storage. Please file an issue.")
+                };
                 ArrayData::from(csr_mat)
             }),
     )?;
@@ -278,7 +284,7 @@ fn write_adata<P: AsRef<Path>>(
         .map(|idx| {
             // decode the barcode
             let mut dbuf = Vec::default();
-            bitnuc::from_2bit(idx, header.bc_len as usize, &mut dbuf).unwrap(); // TODO: error handling
+            bitnuc::from_2bit(idx, header.bc_len as usize, &mut dbuf)?;
 
             // handle suffix
             extend_suffix(&mut dbuf, suffix);
