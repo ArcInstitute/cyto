@@ -60,7 +60,7 @@ pub fn delete_sparse_ibus<P: AsRef<Path>>(
     min_records: u64,
 ) -> Result<(), std::io::Error> {
     for filepath in filepaths {
-        if let Ok(metadata) = std::fs::metadata(&filepath) {
+        if let Ok(metadata) = std::fs::metadata(filepath) {
             let n_records = ibu_record_count(metadata.len());
             let below_threshold = if min_records == 0 {
                 n_records == 0
