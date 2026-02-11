@@ -212,27 +212,32 @@ fn write_counts_tsv<P: AsRef<Path>>(
 }
 
 fn write_adata<P: AsRef<Path>>(
-    output_dir: P,
+    output_file: P,
     counts: &BarcodeIndexCounts,
     features: &[String],
     header: Header,
-    zthreads: usize,
+    _zthreads: usize, // Useful for zarr
     suffix: Option<&str>,
 ) -> Result<()> {
-    let store = H5::open_rw(&output_dir)?;
+    if output_file.as_ref().exists() {
+        let msg = if output_file.as_ref().is_dir() {"Expected h5ad file path, got directory."}  else { "Expected h5ad file path not to exist, will not override."};
+        return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, msg).into());
+    } 
+    let _ = std::fs::File::create(&output_file.as_ref());
+    let store = H5::open_rw(&output_file.as_ref())?;
     let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
     adata.set_x_from_iter(counts.iter_barcodes().chunks(10_000).into_iter().map(|rows| {
         let (row_idxs, barcode_rows): (Vec<u64>, Vec<(Vec<u64>, Vec<u64>)>) = rows.unzip();
         obs_names_idxs.extend(row_idxs);
-        let indptr: Vec<usize> = barcode_rows.iter().map(|(feature_idxes, _)| feature_idxes.len()).scan(0, |sum, x| {
+        let indptr: Vec<usize> = std::iter::once(0).chain(barcode_rows.iter().map(|(feature_idxes, _)| feature_idxes.len()).scan(0, |sum, x| {
             *sum += x;
             Some(*sum)
-        }).collect();
+        })).collect();
         let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) = barcode_rows.into_iter().unzip();
         let indices: Vec<usize> = indices_by_row.into_iter().flatten().map(|e| usize::try_from(e).unwrap()).collect();
         let data: Vec<u64> = data_by_row.into_iter().flatten().collect();
-        let csr_mat = CsrMatrix::try_from_csr_data(indptr.len(), features.len(), indptr, indices, data).unwrap(); // TODO: unwraps
+        let csr_mat = CsrMatrix::try_from_csr_data(indptr.len() - 1, features.len(), indptr, indices, data).unwrap(); // TODO: unwraps
         ArrayData::from(csr_mat)
     }))?;
     let obs_names = obs_names_idxs.into_par_iter().map(|idx| {
@@ -246,6 +251,7 @@ fn write_adata<P: AsRef<Path>>(
     }).collect::<Result<Vec<String>>>()?;
     adata.set_obs_names(DataFrameIndex::from(obs_names))?;
     adata.set_var_names(DataFrameIndex::from(features.to_vec()))?;
+    let _ = adata.close(); // Hopefully not needed for zarr!
     Ok(())
 }
 
@@ -372,6 +378,19 @@ pub fn run(args: &ArgsCount) -> Result<()> {
             args.output
                 .as_ref()
                 .expect("Must provide an output directory to write MTX"),
+            &counts,
+            features
+                .expect("Must provide a feature file to write MTX")
+                .as_slice(),
+            header,
+            args.num_threads,
+            args.suffix.as_deref(),
+        )
+    } else if args.h5ad{
+        write_adata(
+            args.output
+                .as_ref()
+                .expect("Must provide an output file path to write h5ad"),
             &counts,
             features
                 .expect("Must provide a feature file to write MTX")

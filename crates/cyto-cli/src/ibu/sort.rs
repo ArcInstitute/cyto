@@ -18,7 +18,7 @@ pub struct ArgsSort {
     /// Perform the sorting in-memory [default: on-disk merge sort]
     ///
     /// This may be faster for small datasets, but will load IBUs fully into memory.
-    #[clap(short, long)]
+    #[clap(long)]
     pub in_memory: bool,
 
     /// Pipe the output to stdout

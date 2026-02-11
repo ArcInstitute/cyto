@@ -20,6 +20,11 @@ pub struct ArgsCount {
     #[clap(long, requires = "output", requires = "features")]
     pub mtx: bool,
 
+    /// Output h5ad format.
+    /// Will treat `output` as a the file and create the anndata object.
+    #[clap(long, requires = "output", requires = "features", conflicts_with("mtx"))]
+    pub h5ad: bool,
+
     /// Number of threads to use in counting
     #[clap(short = 't', long, default_value = "1")]
     pub num_threads: usize,
@@ -52,6 +57,7 @@ impl ArgsCount {
         num_threads: usize,
         mtx: bool,
         suffix: Option<String>,
+        h5ad: bool
     ) -> Self {
         Self {
             input: IbuInput::from_path(sort_path),
@@ -62,6 +68,7 @@ impl ArgsCount {
             feature_col: 1,
             num_threads,
             suffix,
+            h5ad
         }
     }
 }

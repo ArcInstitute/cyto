@@ -369,6 +369,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         } else {
             Some(base_ibu_path.to_string())
         },
+        wf_args.to_h5ad()
     );
 
     // Run the counting step
