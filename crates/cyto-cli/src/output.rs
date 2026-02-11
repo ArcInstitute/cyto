@@ -10,11 +10,17 @@ pub struct ArgsOutput {
     /// Output directory path
     #[clap(short = 'o', long, default_value = "./cyto_out")]
     pub outdir: String,
-    #[clap(short = 'H', long)]
-    pub with_header: bool,
+
     /// Force overwrite of existing output directory
     #[clap(short = 'f', long)]
     pub force: bool,
+
+    /// Minimum number of records required to keep an IBU file
+    ///
+    /// IBU files with fewer records than this threshold will be removed.
+    /// A value of 0 disables the filter (only truly empty files are removed).
+    #[clap(long, default_value_t = 0)]
+    pub min_ibu_records: u64,
 }
 impl ArgsOutput {
     pub fn validate_outdir(&self) -> Result<()> {

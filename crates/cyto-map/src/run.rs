@@ -14,7 +14,7 @@ use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
     UmiMapper, WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
-    utils::{build_filepaths, delete_empty_ibus},
+    utils::{build_filepaths, delete_sparse_ibus},
 };
 
 fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<Geometry> {
@@ -125,8 +125,8 @@ pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
 
-    // Delete empty IBUs
-    delete_empty_ibus(&filepaths)?;
+    // Delete sparse IBUs
+    delete_sparse_ibus(&filepaths, args.output.min_ibu_records)?;
 
     Ok(())
 }
@@ -205,8 +205,8 @@ pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
     // Write statistics
     write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
 
-    // Delete empty IBUs
-    delete_empty_ibus(&filepaths)?;
+    // Delete sparse IBUs
+    delete_sparse_ibus(&filepaths, args.output.min_ibu_records)?;
 
     Ok(())
 }

@@ -47,17 +47,34 @@ pub fn initialize_output_ibus<P: AsRef<Path>>(
     Ok(writers)
 }
 
-fn delete_empty_ibu<P: AsRef<Path>>(filepath: P) -> Result<(), std::io::Error> {
-    if let Ok(metadata) = std::fs::metadata(&filepath) {
-        // If the file only contains a header, delete it
-        if metadata.len() == ibu::HEADER_SIZE as u64 {
-            debug!("Removing empty IBU file: {}", filepath.as_ref().display());
-            std::fs::remove_file(filepath)?;
+/// Returns the number of records in an IBU file based on its byte size.
+fn ibu_record_count(file_size: u64) -> u64 {
+    file_size.saturating_sub(ibu::HEADER_SIZE as u64) / ibu::RECORD_SIZE as u64
+}
+
+/// Delete IBU files that fall below the minimum record threshold.
+///
+/// When `min_records` is 0, only truly empty files (header-only) are removed.
+pub fn delete_sparse_ibus<P: AsRef<Path>>(
+    filepaths: &[P],
+    min_records: u64,
+) -> Result<(), std::io::Error> {
+    for filepath in filepaths {
+        if let Ok(metadata) = std::fs::metadata(&filepath) {
+            let n_records = ibu_record_count(metadata.len());
+            let below_threshold = if min_records == 0 {
+                n_records == 0
+            } else {
+                n_records < min_records
+            };
+            if below_threshold {
+                debug!(
+                    "Removing IBU file with {n_records} records (min: {min_records}): {}",
+                    filepath.as_ref().display()
+                );
+                std::fs::remove_file(filepath)?;
+            }
         }
     }
     Ok(())
-}
-
-pub fn delete_empty_ibus<P: AsRef<Path>>(filepaths: &[P]) -> Result<(), std::io::Error> {
-    filepaths.iter().try_for_each(delete_empty_ibu)
 }
