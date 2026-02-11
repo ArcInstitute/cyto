@@ -18,7 +18,7 @@ pub struct ArgsOutput {
     /// Minimum number of records required to keep an IBU file
     ///
     /// IBU files with fewer records than this threshold will be removed.
-    /// A value of 0 disables the filter (only truly empty files are removed).
+    /// A value of 0 or 1 will cause only empty IBU files (those with 0 records) to be removed.
     ///
     /// This is useful when you have a large number of possible probes but are only expecting a smaller number of observed probes.
     /// If you want to specify probes see the `--probe-regex` flag.
