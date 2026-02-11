@@ -222,16 +222,17 @@ fn write_adata<P: AsRef<Path>>(
     // _zthreads: usize, // Useful for zarr
     suffix: Option<&str>,
 ) -> Result<()> {
-    if output_file.as_ref().exists() {
-        let msg = if output_file.as_ref().is_dir() {
+    let output_file = output_file.as_ref().with_extension("h5ad");
+    if output_file.exists() {
+        let msg = if output_file.is_dir() {
             "Expected h5ad file path, got directory."
         } else {
             "Expected h5ad file path not to exist, will not override."
         };
         return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, msg).into());
     }
-    let _ = std::fs::File::create(&output_file.as_ref());
-    let store = H5::open_rw(&output_file.as_ref())?;
+    let _ = std::fs::File::create(&output_file);
+    let store = H5::open_rw(&output_file)?;
     let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
     adata.set_x_from_iter(

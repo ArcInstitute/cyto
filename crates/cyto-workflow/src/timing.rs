@@ -28,7 +28,6 @@ pub enum Module {
     UmiCorrection,
     ReadsDump,
     Counting,
-    ConversionH5ad,
     DropletFiltering,
     GuideAssignment,
 }
@@ -42,7 +41,6 @@ impl Display for Module {
             Module::UmiCorrection => write!(f, "UmiCorrection"),
             Module::ReadsDump => write!(f, "ReadsDump"),
             Module::Counting => write!(f, "Counting"),
-            Module::ConversionH5ad => write!(f, "ConversionH5ad"),
             Module::DropletFiltering => write!(f, "DropletFiltering"),
             Module::GuideAssignment => write!(f, "GuideAssignment"),
         }
