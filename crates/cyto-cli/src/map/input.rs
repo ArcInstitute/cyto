@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use binseq::BinseqReader;
 use clap::Parser;
 
@@ -28,7 +28,7 @@ impl MultiPairedInput {
     pub fn to_binseq_readers(&self) -> Result<Vec<BinseqReader>> {
         let mut readers = Vec::new();
         for path in &self.inputs {
-            let reader = BinseqReader::new(path)?;
+            let reader = BinseqReader::new(path).context("Failed to open BINSEQ reader")?;
             if !reader.is_paired() {
                 error!(
                     "Provided BINSEQ path is not paired. All inputs are expected to be paired: {path}"
