@@ -216,7 +216,7 @@ fn write_adata<P: AsRef<Path>>(
     counts: &BarcodeIndexCounts,
     features: &[String],
     header: Header,
-    _zthreads: usize, // Useful for zarr
+    // _zthreads: usize, // Useful for zarr
     suffix: Option<&str>,
 ) -> Result<()> {
     if output_file.as_ref().exists() {
@@ -393,10 +393,9 @@ pub fn run(args: &ArgsCount) -> Result<()> {
                 .expect("Must provide an output file path to write h5ad"),
             &counts,
             features
-                .expect("Must provide a feature file to write MTX")
+                .expect("Must provide a feature file to write h5ad")
                 .as_slice(),
             header,
-            args.num_threads,
             args.suffix.as_deref(),
         )
     } else {
