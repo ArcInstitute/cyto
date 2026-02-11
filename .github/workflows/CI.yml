@@ -100,6 +100,7 @@ jobs:
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            --preset crispr-proper \
             --force \
             $INPUT_FILES
 
@@ -169,6 +170,7 @@ jobs:
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -T 1 \
+            --preset crispr-proper \
             --sort-in-memory \
             --force \
             $INPUT_FILES
