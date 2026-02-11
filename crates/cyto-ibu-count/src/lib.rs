@@ -13,7 +13,7 @@ use hashbrown::HashMap;
 use ibu::{Header, Reader};
 use log::{debug, error, info};
 use anndata::{AnnData, AnnDataOp, Backend, data::{ArrayData, array::dataframe::DataFrameIndex}};
-use anndata_zarr::Zarr;
+use anndata_hdf5::H5;
 use nalgebra_sparse::csr::CsrMatrix;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator,ParallelIterator};
@@ -219,8 +219,8 @@ fn write_adata<P: AsRef<Path>>(
     zthreads: usize,
     suffix: Option<&str>,
 ) -> Result<()> {
-    let store = Zarr::open_rw(&output_dir)?;
-    let adata: AnnData<Zarr> = AnnData::open(store)?;
+    let store = H5::open_rw(&output_dir)?;
+    let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
     adata.set_x_from_iter(counts.iter_barcodes().chunks(10_000).into_iter().map(|rows| {
         let (row_idxs, barcode_rows): (Vec<u64>, Vec<(Vec<u64>, Vec<u64>)>) = rows.unzip();

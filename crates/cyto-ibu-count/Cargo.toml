@@ -20,7 +20,7 @@ ibu = { workspace = true }
 log = { workspace = true }
 hashbrown = { workspace = true }
 anndata = { workspace = true }
-anndata-zarr = { workspace = true }
+anndata-hdf5 = { workspace = true }
 nalgebra-sparse = { workspace = true }
 itertools = { workspace = true }
 rayon = { workspace = true }
