@@ -277,6 +277,14 @@ Generates:
 - `barcodes.tsv` - Cell barcodes
 - `features.tsv` - Feature names
 
+#### H5ad
+
+Also supported is `h5ad`, the `h5` implementation of the [anndata](https://anndata.readthedocs.io/en/stable/) as an argument to `--format`.
+
+```bash
+cyto ibu count -i sample.ibu -f features.tsv -o counts.h5ad --format h5ad
+```
+
 #### Convert to h5ad
 
 Use [pycyto](https://github.com/arcinstitute/pycyto) utilities for format conversion and aggregation:
