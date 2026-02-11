@@ -1,8 +1,13 @@
 use std::{io::Write, path::Path};
 
+use anndata::{
+    AnnData, AnnDataOp, Backend,
+    data::{ArrayData, array::dataframe::DataFrameIndex},
+};
+use anndata_hdf5::H5;
 use anyhow::{Result, bail};
 use cyto_cli::ibu::ArgsCount;
-use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis, FeatureCounts};
+use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, FeatureCounts, deduplicate_umis};
 use cyto_io::{match_input, match_output};
 use gzp::{
     ZWriter,
@@ -11,12 +16,10 @@ use gzp::{
 };
 use hashbrown::HashMap;
 use ibu::{Header, Reader};
-use log::{debug, error, info};
-use anndata::{AnnData, AnnDataOp, Backend, data::{ArrayData, array::dataframe::DataFrameIndex}};
-use anndata_hdf5::H5;
-use nalgebra_sparse::csr::CsrMatrix;
 use itertools::Itertools;
-use rayon::iter::{IntoParallelIterator,ParallelIterator};
+use log::{debug, error, info};
+use nalgebra_sparse::csr::CsrMatrix;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 /// Extends a barcode buffer with an optional suffix
 fn extend_suffix(buffer: &mut Vec<u8>, suffix: Option<&str>) {
@@ -220,35 +223,68 @@ fn write_adata<P: AsRef<Path>>(
     suffix: Option<&str>,
 ) -> Result<()> {
     if output_file.as_ref().exists() {
-        let msg = if output_file.as_ref().is_dir() {"Expected h5ad file path, got directory."}  else { "Expected h5ad file path not to exist, will not override."};
+        let msg = if output_file.as_ref().is_dir() {
+            "Expected h5ad file path, got directory."
+        } else {
+            "Expected h5ad file path not to exist, will not override."
+        };
         return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, msg).into());
-    } 
+    }
     let _ = std::fs::File::create(&output_file.as_ref());
     let store = H5::open_rw(&output_file.as_ref())?;
     let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
-    adata.set_x_from_iter(counts.iter_barcodes().chunks(10_000).into_iter().map(|rows| {
-        let (row_idxs, barcode_rows): (Vec<u64>, Vec<FeatureCounts>) = rows.map(Into::into).unzip();
-        obs_names_idxs.extend(row_idxs);
-        let indptr: Vec<usize> = std::iter::once(0).chain(barcode_rows.iter().map(|feature_counts: &FeatureCounts| feature_counts.n_features()).scan(0, |sum, x| {
-            *sum += x;
-            Some(*sum)
-        })).collect();
-        let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) = barcode_rows.into_iter().map(Into::into).unzip();
-        let indices: Vec<usize> = indices_by_row.into_iter().flatten().map(|e| usize::try_from(e).unwrap()).collect();
-        let data: Vec<u64> = data_by_row.into_iter().flatten().collect();
-        let csr_mat = CsrMatrix::try_from_csr_data(indptr.len() - 1, features.len(), indptr, indices, data).unwrap(); // TODO: unwraps
-        ArrayData::from(csr_mat)
-    }))?;
-    let obs_names = obs_names_idxs.into_par_iter().map(|idx| {
-        // decode the barcode
-        let mut dbuf = Vec::default();
-        bitnuc::from_2bit(idx, header.bc_len as usize, &mut dbuf).unwrap(); // TODO: error handling
+    adata.set_x_from_iter(
+        counts
+            .iter_barcodes()
+            .chunks(10_000)
+            .into_iter()
+            .map(|rows| {
+                let (row_idxs, barcode_rows): (Vec<u64>, Vec<FeatureCounts>) =
+                    rows.map(Into::into).unzip();
+                obs_names_idxs.extend(row_idxs);
+                let indptr: Vec<usize> = std::iter::once(0)
+                    .chain(
+                        barcode_rows
+                            .iter()
+                            .map(|feature_counts: &FeatureCounts| feature_counts.n_features())
+                            .scan(0, |sum, x| {
+                                *sum += x;
+                                Some(*sum)
+                            }),
+                    )
+                    .collect();
+                let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) =
+                    barcode_rows.into_iter().map(Into::into).unzip();
+                let indices: Vec<usize> = indices_by_row
+                    .into_iter()
+                    .flatten()
+                    .map(|e| usize::try_from(e).unwrap())
+                    .collect();
+                let data: Vec<u64> = data_by_row.into_iter().flatten().collect();
+                let csr_mat = CsrMatrix::try_from_csr_data(
+                    indptr.len() - 1,
+                    features.len(),
+                    indptr,
+                    indices,
+                    data,
+                )
+                .unwrap(); // TODO: unwraps
+                ArrayData::from(csr_mat)
+            }),
+    )?;
+    let obs_names = obs_names_idxs
+        .into_par_iter()
+        .map(|idx| {
+            // decode the barcode
+            let mut dbuf = Vec::default();
+            bitnuc::from_2bit(idx, header.bc_len as usize, &mut dbuf).unwrap(); // TODO: error handling
 
-        // handle suffix
-        extend_suffix(&mut dbuf, suffix);
-        Ok(String::from_utf8(dbuf).unwrap())
-    }).collect::<Result<Vec<String>>>()?;
+            // handle suffix
+            extend_suffix(&mut dbuf, suffix);
+            Ok(String::from_utf8(dbuf).unwrap())
+        })
+        .collect::<Result<Vec<String>>>()?;
     adata.set_obs_names(DataFrameIndex::from(obs_names))?;
     adata.set_var_names(DataFrameIndex::from(features.to_vec()))?;
     let _ = adata.close(); // Hopefully not needed for zarr!
@@ -386,7 +422,7 @@ pub fn run(args: &ArgsCount) -> Result<()> {
             args.num_threads,
             args.suffix.as_deref(),
         )
-    } else if args.h5ad{
+    } else if args.h5ad {
         write_adata(
             args.output
                 .as_ref()
