@@ -42,7 +42,7 @@ pub struct MapOptions {
 impl MapOptions {
     pub fn remap_window(&self) -> usize {
         match self.preset {
-            Some(GeometryPreset::GexV2) => 5,
+            Some(GeometryPreset::GexV2 | GeometryPreset::CrisprV2) => 5,
             _ => self.remap_window,
         }
     }
