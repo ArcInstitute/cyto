@@ -301,7 +301,7 @@ For advanced users, `cyto` exposes individual processing steps:
 
 ```bash
 # 1. Map reads to features (includes barcode correction)
-cyto map gex -c probes.tsv -p probe_barcodes.txt -w whitelist.txt -o map_out sample.vbq
+cyto map gex --preset gex-v1 -c probes.tsv -p probe_barcodes.txt -w whitelist.txt -o map_out sample.vbq
 
 # 2. Sort IBU files
 cyto ibu sort -i map_out/ibu/probe1.ibu -o probe1.sorted.ibu
@@ -326,13 +326,13 @@ Control parallelization with `-T`:
 
 ```bash
 # Use all available cores
-cyto workflow gex -c probes.tsv -w whitelist.txt -T0 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T0 sample.vbq
 
 # Use specific number of threads
-cyto workflow gex -c probes.tsv -w whitelist.txt -T32 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T32 sample.vbq
 
 # Single-threaded (minimal resources)
-cyto workflow gex -c probes.tsv -w whitelist.txt -T1 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T1 sample.vbq
 ```
 
 Default: All available threads

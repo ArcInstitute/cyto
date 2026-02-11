@@ -14,6 +14,8 @@ pub struct MapOptions {
     pub geometry: Option<String>,
 
     /// Geometry Preset
+    ///
+    /// Required unless a custom geometry is provided.
     #[clap(long)]
     pub preset: Option<GeometryPreset>,
 

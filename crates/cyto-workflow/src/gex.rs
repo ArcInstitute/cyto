@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Arc, time::Instant};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use log::{info, trace};
 use parking_lot::Mutex;
 use rayon::{
@@ -34,9 +34,13 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
         .lock()
         .push(ModuleTiming::new("All-Barcodes", Module::Mapping, elapsed));
 
-    // Need to handle multiple output IBU files
     // Identify all output IBU files
     let ibu_files = identify_ibu_files(&args.gex_args.output.outdir)?;
+    if ibu_files.is_empty() {
+        bail!(
+            "No IBU files found after mapping. All probes may have been filtered by --min-ibu-records threshold."
+        );
+    }
     let total_threads = args.gex_args.runtime.num_threads();
     let threads_per_file = (total_threads / ibu_files.len()).max(1);
 

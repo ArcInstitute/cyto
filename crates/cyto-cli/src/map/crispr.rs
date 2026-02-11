@@ -14,7 +14,7 @@ pub struct ArgsCrispr {
     pub input: MultiPairedInput,
 
     #[clap(flatten)]
-    pub map2: MapOptions,
+    pub map: MapOptions,
 
     #[clap(flatten)]
     pub crispr: CrisprOptions,
