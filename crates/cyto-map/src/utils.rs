@@ -62,12 +62,8 @@ pub fn delete_sparse_ibus<P: AsRef<Path>>(
     for filepath in filepaths {
         if let Ok(metadata) = std::fs::metadata(filepath) {
             let n_records = ibu_record_count(metadata.len());
-            let below_threshold = if min_records == 0 {
-                n_records == 0
-            } else {
-                n_records < min_records
-            };
-            if below_threshold {
+            let threshold = min_records.max(1);
+            if n_records < threshold {
                 debug!(
                     "Removing IBU file with {n_records} records (min: {min_records}): {}",
                     filepath.as_ref().display()
