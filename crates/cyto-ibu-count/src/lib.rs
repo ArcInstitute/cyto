@@ -2,7 +2,7 @@ use std::{io::Write, path::Path};
 
 use anyhow::{Result, bail};
 use cyto_cli::ibu::ArgsCount;
-use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
+use cyto_core::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis, FeatureCounts};
 use cyto_io::{match_input, match_output};
 use gzp::{
     ZWriter,
@@ -228,13 +228,13 @@ fn write_adata<P: AsRef<Path>>(
     let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
     adata.set_x_from_iter(counts.iter_barcodes().chunks(10_000).into_iter().map(|rows| {
-        let (row_idxs, barcode_rows): (Vec<u64>, Vec<(Vec<u64>, Vec<u64>)>) = rows.unzip();
+        let (row_idxs, barcode_rows): (Vec<u64>, Vec<FeatureCounts>) = rows.map(Into::into).unzip();
         obs_names_idxs.extend(row_idxs);
-        let indptr: Vec<usize> = std::iter::once(0).chain(barcode_rows.iter().map(|(feature_idxes, _)| feature_idxes.len()).scan(0, |sum, x| {
+        let indptr: Vec<usize> = std::iter::once(0).chain(barcode_rows.iter().map(|feature_counts: &FeatureCounts| feature_counts.n_features()).scan(0, |sum, x| {
             *sum += x;
             Some(*sum)
         })).collect();
-        let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) = barcode_rows.into_iter().unzip();
+        let (indices_by_row, data_by_row): (Vec<Vec<u64>>, Vec<Vec<u64>>) = barcode_rows.into_iter().map(Into::into).unzip();
         let indices: Vec<usize> = indices_by_row.into_iter().flatten().map(|e| usize::try_from(e).unwrap()).collect();
         let data: Vec<u64> = data_by_row.into_iter().flatten().collect();
         let csr_mat = CsrMatrix::try_from_csr_data(indptr.len() - 1, features.len(), indptr, indices, data).unwrap(); // TODO: unwraps
