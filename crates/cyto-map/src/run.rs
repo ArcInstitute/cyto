@@ -62,36 +62,36 @@ where
 
 pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     // Parse geometry from args
-    let geometry = if let Some(preset) = args.map2.preset {
+    let geometry = if let Some(preset) = args.map.preset {
         let geometry_str = preset.into_geometry_str();
         info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
         Ok(geometry_str.parse()?)
     } else {
-        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)
+        parse_geometry_with_default(args.map.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)
     }?;
 
     // Load mappers (unpositioned)
-    let probe = if let Some(regex) = args.map2.probe_regex() {
+    let probe = if let Some(regex) = args.map.probe_regex() {
         ProbeMapper::from_file_with_alias_regex(
-            args.map2.probe_path(),
-            args.map2.exact,
-            args.map2.remap_window(),
+            args.map.probe_path(),
+            args.map.exact,
+            args.map.remap_window(),
             regex,
         )
     } else {
         ProbeMapper::from_file(
-            args.map2.probe_path(),
-            args.map2.exact,
-            args.map2.remap_window(),
+            args.map.probe_path(),
+            args.map.exact,
+            args.map.remap_window(),
         )
     }?;
     let whitelist = WhitelistMapper::from_file(
-        args.map2.whitelist_path(),
-        args.map2.exact,
-        args.map2.remap_window(),
+        args.map.whitelist_path(),
+        args.map.exact,
+        args.map.remap_window(),
         args.runtime.num_threads,
     )?;
-    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map2.remap_window())?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map.remap_window())?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {
@@ -133,39 +133,39 @@ pub fn run_gex2(args: &ArgsGex) -> Result<()> {
 
 pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
     // Parse geometry from args
-    let geometry = if let Some(geometry) = args.map2.preset {
+    let geometry = if let Some(geometry) = args.map.preset {
         let geometry_str = geometry.into_geometry_str();
         info!("Using preset ({geometry:?}) geometry: `{geometry_str}`");
         Ok(geometry_str.parse()?)
     } else {
-        parse_geometry_with_default(args.map2.geometry.as_deref(), GEOMETRY_CRISPR_FLEX_V1)
+        parse_geometry_with_default(args.map.geometry.as_deref(), GEOMETRY_CRISPR_FLEX_V1)
     }?;
 
     // Load mappers (unpositioned)
-    let probe = if let Some(regex) = args.map2.probe_regex() {
+    let probe = if let Some(regex) = args.map.probe_regex() {
         ProbeMapper::from_file_with_alias_regex(
-            args.map2.probe_path(),
-            args.map2.exact,
-            args.map2.remap_window(),
+            args.map.probe_path(),
+            args.map.exact,
+            args.map.remap_window(),
             regex,
         )
     } else {
         ProbeMapper::from_file(
-            args.map2.probe_path(),
-            args.map2.exact,
-            args.map2.remap_window(),
+            args.map.probe_path(),
+            args.map.exact,
+            args.map.remap_window(),
         )
     }?;
     let whitelist = WhitelistMapper::from_file(
-        args.map2.whitelist_path(),
-        args.map2.exact,
-        args.map2.remap_window(),
+        args.map.whitelist_path(),
+        args.map.exact,
+        args.map.remap_window(),
         args.runtime.num_threads,
     )?;
     let crispr = CrisprMapper::from_file(
         &args.crispr.guides_filepath,
-        args.map2.exact,
-        args.map2.remap_window(),
+        args.map.exact,
+        args.map.remap_window(),
     )?;
 
     // Resolve geometry
