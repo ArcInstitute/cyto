@@ -28,9 +28,9 @@ paraseq = "0.4.8"
 parking_lot = "0.12"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = "1.0.149"
-anndata = "0.6.2"
-anndata-hdf5 = "0.5.2"
-nalgebra-sparse = "0.11.0"
+anndata = "=0.6.1"
+anndata-hdf5 = "=0.5.0"
+nalgebra-sparse = "=0.10.0"
 itertools = "0.14.0"
 rayon = "1.11.0"
 
