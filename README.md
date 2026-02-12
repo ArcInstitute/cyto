@@ -7,7 +7,7 @@ Ultra-high throughput processing for 10x Genomics Flex single-cell sequencing.
 `cyto` is a fast, memory-efficient processor for 10x Genomics Flex single-cell RNA sequencing data, designed specifically for production-scale analysis. It handles:
 
 - **Gene expression profiling** from FFPE samples and fresh tissue
-- **Highly multiplexed experiments** (16-plex Flex-V1)
+- **Highly multiplexed experiments** (16-plex Flex-V1 / 384-plex Flex-V2)
 - **CRISPR perturbation screens** (Perturb-seq) with efficient guide assignment
 - **Probe-based multiplexing** for clinical and archived samples
 
