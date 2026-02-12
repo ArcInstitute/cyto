@@ -60,7 +60,7 @@ where
     Ok(runstats)
 }
 
-pub fn run_gex2(args: &ArgsGex) -> Result<()> {
+pub fn run_gex(args: &ArgsGex) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(preset) = args.map.preset {
         let geometry_str = preset.into_geometry_str();
@@ -131,7 +131,7 @@ pub fn run_gex2(args: &ArgsGex) -> Result<()> {
     Ok(())
 }
 
-pub fn run_crispr2(args: &ArgsCrispr) -> Result<()> {
+pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
     // Parse geometry from args
     let geometry = if let Some(geometry) = args.map.preset {
         let geometry_str = geometry.into_geometry_str();

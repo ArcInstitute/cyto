@@ -15,7 +15,7 @@ Core mapping engine. Maps paired-end sequencing reads to features (genes, CRISPR
 - `src/mapper/umi.rs` — `UmiMapper`: extracts UMI from reads, validates quality scores against threshold (`UMI_MIN_QUALITY=10`), provides 2-bit encoding.
 - `src/mapper/biject.rs` — `Bijection<T>`: bidirectional map (element <-> index) used for deduplicating probe aliases.
 - `src/processor.rs` — `MapProcessor<M>`: parallelized read processing. Implements both `binseq::ParallelProcessor` and `paraseq::PairedParallelProcessor`. Thread-local buffers flushed on batch complete. Progress bar on thread 0.
-- `src/run.rs` — `run_gex2()` and `run_crispr2()`: top-level orchestration functions. Parse geometry, load mappers, resolve positions, process inputs, write statistics, delete sparse IBUs.
+- `src/run.rs` — `run_gex()` and `run_crispr()`: top-level orchestration functions. Parse geometry, load mappers, resolve positions, process inputs, write statistics, delete sparse IBUs.
 - `src/stats.rs` — `MappingStatistics`, `UnmappedStatistics`, `LibraryStatistics`, `InputRuntimeStatistics`. JSON serialization to `stats/` directory.
 - `src/utils.rs` — `build_filepaths()`, `initialize_output_ibus()` (writes IBU headers), `delete_sparse_ibus()` (removes IBU files below record threshold).
 
@@ -46,6 +46,7 @@ cargo test -p cyto-map
 ```
 
 Unit tests are in `src/geometry.rs` (parser and resolution tests). Integration tests use `justfile` targets:
+
 ```bash
 just run-gex-binseq
 just run-crispr-binseq

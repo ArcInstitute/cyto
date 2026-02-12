@@ -52,8 +52,8 @@ fn main() -> Result<()> {
     info!("Initializing...");
     match args.command {
         Commands::Map(map) => match map {
-            MapCommand::Gex(args) => cyto_map::run_gex2(&args),
-            MapCommand::Crispr(args) => cyto_map::run_crispr2(&args),
+            MapCommand::Gex(args) => cyto_map::run_gex(&args),
+            MapCommand::Crispr(args) => cyto_map::run_crispr(&args),
         },
         Commands::Ibu(ibu) => match ibu {
             IbuCommand::View(args) => cyto_ibu_view::run(&args),

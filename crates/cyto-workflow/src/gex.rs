@@ -28,7 +28,7 @@ pub fn run(args: &GexMappingCommand) -> Result<()> {
 
     info!("Running GEX Mapping Workflow");
     let start = Instant::now();
-    cyto_map::run_gex2(&args.gex_args)?;
+    cyto_map::run_gex(&args.gex_args)?;
     let elapsed = start.elapsed();
     all_timings
         .lock()

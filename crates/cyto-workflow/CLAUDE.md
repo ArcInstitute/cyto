@@ -6,7 +6,7 @@ Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort 
 
 ## Key Source Files
 
-- `src/gex.rs` — `run()`: GEX workflow entry point. Calls `cyto_map::run_gex2()`, then parallelizes `ibu_steps()` across all per-probe IBU files. Distributes threads proportionally across files.
+- `src/gex.rs` — `run()`: GEX workflow entry point. Calls `cyto_map::run_gex()`, then parallelizes `ibu_steps()` across all per-probe IBU files. Distributes threads proportionally across files.
 - `src/crispr.rs` — `run()`: CRISPR workflow entry point. Same structure as GEX but passes `ArgsGeomux` for guide assignment step.
 - `src/utils.rs` — Core workflow utilities:
   - `ibu_steps()` — Orchestrates per-IBU pipeline: sort -> umi-correct (optional) -> reads stats (optional) -> count -> h5ad conversion (optional) -> filter/assign. Cleans up intermediate files.
@@ -43,6 +43,7 @@ cargo test -p cyto-workflow
 ```
 
 Integration tests via `justfile`:
+
 ```bash
 just run-wf-gex
 just run-wf-crispr
