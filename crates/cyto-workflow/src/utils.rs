@@ -42,43 +42,6 @@ fn strip_ibu_basename(ibu_path: &str) -> Result<&str> {
     Ok(base_ibu_path)
 }
 
-fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
-    info!(
-        "Converting MTX {} -> {}.h5ad",
-        count_path.as_ref().display(),
-        count_path.as_ref().display()
-    );
-
-    let output = Command::new("pycyto")
-        .arg("convert")
-        .arg(count_path.as_ref().display().to_string())
-        .arg(format!("{}.h5ad", count_path.as_ref().display()))
-        .output()?;
-    if output.status.success() {
-        debug!(
-            "Successfully converted {} to h5ad",
-            count_path.as_ref().display()
-        );
-        debug!("Removing MTX directory");
-        std::fs::remove_dir_all(&count_path).context(format!(
-            "Unable to remove directory {}",
-            count_path.as_ref().display()
-        ))?;
-    } else {
-        error!(
-            "Unable to run h5ad conversion for {}",
-            count_path.as_ref().display()
-        );
-        error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
-        error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
-        bail!(
-            "Unable to convert {} to h5ad",
-            count_path.as_ref().display()
-        );
-    }
-
-    Ok(())
-}
 
 fn filter_h5ad<P: AsRef<Path>>(
     count_path: P,
@@ -310,6 +273,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         } else {
             Some(base_ibu_path.to_string())
         },
+        wf_args.to_h5ad(),
     );
 
     // Run the counting step
@@ -326,15 +290,6 @@ pub fn ibu_steps<P: AsRef<Path>>(
 
     // Convert to h5ad if required
     if wf_args.to_h5ad() {
-        let start = Instant::now();
-        convert_to_h5ad(&count_path)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::ConversionH5ad,
-            elapsed,
-        ));
-
         match wf_mode {
             WorkflowMode::Gex => {
                 if !wf_args.no_filter {

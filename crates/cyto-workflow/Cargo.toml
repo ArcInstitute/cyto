@@ -21,8 +21,8 @@ cyto-map = { workspace = true }
 log = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
+rayon = { workspace = true }
 
-rayon = "1.11.0"
 glob = "0.3.3"
 
 [lints]

@@ -21,6 +21,27 @@ impl BarcodeIndexCount {
     }
 }
 
+pub struct FeatureCounts(Vec<u64>, Vec<u64>);
+
+impl FeatureCounts {
+    pub fn n_features(&self) -> usize {
+        self.0.len()
+    }
+}
+pub struct BarcodeFeatureCounts(u64, FeatureCounts);
+
+impl From<BarcodeFeatureCounts> for (u64, FeatureCounts) {
+    fn from(t: BarcodeFeatureCounts) -> Self {
+        (t.0, t.1)
+    }
+}
+
+impl From<FeatureCounts> for (Vec<u64>, Vec<u64>) {
+    fn from(t: FeatureCounts) -> Self {
+        (t.0, t.1)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct BarcodeIndexCounts {
     /// Indexed by `barcode` then `index` then `counts`
@@ -65,6 +86,15 @@ impl BarcodeIndexCounts {
                     index: *index,
                     count: *counts,
                 })
+        })
+    }
+
+    pub fn iter_barcodes(&self) -> impl Iterator<Item = BarcodeFeatureCounts> + '_ {
+        self.inner.iter().map(|(barcode, index_counts)| {
+            let mut entries: Vec<(&u64, &u64)> = index_counts.into_iter().collect();
+            entries.sort_by_key(|(k, _)| *k);
+            let (features, counts) = entries.into_iter().unzip();
+            BarcodeFeatureCounts(*barcode, FeatureCounts(features, counts))
         })
     }
 

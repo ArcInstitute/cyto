@@ -15,7 +15,7 @@ Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort 
   - `filter_h5ad()` — Calls `cell-filter` (EmptyDrops), handles missing filtered output gracefully
   - `assign_guides()` — Calls `geomux` with full parameter passthrough, handles known warning conditions
   - `write_done_file()` / `write_timings_file()` — Writes workflow completion marker and timing TSV
-- `src/timing.rs` — `ModuleTiming` (ibu_name, module, elapsed_secs), `Module` enum (Mapping, InitialSort, UmiCorrection, ReadsDump, Counting, ConversionH5ad, DropletFiltering, GuideAssignment)
+- `src/timing.rs` — `ModuleTiming` (ibu_name, module, elapsed_secs), `Module` enum (Mapping, InitialSort, UmiCorrection, ReadsDump, Counting, DropletFiltering, GuideAssignment)
 
 ## Key Types
 
