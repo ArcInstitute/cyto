@@ -352,7 +352,7 @@ ACGTACGT   ENSG00000000005   12
 For downstream analysis with scanpy/Seurat:
 
 ```bash
-cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --format mtx
+cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --mtx
 ```
 
 Generates:
@@ -360,6 +360,14 @@ Generates:
 - `matrix.mtx` - Sparse count matrix
 - `barcodes.tsv` - Cell barcodes
 - `features.tsv` - Feature names
+
+#### H5ad
+
+Also supported is `h5ad`, the `h5` implementation of the [anndata](https://anndata.readthedocs.io/en/stable/).
+
+```bash
+cyto ibu count -i sample.ibu -f features.tsv -o counts.h5ad --h5ad
+```
 
 #### Convert to h5ad
 
