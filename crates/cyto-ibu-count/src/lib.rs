@@ -1,8 +1,7 @@
 use std::{io::Write, path::Path};
 
 use anndata::{
-    AnnData, AnnDataOp, Backend,
-    data::{ArrayData, array::dataframe::DataFrameIndex},
+    AnnData, AnnDataOp, Backend, backend::{Compression, set_default_write_config, WriteConfig}, data::{ArrayData, Shape, array::dataframe::DataFrameIndex}
 };
 use anndata_hdf5::H5;
 use anyhow::{Result, bail};
@@ -233,6 +232,7 @@ fn write_adata<P: AsRef<Path>>(
     }
     let _ = std::fs::File::create(&output_file);
     let store = H5::open_rw(&output_file)?;
+    set_default_write_config(WriteConfig { compression: Some(Compression::Gzip(5)), block_size: None })?;
     let adata: AnnData<H5> = AnnData::open(store)?;
     let mut obs_names_idxs = Vec::with_capacity(counts.get_num_barcodes());
     adata.set_x_from_iter(
@@ -289,7 +289,7 @@ fn write_adata<P: AsRef<Path>>(
 
             // handle suffix
             extend_suffix(&mut dbuf, suffix);
-            Ok(String::from_utf8(dbuf).unwrap())
+            Ok(String::from_utf8(dbuf)?)
         })
         .collect::<Result<Vec<String>>>()?;
     adata.set_obs_names(DataFrameIndex::from(obs_names))?;
