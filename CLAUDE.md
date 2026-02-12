@@ -131,6 +131,20 @@ Read geometry is specified via a domain-specific language:
 - `crates/cyto-map/src/mapper/mod.rs` - Mapper implementations (GexMapper, CrisprMapper, WhitelistMapper)
 - `crates/cyto-map/src/geometry.rs` - Geometry DSL parsing
 
+## Maintaining CLAUDE.md Files
+
+Each crate in `crates/` has its own `CLAUDE.md` describing that module's purpose, key types, source files, and design patterns. These files must stay accurate as the code evolves.
+
+When making changes to a crate, check whether the diff affects anything described in that crate's `CLAUDE.md`:
+
+- Renamed or removed functions, types, or traits that are listed as key types or referenced in source file descriptions
+- New source files added or existing ones restructured
+- Changed design patterns (e.g., new parallelism strategy, different error handling approach)
+- Added or removed dependencies on other workspace crates
+- New or removed tests
+
+If the diff touches any of these, update the relevant `CLAUDE.md` as part of the same change. Keep descriptions concise and factual — these files are reference material, not prose documentation.
+
 ## Test Data
 
 Example data in `data/` directory:
