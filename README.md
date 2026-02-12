@@ -169,8 +169,6 @@ cyto workflow gex -c probes.tsv -w whitelist.txt *.vbq
 cyto workflow gex -c probes.tsv -w whitelist.txt *.fastq.gz
 ```
 
-**Note**: Currently supports Flex-V1 (16-plex). Flex-V2 (364-plex) support coming soon.
-
 ## Advanced Usage
 
 ### Geometry DSL
