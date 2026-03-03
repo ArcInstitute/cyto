@@ -1,5 +1,8 @@
 # cyto
 
+[![BSD3-Clause](https://img.shields.io/badge/license-BSD3-blue.svg)](./LICENSE.md)
+[![Crates.io](https://img.shields.io/crates/d/cyto?color=orange&label=crates.io)](https://crates.io/crates/cyto)
+
 Ultra-high throughput processing for 10x Genomics Flex single-cell sequencing.
 
 ## Overview
@@ -62,7 +65,7 @@ cyto workflow gex \
     -w cell_barcode_whitelist.txt \
     -p probe_barcodes.txt \
     -o output_dir \
-    sample.vbq
+    sample.cbq
 ```
 
 Or without probe demultiplexing (single-plex or custom geometry):
@@ -73,7 +76,7 @@ cyto workflow gex \
     -w cell_barcode_whitelist.txt \
     --geometry "[barcode][umi:12] | [gex]" \
     -o output_dir \
-    sample.vbq
+    sample.cbq
 ```
 
 ### CRISPR Screen Workflow
@@ -86,7 +89,7 @@ cyto workflow crispr \
     -w cell_barcode_whitelist.txt \
     -p probe_barcodes.txt \
     -o output_dir \
-    sample.vbq
+    sample.cbq
 ```
 
 Or without probe demultiplexing:
@@ -97,7 +100,7 @@ cyto workflow crispr \
     -w cell_barcode_whitelist.txt \
     --geometry "[barcode][umi:12] | [:26][anchor][protospacer]" \
     -o output_dir \
-    sample.vbq
+    sample.cbq
 ```
 
 Both workflows automatically handle:
@@ -189,7 +192,7 @@ Standard 10x barcode whitelist (`-w` flag):
 
 ```bash
 # BINSEQ (recommended - faster parsing)
-cyto workflow gex -c probes.tsv -w whitelist.txt sample.vbq
+cyto workflow gex -c probes.tsv -w whitelist.txt sample.cbq
 
 # FASTQ paired-end
 cyto workflow gex -c probes.tsv -w whitelist.txt sample_R1.fastq.gz sample_R2.fastq.gz
@@ -199,7 +202,7 @@ If you have a large collection of sequence files that can be processed as a sing
 
 ```bash
 # BINSEQ
-cyto workflow gex -c probes.tsv -w whitelist.txt *.vbq
+cyto workflow gex -c probes.tsv -w whitelist.txt *.cbq
 
 # FASTQ paired-end
 cyto workflow gex -c probes.tsv -w whitelist.txt *.fastq.gz
@@ -324,7 +327,7 @@ cyto workflow gex --geometry "..." --remap-window 0 ...
 > **Pro-Tip**: If you're unsure about spacer lengths for your library, use [`bqtools grep`](https://github.com/arcinstitute/bqtools?tab=readme-ov-file#grep) to visualize your sequences:
 >
 > ```bash
-> bqtools grep <input.vbq> <anchor_sequence> <probe_sequence>
+> bqtools grep <input.cbq> <anchor_sequence> <probe_sequence>
 > ```
 >
 > This highlights the sequences in your reads so you can count the bases between them.
@@ -336,9 +339,9 @@ For advanced users, `cyto` exposes individual processing steps:
 ```bash
 # 1. Map reads to features (includes barcode correction)
 # With probe demultiplexing:
-cyto map gex --preset gex-v1 -c probes.tsv -p probe_barcodes.txt -w whitelist.txt -o map_out sample.vbq
+cyto map gex --preset gex-v1 -c probes.tsv -p probe_barcodes.txt -w whitelist.txt -o map_out sample.cbq
 # Or without probes:
-cyto map gex --geometry "[barcode][umi:12] | [gex]" -c probes.tsv -w whitelist.txt -o map_out sample.vbq
+cyto map gex --geometry "[barcode][umi:12] | [gex]" -c probes.tsv -w whitelist.txt -o map_out sample.cbq
 
 # 2. Sort IBU files
 cyto ibu sort -i map_out/ibu/probe1.ibu -o probe1.sorted.ibu
@@ -363,13 +366,13 @@ Control parallelization with `-T`:
 
 ```bash
 # Use all available cores
-cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T0 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T0 sample.cbq
 
 # Use specific number of threads
-cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T32 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T32 sample.cbq
 
 # Single-threaded (minimal resources)
-cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T1 sample.vbq
+cyto workflow gex --preset gex-v1 -c probes.tsv -w whitelist.txt -T1 sample.cbq
 ```
 
 Default: All available threads
