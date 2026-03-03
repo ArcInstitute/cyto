@@ -17,6 +17,7 @@ CRISPR_FASTQ_R2 := "./data/sequencing/crispr_R2.fastq.gz"
 # Geometries
 
 CRISPR_UNPROBED_GEOMETRY := "[barcode][umi:12] | [:26][anchor][protospacer]"
+GEX_UNPROBED_GEOMETRY := "[barcode][umi:12] | [gex]"
 
 install:
     export RUSTFLAGS="-C target-cpu=native"; cargo install --path crates/cyto
@@ -82,6 +83,7 @@ run-gex-binseq-unprobed: install
     time cyto map gex \
         -c {{ GEX_PROBES }} \
         -w {{ BARCODE_LIST }} \
+        --geometry "{{ GEX_UNPROBED_GEOMETRY }}" \
         --force \
         {{ GEX_BINSEQ }}
 
