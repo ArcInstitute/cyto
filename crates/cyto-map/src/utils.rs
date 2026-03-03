@@ -6,7 +6,7 @@ use log::debug;
 
 use crate::{Bijection, BoxedWriter, ResolvedGeometry};
 
-fn build_filepath<P: AsRef<Path>>(outdir: P, name: Option<&str>) -> PathBuf {
+pub fn build_filepath<P: AsRef<Path>>(outdir: P, name: Option<&str>) -> PathBuf {
     outdir.as_ref().join(if let Some(name) = name {
         Path::new("ibu").join(format!("{name}.ibu"))
     } else {
@@ -45,6 +45,20 @@ pub fn initialize_output_ibus<P: AsRef<Path>>(
         writers.push(handle);
     }
     Ok(writers)
+}
+
+pub fn initialize_output_ibu<P: AsRef<Path>>(
+    path: P,
+    geometry: &ResolvedGeometry,
+) -> Result<BoxedWriter> {
+    let header = ibu::Header::new(
+        geometry.get_barcode_length()? as u32,
+        geometry.get_umi_length()? as u32,
+    );
+    let mut handle = open_file_handle(path)?;
+    handle.write_all(header.as_bytes())?;
+    handle.flush()?;
+    Ok(handle)
 }
 
 /// Returns the number of records in an IBU file based on its byte size.

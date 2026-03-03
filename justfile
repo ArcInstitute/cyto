@@ -14,6 +14,11 @@ CRISPR_BINSEQ := "./data/sequencing/crispr.cbq"
 CRISPR_FASTQ_R1 := "./data/sequencing/crispr_R1.fastq.gz"
 CRISPR_FASTQ_R2 := "./data/sequencing/crispr_R2.fastq.gz"
 
+# Geometries
+
+CRISPR_UNPROBED_GEOMETRY := "[barcode][umi:12] | [:26][anchor][protospacer]"
+GEX_UNPROBED_GEOMETRY := "[barcode][umi:12] | [gex]"
+
 install:
     export RUSTFLAGS="-C target-cpu=native"; cargo install --path crates/cyto
 
@@ -29,12 +34,28 @@ run-wf-crispr:
         --force \
         {{ CRISPR_BINSEQ }}
 
+run-wf-crispr-unprobed:
+    time cyto workflow crispr \
+        -c {{ CRISPR_GUIDES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ CRISPR_UNPROBED_GEOMETRY }}" \
+        --force \
+        {{ CRISPR_BINSEQ }}
+
 run-wf-gex:
     time cyto workflow gex \
         -c {{ GEX_PROBES }} \
         -p {{ PROBE_BARCODES }} \
         -w {{ BARCODE_LIST }} \
         --preset gex-v1 \
+        --force \
+        {{ GEX_BINSEQ }}
+
+run-wf-gex-unprobed:
+    time cyto workflow gex \
+        -c {{ GEX_PROBES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ GEX_UNPROBED_GEOMETRY }}" \
         --force \
         {{ GEX_BINSEQ }}
 
@@ -46,6 +67,14 @@ run-crispr-binseq: install
         -w {{ BARCODE_LIST }} \
         -p {{ PROBE_BARCODES }} \
         --preset crispr-proper \
+        --force \
+        {{ CRISPR_BINSEQ }}
+
+run-crispr-binseq-unprobed: install
+    time cyto map crispr \
+        -c {{ CRISPR_GUIDES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ CRISPR_UNPROBED_GEOMETRY }}" \
         --force \
         {{ CRISPR_BINSEQ }}
 
@@ -63,6 +92,14 @@ run-gex-binseq: install
         -c {{ GEX_PROBES }} \
         -p {{ PROBE_BARCODES }} \
         -w {{ BARCODE_LIST }} \
+        --force \
+        {{ GEX_BINSEQ }}
+
+run-gex-binseq-unprobed: install
+    time cyto map gex \
+        -c {{ GEX_PROBES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ GEX_UNPROBED_GEOMETRY }}" \
         --force \
         {{ GEX_BINSEQ }}
 
