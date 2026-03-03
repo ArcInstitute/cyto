@@ -65,6 +65,17 @@ cyto workflow gex \
     sample.vbq
 ```
 
+Or without probe demultiplexing (single-plex or custom geometry):
+
+```bash
+cyto workflow gex \
+    -c gene_probes.tsv \
+    -w cell_barcode_whitelist.txt \
+    --geometry "[barcode][umi:12] | [gex]" \
+    -o output_dir \
+    sample.vbq
+```
+
 ### CRISPR Screen Workflow
 
 Process Perturb-seq data with guide assignment:
@@ -78,6 +89,17 @@ cyto workflow crispr \
     sample.vbq
 ```
 
+Or without probe demultiplexing:
+
+```bash
+cyto workflow crispr \
+    -c guide_library.tsv \
+    -w cell_barcode_whitelist.txt \
+    --geometry "[barcode][umi:12] | [:26][anchor][protospacer]" \
+    -o output_dir \
+    sample.vbq
+```
+
 Both workflows automatically handle:
 
 - Read mapping to features (with integrated barcode correction)
@@ -87,7 +109,7 @@ Both workflows automatically handle:
 
 ### Output Structure
 
-Workflows generate organized outputs:
+Workflows generate organized outputs. With probe demultiplexing, one IBU and count file is generated per probe:
 
 ```
 output_dir/
@@ -101,6 +123,20 @@ output_dir/
 └── counts/
     ├── probe1.counts.tsv    # Count matrices
     └── probe2.counts.tsv    # (one per probe)
+```
+
+Without probes, a single IBU and count file is generated:
+
+```
+output_dir/
+├── metadata/
+│   └── features.tsv         # Feature index
+├── stats/
+│   └── mapping.json         # Mapping statistics
+├── ibu/
+│   └── output.sort.ibu      # Single IBU file
+└── counts/
+    └── output.counts.tsv    # Single count matrix
 ```
 
 ## Input Formats
@@ -299,7 +335,10 @@ For advanced users, `cyto` exposes individual processing steps:
 
 ```bash
 # 1. Map reads to features (includes barcode correction)
+# With probe demultiplexing:
 cyto map gex --preset gex-v1 -c probes.tsv -p probe_barcodes.txt -w whitelist.txt -o map_out sample.vbq
+# Or without probes:
+cyto map gex --geometry "[barcode][umi:12] | [gex]" -c probes.tsv -w whitelist.txt -o map_out sample.vbq
 
 # 2. Sort IBU files
 cyto ibu sort -i map_out/ibu/probe1.ibu -o probe1.sorted.ibu
