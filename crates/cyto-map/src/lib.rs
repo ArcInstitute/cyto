@@ -1,7 +1,6 @@
 mod geometry;
 mod mapper;
 mod processor;
-mod processor_unprobed;
 mod run;
 mod stats;
 mod utils;

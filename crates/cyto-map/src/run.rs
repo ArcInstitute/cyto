@@ -12,7 +12,7 @@ use log::info;
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
-    UmiMapper, WhitelistMapper, initialize_output_ibus, processor_unprobed,
+    UmiMapper, WhitelistMapper, initialize_output_ibus,
     stats::{InputRuntimeStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
 };
@@ -30,39 +30,6 @@ fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<
 fn process_input<M>(
     inputs: &MultiPairedInput,
     mut proc: MapProcessor<M>,
-    threads: usize,
-) -> Result<Vec<InputRuntimeStatistics>>
-where
-    M: Mapper + Send + Sync + 'static,
-{
-    let mut runstats = Vec::default();
-    if inputs.is_binseq() {
-        for (input_id, reader) in inputs.to_binseq_readers()?.into_iter().enumerate() {
-            let start = Instant::now();
-            reader.process_parallel(proc.clone(), threads)?;
-            let elapsed_sec = start.elapsed().as_secs_f64();
-            runstats.push(InputRuntimeStatistics {
-                input_id,
-                elapsed_sec,
-            });
-        }
-    } else {
-        let collection = inputs.to_paraseq_collection()?;
-        let start = Instant::now();
-        collection.process_parallel_paired(&mut proc, threads, None)?;
-        let elapsed_sec = start.elapsed().as_secs_f64();
-        runstats.push(InputRuntimeStatistics {
-            input_id: 0,
-            elapsed_sec,
-        });
-    }
-    proc.finish_pbar();
-    Ok(runstats)
-}
-
-fn process_unprobed_input<M>(
-    inputs: &MultiPairedInput,
-    mut proc: processor_unprobed::MapProcessor<M>,
     threads: usize,
 ) -> Result<Vec<InputRuntimeStatistics>>
 where
@@ -151,7 +118,7 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let proc = MapProcessor::new(umi, probe, whitelist, gex, writers, bijection);
+    let proc = MapProcessor::probed(umi, probe, whitelist, gex, writers, bijection);
     let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
 
@@ -205,8 +172,8 @@ pub fn run_gex_unprobed(args: &ArgsGex) -> Result<()> {
     let writer = initialize_output_ibu(&filepath, &resolved)?;
 
     // Process
-    let proc = processor_unprobed::MapProcessor::new(umi, whitelist, gex, writer);
-    let runstats = process_unprobed_input(&args.input, proc.clone(), args.runtime.num_threads())?;
+    let proc = MapProcessor::unprobed(umi, whitelist, gex, writer);
+    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
 
     // Write statistics
@@ -285,7 +252,7 @@ pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
     let writers = initialize_output_ibus(&filepaths, &resolved)?;
 
     // Process
-    let proc = MapProcessor::new(umi, probe, whitelist, crispr, writers, bijection);
+    let proc = MapProcessor::probed(umi, probe, whitelist, crispr, writers, bijection);
     let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
 
@@ -344,8 +311,8 @@ pub fn run_crispr_unprobed(args: &ArgsCrispr) -> Result<()> {
     let writer = initialize_output_ibu(&filepath, &resolved)?;
 
     // Process
-    let proc = processor_unprobed::MapProcessor::new(umi, whitelist, crispr, writer);
-    let runstats = process_unprobed_input(&args.input, proc.clone(), args.runtime.num_threads())?;
+    let proc = MapProcessor::unprobed(umi, whitelist, crispr, writer);
+    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
     let mapstats = proc.stats();
 
     // Write statistics
