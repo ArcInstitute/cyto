@@ -5,43 +5,36 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use paraseq::prelude::PairedParallelProcessor;
 use parking_lot::Mutex;
 
-use crate::{
-    Bijection, BoxedWriter, Mapper, ProbeMapper, ReadMate, UmiMapper, WhitelistMapper,
-    stats::MappingStatistics,
-};
+use crate::{BoxedWriter, Mapper, ReadMate, UmiMapper, WhitelistMapper, stats::MappingStatistics};
 
 /// MapProcessor for Probed Records
 pub struct MapProcessor<M: Mapper> {
     /* Shared Resources */
     umi_mapper: UmiMapper,
-    probe_mapper: Arc<ProbeMapper>,
     whitelist_mapper: Arc<WhitelistMapper>,
     feature_mapper: Arc<M>,
-    bijection: Arc<Bijection<String>>,
     map_time: Instant,
 
     /* Local Variables */
     tid: usize,
     t_stats: MappingStatistics,
-    t_output: Vec<Vec<u8>>,
+    t_output: Vec<u8>,
 
     /* Global Variables */
     stats: Arc<Mutex<MappingStatistics>>,
-    writers: Arc<Vec<Mutex<BoxedWriter>>>,
+    writer: Arc<Mutex<BoxedWriter>>,
     pbar: Arc<Mutex<Option<ProgressBar>>>,
 }
 impl<M: Mapper> Clone for MapProcessor<M> {
     fn clone(&self) -> Self {
         Self {
             umi_mapper: self.umi_mapper,
-            probe_mapper: Arc::clone(&self.probe_mapper),
             whitelist_mapper: Arc::clone(&self.whitelist_mapper),
             feature_mapper: Arc::clone(&self.feature_mapper),
             t_stats: self.t_stats,
             tid: self.tid,
             t_output: self.t_output.clone(),
-            bijection: Arc::clone(&self.bijection),
-            writers: Arc::clone(&self.writers),
+            writer: Arc::clone(&self.writer),
             stats: Arc::clone(&self.stats),
             map_time: self.map_time,
             pbar: self.pbar.clone(),
@@ -52,23 +45,17 @@ impl<M: Mapper> Clone for MapProcessor<M> {
 impl<M: Mapper> MapProcessor<M> {
     pub fn new(
         umi_mapper: UmiMapper,
-        probe_mapper: ProbeMapper,
         whitelist_mapper: WhitelistMapper,
         feature_mapper: M,
-        writers: Vec<BoxedWriter>,
-        bijection: Bijection<String>,
+        writer: BoxedWriter,
     ) -> Self {
-        let t_output = vec![Vec::default(); writers.len()];
-        let shared_writers = writers.into_iter().map(Mutex::new).collect();
         Self {
             umi_mapper,
-            probe_mapper: Arc::new(probe_mapper),
             whitelist_mapper: Arc::new(whitelist_mapper),
             feature_mapper: Arc::new(feature_mapper),
             t_stats: MappingStatistics::default(),
-            t_output,
-            bijection: Arc::new(bijection),
-            writers: Arc::new(shared_writers),
+            t_output: Vec::default(),
+            writer: Arc::new(Mutex::new(writer)),
             stats: Arc::new(Mutex::new(MappingStatistics::default())),
             tid: 0,
             map_time: Instant::now(),
@@ -147,9 +134,6 @@ impl<M: Mapper> MapProcessor<M> {
         self.t_stats.total_reads += 1;
 
         // query each mapper
-        let probe_idx =
-            self.probe_mapper
-                .query(select_mate(s_seq, x_seq, self.probe_mapper.mate()));
         let feat_idx =
             self.feature_mapper
                 .query(select_mate(s_seq, x_seq, self.feature_mapper.mate()));
@@ -173,9 +157,7 @@ impl<M: Mapper> MapProcessor<M> {
         ));
 
         // handle match conditions
-        if let (Some(p_idx), Some(f_idx), Some(wl_idx), Some(umi), true) =
-            (probe_idx, feat_idx, wl_idx, umi, pass_qual)
-        {
+        if let (Some(f_idx), Some(wl_idx), Some(umi), true) = (feat_idx, wl_idx, umi, pass_qual) {
             // increment mapped reads
             self.t_stats.mapped_reads += 1;
 
@@ -189,22 +171,8 @@ impl<M: Mapper> MapProcessor<M> {
             // build IBU record
             let ibu = ibu::Record::new(bc, umi, f_idx as u64);
 
-            // identify correct output head
-            let output_idx = self
-                .probe_mapper
-                .get_parent(p_idx)
-                .map(|seq| self.bijection.get_index(seq))
-                .expect("Failed to recover probe index")
-                .expect("Failed to biject probe parent sequence");
-
-            self.t_output
-                .get_mut(output_idx)
-                .expect("Failed to get mutable reference to output head")
-                .write_all(ibu.as_bytes())?;
+            self.t_output.write_all(ibu.as_bytes())?;
         } else {
-            probe_idx
-                .is_none()
-                .then(|| self.t_stats.unmapped.missing_probe += 1);
             feat_idx
                 .is_none()
                 .then(|| self.t_stats.unmapped.missing_feature += 1);
@@ -221,16 +189,9 @@ impl<M: Mapper> MapProcessor<M> {
     fn _on_batch_complete(&mut self) -> anyhow::Result<()> {
         // write local (in-memory) outputs to global outputs
         {
-            // Write all local output buffers to the corresponding files
-            for idx in 0..self.t_output.len() {
-                // Scope the lock to ensure it is released early
-                {
-                    let writer = &mut self.writers[idx].lock();
-                    writer.write_all(&self.t_output[idx])?;
-                    writer.flush()?;
-                }
-                self.t_output[idx].clear();
-            }
+            let mut writer = self.writer.lock();
+            writer.write_all(&self.t_output)?;
+            writer.flush()?;
         }
 
         // update statistics

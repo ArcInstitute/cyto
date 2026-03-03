@@ -1,6 +1,7 @@
 mod geometry;
 mod mapper;
 mod processor;
+mod processor_unprobed;
 mod run;
 mod stats;
 mod utils;
@@ -14,7 +15,7 @@ pub use mapper::{
     Unpositioned, WhitelistMapper,
 };
 pub use processor::MapProcessor;
-pub use run::{run_crispr, run_gex};
+pub use run::{run_crispr, run_crispr_unprobed, run_gex, run_gex_unprobed};
 pub use utils::initialize_output_ibus;
 
 pub const UMI_MIN_QUALITY: u8 = 10;
