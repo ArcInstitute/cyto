@@ -160,15 +160,15 @@ impl<M: Mapper> MapProcessor<M> {
 
     fn increment_missing(
         &mut self,
-        probe_idx: Option<usize>,
+        probe_missing: bool,
         feat_idx: Option<usize>,
         wl_idx: Option<usize>,
         umi: Option<u64>,
         pass_qual: bool,
     ) {
-        probe_idx
-            .is_none()
-            .then(|| self.t_stats.unmapped.missing_probe += 1);
+        if probe_missing {
+            self.t_stats.unmapped.missing_probe += 1;
+        }
         feat_idx
             .is_none()
             .then(|| self.t_stats.unmapped.missing_feature += 1);
@@ -218,7 +218,7 @@ impl<M: Mapper> MapProcessor<M> {
                 let probe_idx = probe_mapper.query(select_mate(s_seq, x_seq, probe_mapper.mate()));
                 let Some(p_idx) = probe_idx else {
                     // Short-circuit on probe miss
-                    self.increment_missing(None, feat_idx, wl_idx, umi, pass_qual);
+                    self.increment_missing(true, feat_idx, wl_idx, umi, pass_qual);
                     return Ok(());
                 };
                 Some(
@@ -251,15 +251,7 @@ impl<M: Mapper> MapProcessor<M> {
                 .expect("Failed to get mutable reference to output head")
                 .write_all(ibu.as_bytes())?;
         } else {
-            // The probe already matched (or there's no probe mapper),
-            // so probe_idx is always Some here — no probe miss to count.
-            self.increment_missing(
-                Some(0), // The probe already matched (or there's no probe mapper),
-                feat_idx,
-                wl_idx,
-                umi,
-                pass_qual,
-            );
+            self.increment_missing(false, feat_idx, wl_idx, umi, pass_qual);
         }
         Ok(())
     }
