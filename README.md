@@ -1,5 +1,8 @@
 # cyto
 
+[![BSD3-Clause](https://img.shields.io/badge/license-BSD3-blue.svg)](./LICENSE.md)
+[![Crates.io](https://img.shields.io/crates/d/cyto?color=orange&label=crates.io)](https://crates.io/crates/cyto)
+
 Ultra-high throughput processing for 10x Genomics Flex single-cell sequencing.
 
 ## Overview
