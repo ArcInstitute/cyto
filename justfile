@@ -34,12 +34,28 @@ run-wf-crispr:
         --force \
         {{ CRISPR_BINSEQ }}
 
+run-wf-crispr-unprobed:
+    time cyto workflow crispr \
+        -c {{ CRISPR_GUIDES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ CRISPR_UNPROBED_GEOMETRY }}" \
+        --force \
+        {{ CRISPR_BINSEQ }}
+
 run-wf-gex:
     time cyto workflow gex \
         -c {{ GEX_PROBES }} \
         -p {{ PROBE_BARCODES }} \
         -w {{ BARCODE_LIST }} \
         --preset gex-v1 \
+        --force \
+        {{ GEX_BINSEQ }}
+
+run-wf-gex-unprobed:
+    time cyto workflow gex \
+        -c {{ GEX_PROBES }} \
+        -w {{ BARCODE_LIST }} \
+        --geometry "{{ GEX_UNPROBED_GEOMETRY }}" \
         --force \
         {{ GEX_BINSEQ }}
 
