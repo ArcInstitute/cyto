@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use binseq::ParallelReader;
 use cyto_cli::{
     ArgsCrispr, ArgsGex, ArgsOutput,
@@ -9,7 +9,7 @@ use cyto_cli::{
     map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
 use cyto_io::{FeatureWriter, write_features};
-use log::info;
+use log::{info, warn};
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
@@ -44,6 +44,29 @@ fn load_probe(
         ProbeMapper::from_file(probe_path, args.exact, args.remap_window())
     }?;
     Ok(Some(probe))
+}
+
+/// Validate that the geometry and probe file are consistent.
+///
+/// - If the geometry contains `[probe]` but no probe file is provided, this is an error
+///   because the probe region's length is unknown and downstream offsets will be wrong.
+/// - If a probe file is provided but the geometry has no `[probe]`, we warn that the
+///   probe file will be unused and demultiplexing will be skipped.
+fn validate_probe_geometry(geometry: &Geometry, has_probe_file: bool) -> Result<()> {
+    let geometry_has_probe = geometry.has_component(Component::Probe);
+    if geometry_has_probe && !has_probe_file {
+        bail!(
+            "geometry contains [probe] but no probe file was provided. \
+             Either provide a probe file with --probes or use a geometry without [probe]."
+        );
+    }
+    if !geometry_has_probe && has_probe_file {
+        warn!(
+            "probe file provided but geometry does not contain [probe]; \
+             probes will not be used for demultiplexing."
+        );
+    }
+    Ok(())
 }
 
 fn process_input<M>(
@@ -81,9 +104,10 @@ where
 
 pub fn run_gex(args: &ArgsGex) -> Result<()> {
     let geometry = parse_geometry(&args.map, GEOMETRY_GEX_FLEX_V1)?;
+    let probe = load_probe(&args.map)?;
+    validate_probe_geometry(&geometry, probe.is_some())?;
 
     // Load mappers (unpositioned)
-    let probe = load_probe(&args.map)?;
     let whitelist = WhitelistMapper::from_file(
         args.map.whitelist_path(),
         args.map.exact,
@@ -120,9 +144,10 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
 
 pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
     let geometry = parse_geometry(&args.map, GEOMETRY_CRISPR_FLEX_V1)?;
+    let probe = load_probe(&args.map)?;
+    validate_probe_geometry(&geometry, probe.is_some())?;
 
     // Load mappers (unpositioned)
-    let probe = load_probe(&args.map)?;
     let whitelist = WhitelistMapper::from_file(
         args.map.whitelist_path(),
         args.map.exact,

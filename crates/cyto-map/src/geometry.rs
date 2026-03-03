@@ -86,6 +86,17 @@ pub struct Geometry {
     pub r2: Read,
 }
 
+impl Geometry {
+    /// Returns true if the geometry contains the given component in either read.
+    pub fn has_component(&self, component: Component) -> bool {
+        self.r1
+            .regions
+            .iter()
+            .chain(self.r2.regions.iter())
+            .any(|r| matches!(r, Region::Component { kind, .. } if *kind == component))
+    }
+}
+
 /// Errors that can occur when parsing a geometry string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
@@ -686,5 +697,22 @@ mod tests {
 
         assert_eq!(resolved.offset(Component::Anchor), Some(20));
         assert_eq!(resolved.mate(Component::Anchor), Some(ReadMate::R2));
+    }
+
+    #[test]
+    fn test_has_component() {
+        let geo: Geometry = "[barcode][umi:12]|[gex][:18][probe]".parse().unwrap();
+        assert!(geo.has_component(Component::Barcode));
+        assert!(geo.has_component(Component::Umi));
+        assert!(geo.has_component(Component::Gex));
+        assert!(geo.has_component(Component::Probe));
+        assert!(!geo.has_component(Component::Anchor));
+        assert!(!geo.has_component(Component::Protospacer));
+    }
+
+    #[test]
+    fn test_has_component_no_probe() {
+        let geo: Geometry = "[barcode][umi:12]|[gex]".parse().unwrap();
+        assert!(!geo.has_component(Component::Probe));
     }
 }
