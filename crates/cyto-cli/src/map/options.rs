@@ -53,8 +53,8 @@ impl MapOptions {
         self.probe.probe_regex.as_deref()
     }
 
-    pub fn probe_path(&self) -> &str {
-        &self.probe.probes
+    pub fn probe_path(&self) -> Option<&str> {
+        self.probe.probes.as_deref()
     }
 
     pub fn whitelist_path(&self) -> &str {
@@ -67,7 +67,7 @@ impl MapOptions {
 pub struct ProbeOptions {
     /// Path to probe file
     #[clap(short = 'p', long)]
-    pub probes: String,
+    pub probes: Option<String>,
 
     /// Regex pattern for probe alias
     ///
