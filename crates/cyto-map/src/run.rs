@@ -1,24 +1,29 @@
+use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::Result;
 use binseq::ParallelReader;
 use cyto_cli::{
-    ArgsCrispr, ArgsGex,
+    ArgsCrispr, ArgsGex, ArgsOutput,
     map::MultiPairedInput,
     map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
 };
-use cyto_io::write_features;
+use cyto_io::{FeatureWriter, write_features};
 use log::info;
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
-    UmiMapper, WhitelistMapper, initialize_output_ibus,
-    stats::{InputRuntimeStatistics, write_statistics},
+    ResolvedGeometry, UmiMapper, WhitelistMapper, initialize_output_ibus,
+    stats::{InputRuntimeStatistics, LibraryStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
 };
 
-fn parse_geometry_with_default(geometry: Option<&str>, default: &str) -> Result<Geometry> {
-    if let Some(g) = geometry {
+fn parse_geometry(args: &cyto_cli::map::MapOptions, default: &str) -> Result<Geometry> {
+    if let Some(preset) = args.preset {
+        let geometry_str = preset.into_geometry_str();
+        info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
+        Ok(geometry_str.parse()?)
+    } else if let Some(ref g) = args.geometry {
         info!("Using geometry: `{g}`");
         Ok(g.parse()?)
     } else {
@@ -75,14 +80,7 @@ where
 }
 
 pub fn run_gex(args: &ArgsGex) -> Result<()> {
-    // Parse geometry
-    let geometry = if let Some(preset) = args.map.preset {
-        let geometry_str = preset.into_geometry_str();
-        info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
-        Ok(geometry_str.parse()?)
-    } else {
-        parse_geometry_with_default(args.map.geometry.as_deref(), GEOMETRY_GEX_FLEX_V1)
-    }?;
+    let geometry = parse_geometry(&args.map, GEOMETRY_GEX_FLEX_V1)?;
 
     // Load mappers (unpositioned)
     let probe = load_probe(&args.map)?;
@@ -108,60 +106,20 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
     let gex = gex.resolve(&resolved)?;
     let umi = UmiMapper::resolve(&resolved)?;
 
-    // Build library statistics
-    let libstats = {
-        let mut libstats = Vec::new();
-        if let Some(ref probe) = probe {
-            libstats.push(probe.statistics());
-        }
-        libstats.push(whitelist.statistics());
-        libstats.push(gex.statistics());
-        libstats
-    };
-
-    // Write features
-    write_features(&args.output.outdir, &gex)?;
-
-    // Build output handles and processor
-    let (proc, filepaths) = if let Some(probe) = probe {
-        let bijection = probe.bijection();
-        let filepaths = build_filepaths(&args.output.outdir, &bijection)?;
-        let writers = initialize_output_ibus(&filepaths, &resolved)?;
-        (
-            MapProcessor::probed(umi, probe, whitelist, gex, writers, bijection),
-            filepaths,
-        )
-    } else {
-        let filepath = build_filepath(&args.output.outdir, None);
-        let writer = initialize_output_ibu(&filepath, &resolved)?;
-        (
-            MapProcessor::unprobed(umi, whitelist, gex, writer),
-            vec![filepath],
-        )
-    };
-
-    // Process
-    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
-    let mapstats = proc.stats();
-
-    // Write statistics
-    write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
-
-    // Delete sparse IBUs
-    delete_sparse_ibus(&filepaths, args.output.min_ibu_records)?;
-
-    Ok(())
+    run_pipeline(
+        probe,
+        whitelist,
+        gex,
+        umi,
+        &resolved,
+        &args.input,
+        &args.output,
+        args.runtime.num_threads(),
+    )
 }
 
 pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
-    // Parse geometry
-    let geometry = if let Some(geometry) = args.map.preset {
-        let geometry_str = geometry.into_geometry_str();
-        info!("Using preset ({geometry:?}) geometry: `{geometry_str}`");
-        Ok(geometry_str.parse()?)
-    } else {
-        parse_geometry_with_default(args.map.geometry.as_deref(), GEOMETRY_CRISPR_FLEX_V1)
-    }?;
+    let geometry = parse_geometry(&args.map, GEOMETRY_CRISPR_FLEX_V1)?;
 
     // Load mappers (unpositioned)
     let probe = load_probe(&args.map)?;
@@ -192,47 +150,75 @@ pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
     let crispr = crispr.resolve(&resolved)?;
     let umi = UmiMapper::resolve(&resolved)?;
 
+    run_pipeline(
+        probe,
+        whitelist,
+        crispr,
+        umi,
+        &resolved,
+        &args.input,
+        &args.output,
+        args.runtime.num_threads(),
+    )
+}
+
+/// Shared pipeline: build outputs, process reads, write stats, clean up sparse IBUs.
+#[allow(clippy::too_many_arguments)]
+fn run_pipeline<M>(
+    probe: Option<ProbeMapper>,
+    whitelist: WhitelistMapper,
+    feature: M,
+    umi: UmiMapper,
+    resolved: &ResolvedGeometry,
+    input: &MultiPairedInput,
+    output: &ArgsOutput,
+    num_threads: usize,
+) -> Result<()>
+where
+    M: Mapper + Library + Send + Sync + 'static,
+    for<'a> M: FeatureWriter<'a>,
+{
     // Build library statistics
-    let libstats = {
+    let libstats: Vec<LibraryStatistics> = {
         let mut libstats = Vec::new();
         if let Some(ref probe) = probe {
             libstats.push(probe.statistics());
         }
         libstats.push(whitelist.statistics());
-        libstats.push(crispr.statistics());
+        libstats.push(feature.statistics());
         libstats
     };
 
     // Write features
-    write_features(&args.output.outdir, &crispr)?;
+    write_features(&output.outdir, &feature)?;
 
     // Build output handles and processor
-    let (proc, filepaths) = if let Some(probe) = probe {
+    let (proc, filepaths): (MapProcessor<M>, Vec<PathBuf>) = if let Some(probe) = probe {
         let bijection = probe.bijection();
-        let filepaths = build_filepaths(&args.output.outdir, &bijection)?;
-        let writers = initialize_output_ibus(&filepaths, &resolved)?;
+        let filepaths = build_filepaths(&output.outdir, &bijection)?;
+        let writers = initialize_output_ibus(&filepaths, resolved)?;
         (
-            MapProcessor::probed(umi, probe, whitelist, crispr, writers, bijection),
+            MapProcessor::probed(umi, probe, whitelist, feature, writers, bijection),
             filepaths,
         )
     } else {
-        let filepath = build_filepath(&args.output.outdir, None);
-        let writer = initialize_output_ibu(&filepath, &resolved)?;
+        let filepath = build_filepath(&output.outdir, None);
+        let writer = initialize_output_ibu(&filepath, resolved)?;
         (
-            MapProcessor::unprobed(umi, whitelist, crispr, writer),
+            MapProcessor::unprobed(umi, whitelist, feature, writer),
             vec![filepath],
         )
     };
 
     // Process
-    let runstats = process_input(&args.input, proc.clone(), args.runtime.num_threads())?;
+    let runstats = process_input(input, proc.clone(), num_threads)?;
     let mapstats = proc.stats();
 
     // Write statistics
-    write_statistics(&args.output.outdir, &libstats, mapstats, &runstats)?;
+    write_statistics(&output.outdir, &libstats, mapstats, &runstats)?;
 
     // Delete sparse IBUs
-    delete_sparse_ibus(&filepaths, args.output.min_ibu_records)?;
+    delete_sparse_ibus(&filepaths, output.min_ibu_records)?;
 
     Ok(())
 }
