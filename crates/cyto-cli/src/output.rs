@@ -10,11 +10,20 @@ pub struct ArgsOutput {
     /// Output directory path
     #[clap(short = 'o', long, default_value = "./cyto_out")]
     pub outdir: String,
-    #[clap(short = 'H', long)]
-    pub with_header: bool,
+
     /// Force overwrite of existing output directory
     #[clap(short = 'f', long)]
     pub force: bool,
+
+    /// Minimum number of records required to keep an IBU file
+    ///
+    /// IBU files with fewer records than this threshold will be removed.
+    /// A value of 0 or 1 will cause only empty IBU files (those with 0 records) to be removed.
+    ///
+    /// This is useful when you have a large number of possible probes but are only expecting a smaller number of observed probes.
+    /// If you want to specify probes see the `--probe-regex` flag.
+    #[clap(long, default_value_t = 1_000)]
+    pub min_ibu_records: u64,
 }
 impl ArgsOutput {
     pub fn validate_outdir(&self) -> Result<()> {

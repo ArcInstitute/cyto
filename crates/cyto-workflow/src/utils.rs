@@ -8,10 +8,9 @@ use anyhow::{Context, Result};
 use cyto_cli::ibu::ArgsReads;
 use cyto_cli::workflow::{ArgsGeomux, CrisprMappingCommand, GexMappingCommand};
 use cyto_cli::{
-    ibu::{ArgsBarcode, ArgsCount, ArgsSort, ArgsUmi},
+    ibu::{ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
 };
-use cyto_ibu_barcode_correct::Whitelist;
 use glob::glob;
 use log::{debug, error, info, warn};
 
@@ -214,7 +213,6 @@ pub fn ibu_steps<P: AsRef<Path>>(
     ibu_path: &str,
     outdir: P,
     wf_args: &ArgsWorkflow,
-    whitelist: Option<Whitelist>,
     wf_mode: WorkflowMode,
     geomux_args: Option<ArgsGeomux>,
     threads: usize,
@@ -224,83 +222,26 @@ pub fn ibu_steps<P: AsRef<Path>>(
     let base_ibu_path = strip_ibu_basename(ibu_path)?;
     let mut sort_path = ibu_path.replace(".ibu", ".sort.ibu");
 
-    if wf_args.skip_barcode {
-        let sort_args = ArgsSort::from_wf_path(
-            ibu_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
+    let sort_args = ArgsSort::from_wf_path(
+        ibu_path,
+        &sort_path,
+        wf_args.sort_in_memory,
+        wf_args.memory_limit.clone(),
+        threads,
+    );
 
-        info!("Sorting {ibu_path} -> {sort_path}");
-        let start = Instant::now();
-        cyto_ibu_sort::run(&sort_args)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::InitialSort,
-            elapsed,
-        ));
+    info!("Sorting {ibu_path} -> {sort_path}");
+    let start = Instant::now();
+    cyto_ibu_sort::run(&sort_args)?;
+    let elapsed = start.elapsed();
+    timings.push(ModuleTiming::new(
+        base_ibu_path,
+        Module::InitialSort,
+        elapsed,
+    ));
 
-        debug!("Removing unsorted file: {ibu_path}");
-        std::fs::remove_file(ibu_path)?;
-    } else {
-        let bc_path = sort_path.replace(".sort.ibu", ".barcode.ibu");
-        let bc_log = outdir
-            .as_ref()
-            .join("stats")
-            .join("barcode")
-            .join(format!("{base_ibu_path}.barcode.json"));
-
-        let barcode_args = ArgsBarcode::from_wf_path(
-            ibu_path,
-            &bc_path,
-            &wf_args.whitelist,
-            bc_log,
-            wf_args.bc_exact,
-            wf_args.skip_bc_second_pass,
-        );
-        let Some(whitelist) = whitelist else {
-            error!("Whitelist is required for barcode correction");
-            bail!("Whitelist is required for barcode correction");
-        };
-
-        info!("Barcode Correcting {ibu_path} -> {bc_path}");
-        let start = Instant::now();
-        cyto_ibu_barcode_correct::run_with_prebuilt_whitelist(&barcode_args, whitelist)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::BarcodeCorrection,
-            elapsed,
-        ));
-
-        debug!("Removing uncorrected file: {ibu_path}");
-        std::fs::remove_file(ibu_path)?;
-
-        sort_path = bc_path.replace(".barcode.ibu", ".barcode.sort.ibu");
-        info!("Sorting barcode corrected file: {bc_path} -> {sort_path}");
-
-        let sort_args = ArgsSort::from_wf_path(
-            &bc_path,
-            &sort_path,
-            wf_args.sort_in_memory,
-            wf_args.memory_limit.clone(),
-            threads,
-        );
-        let start = Instant::now();
-        cyto_ibu_sort::run(&sort_args)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::PostBarcodeCorrectionSort,
-            elapsed,
-        ));
-
-        debug!("Removing unsorted file: {bc_path}");
-        std::fs::remove_file(&bc_path)?;
-    }
+    debug!("Removing unsorted file: {ibu_path}");
+    std::fs::remove_file(ibu_path)?;
 
     if !wf_args.skip_umi {
         let umi_path = sort_path.replace(".sort.ibu", ".umi.ibu");

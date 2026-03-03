@@ -1,6 +1,6 @@
 [package]
 name = "cyto-workflow"
-version = "0.2.22"
+version = "0.3.0"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
@@ -13,7 +13,6 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 anyhow = { workspace = true }
 csv = { workspace = true }
 cyto-cli = { workspace = true }
-cyto-ibu-barcode-correct = { workspace = true }
 cyto-ibu-count = { workspace = true }
 cyto-ibu-reads = { workspace = true }
 cyto-ibu-sort = { workspace = true }

@@ -1,8 +1,10 @@
+mod feature;
 mod utils;
 mod write;
 
+pub use feature::FeatureWriter;
 pub use utils::{
     match_input, match_input_transparent, match_output, match_output_stderr,
     match_output_transparent,
 };
-pub use write::{open_file_handle, validate_output_directory, write_features, write_statistics};
+pub use write::{open_file_handle, validate_output_directory, write_features};
