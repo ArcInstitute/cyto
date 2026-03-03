@@ -46,9 +46,13 @@ jobs:
     needs:
       [
         integration-map-crispr,
+        integration-map-crispr-unprobed,
         integration-map-gex,
+        integration-map-gex-unprobed,
         integration-wf-crispr,
+        integration-wf-crispr-unprobed,
         integration-wf-gex,
+        integration-wf-gex-unprobed,
       ]
     runs-on: "ubuntu-latest"
     steps:
@@ -210,3 +214,103 @@ jobs:
             --sort-in-memory \
             --force \
             $INPUT_FILES
+
+  integration-map-crispr-unprobed:
+    name: Integration map CRISPR (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run test (unprobed)
+        run: |
+          export CYTO_LOG=trace
+          ./cyto map crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            --geometry "[barcode][umi:12] | [:26][anchor][protospacer]" \
+            --force \
+            ./data/sequencing/crispr.cbq
+
+  integration-map-gex-unprobed:
+    name: Integration map GEX (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run test (unprobed)
+        run: |
+          export CYTO_LOG=trace
+          ./cyto map gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            --geometry "[barcode][umi:12] | [gex]" \
+            --force \
+            ./data/sequencing/gex.cbq
+
+  integration-wf-crispr-unprobed:
+    name: Integration workflow CRISPR (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run test (unprobed)
+        run: |
+          export CYTO_LOG=trace
+          ./cyto workflow crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --geometry "[barcode][umi:12] | [:26][anchor][protospacer]" \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/crispr.cbq
+
+  integration-wf-gex-unprobed:
+    name: Integration workflow GEX (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run test (unprobed)
+        run: |
+          export CYTO_LOG=trace
+          ./cyto workflow gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -T 1 \
+            --geometry "[barcode][umi:12] | [gex]" \
+            --sort-in-memory \
+            --force \
+            ./data/sequencing/gex.cbq
