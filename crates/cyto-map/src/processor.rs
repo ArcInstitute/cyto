@@ -222,8 +222,11 @@ impl<M: Mapper> MapProcessor<M> {
                 let probe_match = if probe_mapper.is_dynamic() {
                     // Probe follows a variable-length component: compute its actual
                     // offset from the feature mapper's match end position.
-                    let end_pos = feat_match.map_or(0, |m| m.end_pos);
-                    probe_mapper.query_at(probe_seq, end_pos + probe_mapper.dynamic_offset())
+                    //
+                    // Can only be done if the feature mapper has a match.
+                    feat_match.and_then(|m| {
+                        probe_mapper.query_at(probe_seq, m.end_pos + probe_mapper.dynamic_offset())
+                    })
                 } else {
                     probe_mapper.query(probe_seq)
                 };
