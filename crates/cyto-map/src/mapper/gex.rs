@@ -8,7 +8,7 @@ use log::{info, trace};
 use seqhash::SplitSeqHash;
 
 use crate::geometry::ReadMate;
-use crate::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::mapper::{FeatureMatch, Library, Mapper, Ready, Unpositioned};
 use crate::stats::LibraryStatistics;
 use crate::{Bijection, Component, GEX_MAX_HDIST, ResolvedGeometry};
 
@@ -98,12 +98,12 @@ impl GexMapper<Unpositioned> {
 }
 
 impl Mapper for GexMapper<Ready> {
-    fn query(&self, seq: &[u8]) -> Option<usize> {
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch> {
         let mat = self
             .split_hash
             .query_at_with_remap(seq, self.pos, self.window);
 
-        if mat.agreed_idx().is_some() {
+        let feature_idx = if mat.agreed_idx().is_some() {
             mat.agreed_idx()
         } else if mat.is_conflicted() {
             None
@@ -114,7 +114,12 @@ impl Mapper for GexMapper<Ready> {
                 .then_some(p_idx)
         } else {
             None
-        }
+        }?;
+
+        Some(FeatureMatch {
+            feature_idx,
+            end_pos: self.pos + self.split_hash.seq_len(),
+        })
     }
 
     fn mate(&self) -> ReadMate {
