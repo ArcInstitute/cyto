@@ -431,7 +431,14 @@ where
                             dynamic,
                         },
                     );
-                    offset += l;
+                    if dynamic {
+                        // In dynamic mode, known-length components are assumed
+                        // to be part of the feature mapper's match and covered
+                        // by FeatureMatch::end_pos. They don't advance the
+                        // offset for subsequent components — only skips do.
+                    } else {
+                        offset += l;
+                    }
                     if let Some(ref mut total) = total_length {
                         *total += l;
                     }
@@ -728,17 +735,19 @@ mod tests {
         assert_eq!(anchor.offset, 0);
         assert!(!anchor.dynamic);
 
-        // Protospacer follows anchor (variable-length), so it's dynamic
-        // Its offset is relative to the end of the feature match: 0 (immediately after anchor)
+        // Protospacer follows anchor (variable-length), so it's dynamic.
+        // Its offset is 0 (immediately after the variable-length component).
         let protospacer = resolved.get(Component::Protospacer).unwrap();
         assert!(protospacer.dynamic);
         assert_eq!(protospacer.offset, 0);
 
-        // Probe follows protospacer (20bp) + skip (12bp), so offset = 20 + 12 = 32
-        // relative to the end of the anchor match
+        // Probe follows protospacer + skip(12). In dynamic mode, known-length
+        // components (protospacer) don't advance the offset because they are
+        // covered by FeatureMatch::end_pos. Only the skip contributes.
+        // So probe offset = 0 (protospacer doesn't advance) + 12 (skip) = 12.
         let probe = resolved.get(Component::Probe).unwrap();
         assert!(probe.dynamic);
-        assert_eq!(probe.offset, 32);
+        assert_eq!(probe.offset, 12);
     }
 
     #[test]
@@ -757,7 +766,8 @@ mod tests {
         assert!(!anchor.dynamic);
         assert_eq!(anchor.offset, 34);
 
-        // Protospacer follows anchor, so it IS dynamic
+        // Protospacer follows anchor, so it IS dynamic.
+        // Its offset is 0 relative to the feature match end.
         let protospacer = resolved.get(Component::Protospacer).unwrap();
         assert!(protospacer.dynamic);
         assert_eq!(protospacer.offset, 0);
