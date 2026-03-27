@@ -1,7 +1,7 @@
 [package]
-name = "cyto-cli"
-version = "0.7.1"
-edition = "2021"
+name = "cyto-download"
+version = "0.1.0"
+edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
 description = "Ultra high-throughput processing of 10x-flex single-cell sequencing data"
@@ -11,14 +11,16 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 
 [dependencies]
 anyhow = { workspace = true }
-binseq = { workspace = true }
-clap = { workspace = true }
-cyto-io = { workspace = true }
-ibu = { workspace = true }
+cyto-cli = { workspace = true }
 log = { workspace = true }
-paraseq = { workspace = true }
 
-num_cpus = "1.17.0"
+dirs = "6.0.0"
+flate2 = "1.1.9"
+reqwest = { version = "0.13.2", features = ["blocking"] }
+tar = "0.4.45"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

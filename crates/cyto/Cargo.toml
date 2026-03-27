@@ -1,6 +1,6 @@
 [package]
 name = "cyto"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
@@ -14,6 +14,7 @@ keywords = ["flex", "binseq", "single-cell", "probe", "sequencing"]
 anyhow = { workspace = true }
 clap = { workspace = true }
 cyto-cli = { workspace = true }
+cyto-download = { workspace = true }
 cyto-ibu-umi-correct = { workspace = true }
 cyto-ibu-view = { workspace = true }
 cyto-ibu-cat = { workspace = true }
