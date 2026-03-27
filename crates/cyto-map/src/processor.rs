@@ -190,12 +190,15 @@ impl<M: Mapper> MapProcessor<M> {
         self.t_stats.total_reads += 1;
 
         // query feature and whitelist mappers
-        let feat_idx =
+        let feat_match =
             self.feature_mapper
                 .query(select_mate(s_seq, x_seq, self.feature_mapper.mate()));
-        let wl_idx =
+        let wl_match =
             self.whitelist_mapper
                 .query(select_mate(s_seq, x_seq, self.whitelist_mapper.mate()));
+
+        let feat_idx = feat_match.map(|m| m.feature_idx);
+        let wl_idx = wl_match.map(|m| m.feature_idx);
 
         let umi = match self.umi_mapper.extract_2bit_umi(select_mate(
             s_seq,
@@ -215,15 +218,26 @@ impl<M: Mapper> MapProcessor<M> {
         // resolve output index: probe demux or single output
         let output_idx =
             if let (Some(probe_mapper), Some(bijection)) = (&self.probe_mapper, &self.bijection) {
-                let probe_idx = probe_mapper.query(select_mate(s_seq, x_seq, probe_mapper.mate()));
-                let Some(p_idx) = probe_idx else {
+                let probe_seq = select_mate(s_seq, x_seq, probe_mapper.mate());
+                let probe_match = if probe_mapper.is_dynamic() {
+                    // Probe follows a variable-length component: compute its actual
+                    // offset from the feature mapper's match end position.
+                    //
+                    // Can only be done if the feature mapper has a match.
+                    feat_match.and_then(|m| {
+                        probe_mapper.query_at(probe_seq, m.end_pos + probe_mapper.dynamic_offset())
+                    })
+                } else {
+                    probe_mapper.query(probe_seq)
+                };
+                let Some(p_match) = probe_match else {
                     // Short-circuit on probe miss
                     self.increment_missing(true, feat_idx, wl_idx, umi, pass_qual);
                     return Ok(());
                 };
                 Some(
                     probe_mapper
-                        .get_parent(p_idx)
+                        .get_parent(p_match.feature_idx)
                         .map(|seq| bijection.get_index(seq))
                         .expect("Failed to recover probe index")
                         .expect("Failed to biject probe parent sequence"),

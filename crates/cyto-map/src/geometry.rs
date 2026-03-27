@@ -290,6 +290,11 @@ pub struct ResolvedRegion {
     pub offset: usize,
     pub length: Option<usize>,
     pub mate: ReadMate,
+    /// When true, this component follows a variable-length component (e.g. anchor)
+    /// in the geometry. Its offset is relative to the end of the feature mapper's
+    /// match rather than absolute from read start. The processor must use
+    /// `FeatureMatch::end_pos + offset` to compute the actual position at query time.
+    pub dynamic: bool,
 }
 
 /// Fully resolved geometry with concrete positions.
@@ -393,6 +398,10 @@ where
     let mut result = HashMap::new();
     let mut offset = 0usize;
     let mut total_length: Option<usize> = Some(0);
+    // Once a variable-length component (e.g. anchor) is encountered, all subsequent
+    // components on this mate become dynamic. Their offset is relative to the end
+    // of the feature mapper's match, not absolute from read start.
+    let mut dynamic = false;
 
     for region in &read.regions {
         match region {
@@ -419,22 +428,36 @@ where
                             offset,
                             length: Some(l),
                             mate,
+                            dynamic,
                         },
                     );
-                    offset += l;
+                    if dynamic {
+                        // In dynamic mode, known-length components are assumed
+                        // to be part of the feature mapper's match and covered
+                        // by FeatureMatch::end_pos. They don't advance the
+                        // offset for subsequent components — only skips do.
+                    } else {
+                        offset += l;
+                    }
                     if let Some(ref mut total) = total_length {
                         *total += l;
                     }
                 } else {
-                    // Variable-length component
+                    // Variable-length component: record it and switch to dynamic
+                    // mode. Reset the offset accumulator so that subsequent
+                    // components measure their distance from the end of the
+                    // feature mapper's match.
                     result.insert(
                         *kind,
                         ResolvedRegion {
                             offset,
                             length: None,
                             mate,
+                            dynamic,
                         },
                     );
+                    dynamic = true;
+                    offset = 0;
                     total_length = None;
                 }
             }
@@ -697,6 +720,70 @@ mod tests {
 
         assert_eq!(resolved.offset(Component::Anchor), Some(20));
         assert_eq!(resolved.mate(Component::Anchor), Some(ReadMate::R2));
+    }
+
+    #[test]
+    fn test_resolve_dynamic_probe_after_anchor() {
+        // Probe follows anchor+protospacer, so it should get a dynamic offset
+        let geo: Geometry = "[barcode][umi:12]|[anchor][protospacer][:12][probe]"
+            .parse()
+            .unwrap();
+        let resolved = geo.resolve(test_lengths).unwrap();
+
+        // Anchor is at fixed offset 0 on R2, not dynamic
+        let anchor = resolved.get(Component::Anchor).unwrap();
+        assert_eq!(anchor.offset, 0);
+        assert!(!anchor.dynamic);
+
+        // Protospacer follows anchor (variable-length), so it's dynamic.
+        // Its offset is 0 (immediately after the variable-length component).
+        let protospacer = resolved.get(Component::Protospacer).unwrap();
+        assert!(protospacer.dynamic);
+        assert_eq!(protospacer.offset, 0);
+
+        // Probe follows protospacer + skip(12). In dynamic mode, known-length
+        // components (protospacer) don't advance the offset because they are
+        // covered by FeatureMatch::end_pos. Only the skip contributes.
+        // So probe offset = 0 (protospacer doesn't advance) + 12 (skip) = 12.
+        let probe = resolved.get(Component::Probe).unwrap();
+        assert!(probe.dynamic);
+        assert_eq!(probe.offset, 12);
+    }
+
+    #[test]
+    fn test_resolve_dynamic_flag_not_set_before_anchor() {
+        // Probe before anchor should NOT be dynamic
+        let geo: Geometry = "[barcode][umi:12]|[:20][probe][:6][anchor][protospacer]"
+            .parse()
+            .unwrap();
+        let resolved = geo.resolve(test_lengths).unwrap();
+
+        let probe = resolved.get(Component::Probe).unwrap();
+        assert!(!probe.dynamic);
+        assert_eq!(probe.offset, 20);
+
+        let anchor = resolved.get(Component::Anchor).unwrap();
+        assert!(!anchor.dynamic);
+        assert_eq!(anchor.offset, 34);
+
+        // Protospacer follows anchor, so it IS dynamic.
+        // Its offset is 0 relative to the feature match end.
+        let protospacer = resolved.get(Component::Protospacer).unwrap();
+        assert!(protospacer.dynamic);
+        assert_eq!(protospacer.offset, 0);
+    }
+
+    #[test]
+    fn test_resolve_no_dynamic_without_variable_length() {
+        // GEX geometry has no variable-length components, nothing should be dynamic
+        let geo: Geometry = "[barcode][umi:12]|[gex][:18][probe]".parse().unwrap();
+        let resolved = geo.resolve(test_lengths).unwrap();
+
+        let gex = resolved.get(Component::Gex).unwrap();
+        assert!(!gex.dynamic);
+
+        let probe = resolved.get(Component::Probe).unwrap();
+        assert!(!probe.dynamic);
     }
 
     #[test]

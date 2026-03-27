@@ -9,7 +9,7 @@ use regex::Regex;
 use seqhash::{SeqHash, SeqHashBuilder};
 
 use crate::geometry::ReadMate;
-use crate::mapper::{Bijection, Library, Mapper, Ready, Unpositioned};
+use crate::mapper::{Bijection, FeatureMatch, Library, Mapper, Ready, Unpositioned};
 use crate::stats::LibraryStatistics;
 use crate::{Component, ResolvedGeometry};
 
@@ -27,6 +27,11 @@ pub struct ProbeMapper<S = Ready> {
     init_time: f64,
     window: usize,
     exact: bool,
+    /// When true, the probe follows a variable-length component in the geometry.
+    /// Its offset is relative to the feature mapper's match end position, not
+    /// absolute from read start. The processor must call `query_at()` with
+    /// `FeatureMatch::end_pos + pos` instead of using `query()` directly.
+    dynamic: bool,
     _state: PhantomData<S>,
 }
 
@@ -108,11 +113,12 @@ impl ProbeMapper<Unpositioned> {
             window,
             exact,
             init_time,
+            dynamic: false,
         })
     }
 
-    /// Finalize the mapper with a position and read mate.
-    pub fn with_position(self, pos: usize, mate: ReadMate) -> ProbeMapper<Ready> {
+    /// Finalize the mapper with a position, read mate, and dynamic flag.
+    pub fn with_position(self, pos: usize, mate: ReadMate, dynamic: bool) -> ProbeMapper<Ready> {
         ProbeMapper {
             hash: self.hash,
             aliases: self.aliases,
@@ -122,6 +128,7 @@ impl ProbeMapper<Unpositioned> {
             window: self.window,
             exact: self.exact,
             init_time: self.init_time,
+            dynamic,
         }
     }
 
@@ -129,7 +136,7 @@ impl ProbeMapper<Unpositioned> {
         let Some(region) = geometry.get(Component::Probe) else {
             bail!("geometry missing [probe]")
         };
-        Ok(self.with_position(region.offset, region.mate))
+        Ok(self.with_position(region.offset, region.mate, region.dynamic))
     }
 }
 
@@ -154,11 +161,35 @@ impl<T> ProbeMapper<T> {
     }
 }
 
-impl Mapper for ProbeMapper<Ready> {
-    fn query(&self, seq: &[u8]) -> Option<usize> {
+impl ProbeMapper<Ready> {
+    /// Returns true if this probe's offset is dynamic (follows a variable-length
+    /// component in the geometry). When dynamic, the processor must use `query_at()`
+    /// with `FeatureMatch::end_pos + dynamic_offset()` instead of `query()`.
+    pub fn is_dynamic(&self) -> bool {
+        self.dynamic
+    }
+
+    /// Returns the probe's offset relative to the feature match end position.
+    /// Only meaningful when `is_dynamic()` is true.
+    pub fn dynamic_offset(&self) -> usize {
+        self.pos
+    }
+
+    /// Query at an explicit offset, used when the probe has a dynamic offset
+    /// (i.e. it follows a variable-length component like anchor in the geometry).
+    pub fn query_at(&self, seq: &[u8], offset: usize) -> Option<FeatureMatch> {
         self.hash
-            .query_at_with_remap(seq, self.pos, self.window)
-            .map(|m| m.parent_idx())
+            .query_at_with_remap(seq, offset, self.window)
+            .map(|m| FeatureMatch {
+                feature_idx: m.parent_idx(),
+                end_pos: offset + self.hash.seq_len(),
+            })
+    }
+}
+
+impl Mapper for ProbeMapper<Ready> {
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch> {
+        self.query_at(seq, self.pos)
     }
 
     fn mate(&self) -> ReadMate {
