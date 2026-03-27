@@ -22,9 +22,7 @@ fn home_dir() -> Result<PathBuf> {
 }
 
 fn release_url(version: &str) -> String {
-    format!(
-        "https://github.com/{GITHUB_REPO}/releases/download/cyto-{version}/{ASSET_NAME}"
-    )
+    format!("https://github.com/{GITHUB_REPO}/releases/download/cyto-{version}/{ASSET_NAME}")
 }
 
 pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
@@ -39,7 +37,10 @@ pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
         if marker.exists() {
             let existing = fs::read_to_string(&marker)?;
             if existing.trim() == version {
-                info!("Resources for v{version} already present at {}", output_dir.display());
+                info!(
+                    "Resources for v{version} already present at {}",
+                    output_dir.display()
+                );
                 info!("Use --force to re-download");
                 return Ok(());
             }
@@ -49,8 +50,8 @@ pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
     let url = args.url.clone().unwrap_or_else(|| release_url(version));
     info!("Downloading resources from: {url}");
 
-    let response = reqwest::blocking::get(&url)
-        .with_context(|| format!("failed to download {url}"))?;
+    let response =
+        reqwest::blocking::get(&url).with_context(|| format!("failed to download {url}"))?;
 
     if !response.status().is_success() {
         bail!(
@@ -59,9 +60,7 @@ pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
         );
     }
 
-    let bytes = response
-        .bytes()
-        .context("failed to read response body")?;
+    let bytes = response.bytes().context("failed to read response body")?;
 
     info!("Extracting to: {}", output_dir.display());
     extract_tarball(&bytes, &output_dir)?;
@@ -69,7 +68,10 @@ pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
     // Write version marker
     fs::write(output_dir.join(".version"), version)?;
 
-    info!("Resources for v{version} installed to {}", output_dir.display());
+    info!(
+        "Resources for v{version} installed to {}",
+        output_dir.display()
+    );
     Ok(())
 }
 
@@ -78,15 +80,15 @@ fn extract_tarball(data: &[u8], dest: &Path) -> Result<()> {
     let decoder = GzDecoder::new(Cursor::new(data));
     let mut archive = Archive::new(decoder);
 
-    for entry in archive.entries().context("failed to read tarball entries")? {
+    for entry in archive
+        .entries()
+        .context("failed to read tarball entries")?
+    {
         let mut entry = entry.context("failed to read tarball entry")?;
         let path = entry.path().context("failed to read entry path")?;
 
         // Flatten: strip the top-level directory from the tarball path
-        let stripped = path
-            .components()
-            .skip(1)
-            .collect::<PathBuf>();
+        let stripped = path.components().skip(1).collect::<PathBuf>();
 
         if stripped.as_os_str().is_empty() {
             continue;
