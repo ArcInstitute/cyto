@@ -75,7 +75,7 @@ pub fn run(args: &ArgsDownload, binary_version: &str) -> Result<()> {
     Ok(())
 }
 
-fn extract_tarball(data: &[u8], dest: &Path) -> Result<()> {
+pub fn extract_tarball(data: &[u8], dest: &Path) -> Result<()> {
     fs::create_dir_all(dest)?;
     let decoder = GzDecoder::new(Cursor::new(data));
     let mut archive = Archive::new(decoder);
