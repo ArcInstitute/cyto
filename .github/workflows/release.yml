@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "cyto-*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            binary: cyto
+            asset: cyto-linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            binary: cyto
+            asset: cyto-linux-aarch64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            binary: cyto
+            asset: cyto-darwin-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            binary: cyto
+            asset: cyto-darwin-aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p cyto
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create resource tarball
+        run: tar czf cyto-resources.tar.gz resources/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          mv cyto-resources.tar.gz release/
+
+          for dir in artifacts/cyto-*; do
+            asset_name=$(basename "$dir")
+            chmod +x "$dir/cyto"
+            mv "$dir/cyto" "release/$asset_name"
+          done
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#cyto-}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: cyto ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: release/*

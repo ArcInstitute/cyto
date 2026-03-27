@@ -111,5 +111,15 @@ run-gex-fastq: install
         --force \
         {{ GEX_FASTQ_R1 }} {{ GEX_FASTQ_R2 }}
 
+release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version=$(cargo metadata --no-deps --format-version 1 \
+        | jq -r '.packages[] | select(.name == "cyto") | .version')
+    tag="cyto-${version}"
+    echo "Tagging and pushing: ${tag}"
+    git tag "${tag}"
+    git push origin "${tag}"
+
 clean:
     rm -rfv cyto_out/
