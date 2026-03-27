@@ -55,6 +55,19 @@ just install
 
 ## Quick Start
 
+### Downloading Files
+
+`cyto` can be used to download reference files that are relevant for mapping and demultiplexing.
+Namely the droplet barcode whitelists and the hybridization probes used for demultiplexing.
+You can download all relevant materials using the following command:
+
+```bash
+# downloads reference resources (~6MB) to `~/.cyto`
+cyto download
+```
+
+Depending on the experimental design (V1/V2) and mode (GEX/CRISPR) you will need to use different references files for the whitelist and for the hybridization probes.
+
 ### Gene Expression Workflow
 
 Process Flex gene expression data with probe demultiplexing:
