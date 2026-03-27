@@ -1,6 +1,6 @@
 use clap::Subcommand;
 
-use super::{IbuCommand, MapCommand, WorkflowCommand};
+use super::{ArgsDownload, IbuCommand, MapCommand, WorkflowCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -15,4 +15,7 @@ pub enum Commands {
     /// Perform operations on an IBU library
     #[clap(subcommand)]
     Ibu(IbuCommand),
+
+    /// Download reference resources to ~/.cyto/
+    Download(ArgsDownload),
 }
