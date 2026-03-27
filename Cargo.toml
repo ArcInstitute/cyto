@@ -9,7 +9,7 @@ cyto-ibu-count = { path = "crates/cyto-ibu-count", version = "0.2.0" }
 cyto-ibu-reads = { path = "crates/cyto-ibu-reads", version = "0.2.0" }
 cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.2.0" }
 cyto-ibu-view = { path = "crates/cyto-ibu-view", version = "0.2.0" }
-cyto-cli = { path = "crates/cyto-cli", version = "0.7.0" }
+cyto-cli = { path = "crates/cyto-cli", version = "0.7.1" }
 cyto-download = { path = "crates/cyto-download", version = "0.1.0" }
 cyto-io = { path = "crates/cyto-io", version = "0.2.0" }
 cyto-map = { path = "crates/cyto-map", version = "0.5.1" }
