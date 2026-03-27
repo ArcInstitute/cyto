@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             wf.validate_outdir()?;
             setup_workflow_logging(wf.log_path())?;
         }
-        _ => setup_default_logging(),
+        Commands::Ibu(_) | Commands::Download(_) => setup_default_logging(),
     }
 
     info!("Initializing...");
@@ -67,6 +67,7 @@ fn main() -> Result<()> {
             WorkflowCommand::GexMapping(args) => cyto_workflow::gex::run(&args),
             WorkflowCommand::CrisprMapping(args) => cyto_workflow::crispr::run(&args),
         },
+        Commands::Download(args) => cyto_download::run(&args, env!("CARGO_PKG_VERSION")),
     }?;
     info!("Done!");
 
