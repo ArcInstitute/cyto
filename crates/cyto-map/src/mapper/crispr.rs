@@ -8,7 +8,7 @@ use log::{info, trace};
 use seqhash::{MultiLenSeqHash, SeqHash, SeqHashBuilder};
 
 use crate::geometry::ReadMate;
-use crate::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::mapper::{FeatureMatch, Library, Mapper, Ready, Unpositioned};
 use crate::stats::LibraryStatistics;
 use crate::{Component, ResolvedGeometry};
 
@@ -119,7 +119,7 @@ impl CrisprMapper<Unpositioned> {
 }
 
 impl Mapper for CrisprMapper<Ready> {
-    fn query(&self, seq: &[u8]) -> Option<usize> {
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch> {
         let (mat, remap_offset) =
             self.anchor_hash
                 .query_at_with_remap_offset(seq, self.anchor_pos, self.window)?;
@@ -129,7 +129,10 @@ impl Mapper for CrisprMapper<Ready> {
 
         self.protospacer_hash
             .query_at_with_remap(seq, protospacer_offset, self.window)
-            .map(|m| m.parent_idx())
+            .map(|m| FeatureMatch {
+                feature_idx: m.parent_idx(),
+                end_pos: protospacer_offset + self.protospacer_hash.seq_len(),
+            })
     }
 
     fn mate(&self) -> ReadMate {

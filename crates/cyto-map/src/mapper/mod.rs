@@ -14,16 +14,27 @@ pub use whitelist::WhitelistMapper;
 
 use crate::{geometry::ReadMate, stats::LibraryStatistics};
 
+/// Result of a successful feature match against a read sequence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FeatureMatch {
+    /// Index of the matched feature in the library.
+    pub feature_idx: usize,
+    /// End position (exclusive) of the matched region in the read.
+    /// For components with dynamic downstream offsets (e.g. anchor+protospacer),
+    /// this is used to compute the actual offset of subsequent components.
+    pub end_pos: usize,
+}
+
 pub trait Mapper {
-    /// Queries the mapper for the parent index of the given sequence.
-    fn query(&self, seq: &[u8]) -> Option<usize>;
+    /// Queries the mapper for a feature match in the given sequence.
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch>;
 
     /// Returns which read (R1/R2) this mapper operates on.
     fn mate(&self) -> ReadMate;
 }
 
 impl<T: Mapper + ?Sized> Mapper for Box<T> {
-    fn query(&self, seq: &[u8]) -> Option<usize> {
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch> {
         (**self).query(seq)
     }
     fn mate(&self) -> ReadMate {

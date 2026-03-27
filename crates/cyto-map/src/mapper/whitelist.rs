@@ -8,7 +8,7 @@ use log::{info, trace};
 use seqhash::{SeqHash, SeqHashBuilder};
 
 use crate::geometry::ReadMate;
-use crate::mapper::{Library, Mapper, Ready, Unpositioned};
+use crate::mapper::{FeatureMatch, Library, Mapper, Ready, Unpositioned};
 use crate::stats::LibraryStatistics;
 use crate::{Component, ResolvedGeometry};
 
@@ -110,10 +110,13 @@ impl<T> WhitelistMapper<T> {
 }
 
 impl Mapper for WhitelistMapper<Ready> {
-    fn query(&self, seq: &[u8]) -> Option<usize> {
+    fn query(&self, seq: &[u8]) -> Option<FeatureMatch> {
         self.hash
             .query_at_with_remap(seq, self.pos, self.window)
-            .map(|m| m.parent_idx())
+            .map(|m| FeatureMatch {
+                feature_idx: m.parent_idx(),
+                end_pos: self.pos + self.hash.seq_len(),
+            })
     }
 
     fn mate(&self) -> ReadMate {
