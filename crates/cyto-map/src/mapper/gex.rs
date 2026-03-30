@@ -111,7 +111,6 @@ impl Mapper for GexMapper<Ready> {
             let rem = mat.remaining_hdist(GEX_MAX_HDIST).unwrap_or(0);
             self.split_hash
                 .is_within_hdist(seq, p_idx, half.other(), rem)
-                .then_some(p_idx)
         } else {
             None
         }?;
