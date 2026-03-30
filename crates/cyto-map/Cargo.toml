@@ -25,7 +25,7 @@ serde_json = { workspace = true }
 
 derive_more = { version = "2.1.1", features = ["add_assign"] }
 indicatif = "0.18.4"
-seqhash = "0.1.6"
+seqhash = "0.2.0"
 regex = { version = "1.12.3" }
 
 [lints]
