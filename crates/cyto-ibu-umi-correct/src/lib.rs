@@ -60,29 +60,48 @@ fn resort_record_set(record_set: &mut [Record]) {
 ///
 /// The index set is the set of records with the same barcode and index but with potentially different UMIs.
 ///
-/// The algorithm first creates a graph where:
-/// - Each node represents a record in the set
-/// - Each edge represents a pair of records with a UMI Hamming Distance <= 1
+/// The algorithm first deduplicates by UMI, then creates a graph where:
+/// - Each node represents a unique UMI in the set
+/// - Each edge represents a pair of UMIs with Hamming Distance <= 1
 ///
-/// We then use Kosaraju's algorithm to find the strongly connected components of the graph.
+/// We then find the connected components of the graph.
 /// Each component represents a set of UMIs that can be collapsed into a single UMI.
-/// For each component, we take the first UMI (arbitrary) as the representative UMI, then update all UMIs in the component to the representative UMI.
+/// For each component, the UMI with the highest read count is chosen as the representative, then all
+/// records in the index set (including duplicates) whose UMI belongs to a non-representative node are updated.
 ///
 /// This function updates the index set in place and returns the number of corrections made.
 fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize> {
-    let n_records = index_set.len();
+    // Collect unique UMIs and their read counts.
+    // index_set is sorted by umi, so we can do this in a single pass.
+    let mut unique_umis: Vec<u64> = Vec::new();
+    let mut umi_counts: Vec<usize> = Vec::new();
+    for record in index_set.iter() {
+        // can directly check last record because `index_set` is sorted by barcode-index-umi
+        if unique_umis.last() == Some(&record.umi) {
+            *umi_counts.last_mut().unwrap() += 1;
+        } else {
+            unique_umis.push(record.umi);
+            umi_counts.push(1);
+        }
+    }
+
+    // Early exit condition: if there are fewer than 2 unique UMIs, no correction is needed.
+    let n_unique = unique_umis.len();
+    if n_unique < 2 {
+        return Ok(0);
+    }
+
+    // Otherwise, build a graph of all unique UMIs for the barcode-index
     let mut graph = Graph::new_undirected();
-    for idx in 0..n_records {
+    for idx in 0..n_unique {
         graph.add_node(idx);
     }
 
+    // Add edges between UMIs that are close enough to each other.
     let mut n_edges = 0;
-    for i in 0..n_records {
-        for j in i + 1..n_records {
-            let x = index_set[i];
-            let y = index_set[j];
-
-            if x.index == y.index && bitnuc::twobit::hdist_scalar(x.umi, y.umi, umi_len)? <= 1 {
+    for i in 0..n_unique {
+        for j in i + 1..n_unique {
+            if bitnuc::twobit::hdist_scalar(unique_umis[i], unique_umis[j], umi_len)? <= 1 {
                 graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ());
                 n_edges += 1;
             }
@@ -94,26 +113,43 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
         return Ok(0);
     }
 
-    let mut n_corrections = 0;
+    // Build a per-unique-UMI mapping to its representative UMI.
+    // The representative is the UMI with the highest read count in the component.
+    //
+    // Note: this is on the unique UMIs, not the original records.
+    let mut corrected_umi: Vec<u64> = unique_umis.clone();
     for component in connected_components_vec(&graph) {
-        // Skip single-node components (no need to collapse)
         if component.len() == 1 {
             continue;
         }
 
-        // Select a representative UMI
-        let parent = index_set[component[0].index()];
-        for child_idx in &component[1..] {
-            // Identify the child record
-            let child = index_set[child_idx.index()];
+        // Find the representative UMI for this component
+        let rep_idx = component
+            .iter()
+            .max_by_key(|node| umi_counts[node.index()])
+            .unwrap()
+            .index();
+        let rep_umi = unique_umis[rep_idx];
 
-            // Skip if child is a duplicate of parent
-            if child != parent {
-                // Update the child's UMI to match the parent's (in-place)
-                index_set[child_idx.index()] = Record::new(child.barcode, parent.umi, child.index);
-
-                n_corrections += 1;
+        // Update all UMIs in this component to the representative UMI
+        for node in &component {
+            if node.index() != rep_idx {
+                corrected_umi[node.index()] = rep_umi;
             }
+        }
+    }
+
+    // Apply corrections to all records, including duplicates
+    let mut n_corrections = 0;
+    for record in index_set.iter_mut() {
+        // Find the representative UMI for this barcode-index pair
+        let pos = unique_umis.partition_point(|&u| u < record.umi);
+        let rep_umi = corrected_umi[pos];
+
+        // If the UMI is not the representative UMI, update it
+        if rep_umi != record.umi {
+            *record = Record::new(record.barcode, rep_umi, record.index);
+            n_corrections += 1;
         }
     }
 
@@ -290,4 +326,100 @@ pub fn run(args: &ArgsUmi) -> Result<()> {
     write_statistics(args.options.log.as_ref(), stats)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod testing {
+    use ibu::Record;
+
+    use super::*;
+
+    fn rec(umi: u64) -> Record {
+        Record::new(0, umi, 0)
+    }
+
+    fn sorted(mut records: Vec<Record>) -> Vec<Record> {
+        records.sort_by_key(|r| r.umi);
+        records
+    }
+
+    /// All records share the same UMI — nothing to correct.
+    #[test]
+    fn test_all_same_umi() {
+        let mut index_set = sorted(vec![rec(0), rec(0), rec(0)]);
+        let n = collapse_index_set(&mut index_set, 1).unwrap();
+        assert_eq!(n, 0);
+        assert!(index_set.iter().all(|r| r.umi == 0));
+        assert_eq!(index_set.len(), 3);
+    }
+
+    /// Two unique UMIs at HD=1, no duplicates — one correction.
+    #[test]
+    fn test_two_umis_hd1() {
+        // umi_len=1: 0b00 vs 0b01 differ in one nucleotide (HD=1)
+        let mut index_set = sorted(vec![rec(0b00), rec(0b01)]);
+        let n = collapse_index_set(&mut index_set, 1).unwrap();
+        assert_eq!(n, 1);
+        let rep = index_set[0].umi;
+        assert!(index_set.iter().all(|r| r.umi == rep));
+    }
+
+    /// The UMI with more supporting reads wins, not the first node in the component.
+    #[test]
+    fn test_representative_is_highest_count() {
+        let umi_a = 0b00u64;
+        let umi_b = 0b01u64; // HD=1 from umi_a
+        // umi_b has more reads — it should be chosen as the representative
+        let mut index_set = sorted(vec![rec(umi_a), rec(umi_b), rec(umi_b), rec(umi_b)]);
+        let n = collapse_index_set(&mut index_set, 1).unwrap();
+        assert_eq!(n, 1); // only the one umi_a record was corrected
+        assert!(index_set.iter().all(|r| r.umi == umi_b));
+    }
+
+    /// Two unique UMIs at HD=2 — no correction.
+    #[test]
+    fn test_two_umis_hd2() {
+        // umi_len=2: 0b0000 vs 0b0101 differ in both positions (HD=2)
+        let umi_a = 0b0000u64;
+        let umi_b = 0b0101u64;
+        let mut index_set = sorted(vec![rec(umi_a), rec(umi_b)]);
+        let n = collapse_index_set(&mut index_set, 2).unwrap();
+        assert_eq!(n, 0);
+    }
+
+    /// Many duplicate records — corrections are applied to every copy, not just unique UMIs.
+    #[test]
+    fn test_many_duplicates_all_corrected() {
+        let umi_a = 0b00u64;
+        let umi_b = 0b01u64; // HD=1 from umi_a with umi_len=1
+        let n_a = 100usize;
+        let n_b = 50usize;
+
+        let mut index_set: Vec<Record> = (0..n_a)
+            .map(|_| rec(umi_a))
+            .chain((0..n_b).map(|_| rec(umi_b)))
+            .collect();
+        index_set = sorted(index_set);
+
+        let n = collapse_index_set(&mut index_set, 1).unwrap();
+
+        // All n_b records holding umi_b must have been corrected
+        assert_eq!(n, n_b);
+        assert!(index_set.iter().all(|r| r.umi == umi_a));
+    }
+
+    /// Three UMIs forming a chain A-B-C where HD(A,B)=1, HD(B,C)=1, HD(A,C)=2.
+    /// All should collapse into a single component via transitivity.
+    #[test]
+    fn test_chain_transitivity() {
+        // umi_len=2: A=0b0000, B=0b0001 (HD 1 from A), C=0b0101 (HD(B,C)=1, HD(A,C)=2)
+        let umi_a = 0b0000u64;
+        let umi_b = 0b0001u64; // HD(A,B)=1
+        let umi_c = 0b0101u64; // HD(B,C)=1, HD(A,C)=2
+        let mut index_set = sorted(vec![rec(umi_a), rec(umi_b), rec(umi_c)]);
+        let n = collapse_index_set(&mut index_set, 2).unwrap();
+        assert_eq!(n, 2);
+        let rep = index_set[0].umi;
+        assert!(index_set.iter().all(|r| r.umi == rep));
+    }
 }
