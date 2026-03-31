@@ -27,7 +27,7 @@ pub struct ArgsSort {
     #[clap(short, long, conflicts_with("output"))]
     pub pipe: bool,
 
-    #[clap(short = 't', long, default_value = "1")]
+    #[clap(short = 'T', long, default_value = "1")]
     pub num_threads: usize,
 }
 impl ArgsSort {
