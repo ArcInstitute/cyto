@@ -28,7 +28,7 @@ pub struct ArgsSort {
     pub pipe: bool,
 
     #[clap(short = 'T', long, default_value = "1")]
-    pub num_threads: usize,
+    pub threads: usize,
 }
 impl ArgsSort {
     pub fn from_wf_path(
@@ -36,12 +36,12 @@ impl ArgsSort {
         output: &str,
         in_memory: bool,
         memory_limit: String,
-        num_threads: usize,
+        threads: usize,
     ) -> Self {
         let input = IbuInput::from_path(path);
         Self {
             input,
-            num_threads,
+            threads,
             output: Some(output.to_string()),
             pipe: false,
             in_memory,

@@ -53,7 +53,7 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             "External sorting with {} memory limit ({} records/chunk, {} threads) for file {}",
             memory_limit,
             chunk_size,
-            args.num_threads,
+            args.threads,
             args.input.input.as_deref().unwrap_or("stdin")
         );
 
@@ -65,7 +65,7 @@ pub fn run(args: &ArgsSort) -> Result<()> {
             RmpExternalChunk<ibu::Record>,
         > = ExternalSorterBuilder::new()
             .with_buffer(LimitedBufferBuilder::new(chunk_size, false))
-            .with_threads_number(args.num_threads)
+            .with_threads_number(args.threads)
             .build()
             .context("Failed to build external sorter")?;
 
