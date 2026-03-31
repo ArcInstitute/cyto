@@ -1,6 +1,6 @@
 [package]
 name = "cyto-cli"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 license = "BSD-3-Clause"
 authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]

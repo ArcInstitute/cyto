@@ -3,13 +3,13 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.dependencies]
-cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct", version = "0.2.0" }
+cyto-ibu-umi-correct = { path = "crates/cyto-ibu-umi-correct", version = "0.2.1" }
 cyto-ibu-cat = { path = "crates/cyto-ibu-cat", version = "0.2.0" }
 cyto-ibu-count = { path = "crates/cyto-ibu-count", version = "0.2.0" }
 cyto-ibu-reads = { path = "crates/cyto-ibu-reads", version = "0.2.0" }
-cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.2.0" }
+cyto-ibu-sort = { path = "crates/cyto-ibu-sort", version = "0.2.1" }
 cyto-ibu-view = { path = "crates/cyto-ibu-view", version = "0.2.0" }
-cyto-cli = { path = "crates/cyto-cli", version = "0.7.1" }
+cyto-cli = { path = "crates/cyto-cli", version = "0.7.2" }
 cyto-download = { path = "crates/cyto-download", version = "0.1.0" }
 cyto-io = { path = "crates/cyto-io", version = "0.2.0" }
 cyto-map = { path = "crates/cyto-map", version = "0.5.2" }
