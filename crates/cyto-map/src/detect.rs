@@ -616,7 +616,9 @@ fn infer_geometry(
     let barcode_seq_len = barcode.seq_len.expect("barcode seq_len must be known");
     let umi_mate = barcode.mate;
     let umi_pos = barcode.position + barcode_seq_len;
-    let umi_len: usize = 12;
+    // All current Flex chemistries (v1, v2) use a 12bp UMI.
+    const FLEX_UMI_LENGTH: usize = 12;
+    let umi_len: usize = FLEX_UMI_LENGTH;
 
     // Build placement list for geometry construction
     let mut placements: Vec<(Component, ReadMate, usize, Option<usize>)> = assignments
