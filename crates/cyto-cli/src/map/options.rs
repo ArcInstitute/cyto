@@ -28,7 +28,7 @@ pub struct MapOptions {
     remap_window: usize,
 
     /// Number of reads to sample for geometry auto-detection (0 to disable)
-    #[clap(long, default_value = "10000")]
+    #[clap(long, default_value = "100000")]
     pub geometry_auto_num_reads: usize,
 
     /// Minimum proportion of reads matching auto-detected geometry

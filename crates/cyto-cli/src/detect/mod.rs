@@ -50,7 +50,7 @@ pub struct ArgsDetectCrispr {
 #[clap(next_help_heading = "Detection Options")]
 pub struct DetectionOptions {
     /// Number of reads to sample for geometry detection
-    #[clap(long, default_value = "10000")]
+    #[clap(long, default_value = "100000")]
     pub num_reads: usize,
 
     /// Minimum proportion of reads matching a component to accept it
