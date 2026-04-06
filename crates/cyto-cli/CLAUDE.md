@@ -8,7 +8,7 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 
 - `src/commands.rs` — Top-level `Commands` enum (`Workflow`, `Map`, `Ibu`)
 - `src/map/mod.rs` — `MapCommand` enum (Gex, Crispr) and geometry preset string constants (`GEOMETRY_GEX_FLEX_V1`, `GEOMETRY_GEX_FLEX_V2`, etc.)
-- `src/map/options.rs` — `MapOptions` (geometry DSL, preset selection, exact matching, remap window), `GeometryPreset` enum, `WhitelistOptions`, `ProbeOptions`
+- `src/map/options.rs` — `MapOptions` (geometry DSL, preset selection, exact matching, remap window, auto-detection params: `geometry_auto_num_reads`, `geometry_auto_min_proportion`), `GeometryPreset` enum, `WhitelistOptions`, `ProbeOptions`
 - `src/map/input.rs` — `MultiPairedInput` handles both BINSEQ (`.bq`/`.vbq`/`.cbq`) and FASTX paired-end inputs
 - `src/map/gex.rs` — `ArgsGex` flattens input, map options, GEX library path, runtime, and output
 - `src/map/crispr.rs` — `ArgsCrispr` same structure but with CRISPR guides path

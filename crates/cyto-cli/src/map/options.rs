@@ -27,6 +27,14 @@ pub struct MapOptions {
     #[clap(long, default_value = "1", conflicts_with = "preset")]
     remap_window: usize,
 
+    /// Number of reads to sample for geometry auto-detection (0 to disable)
+    #[clap(long, default_value = "10000")]
+    pub geometry_auto_num_reads: usize,
+
+    /// Minimum proportion of reads matching auto-detected geometry
+    #[clap(long, default_value = "0.10")]
+    pub geometry_auto_min_proportion: f64,
+
     /// Use exact matching (no hamming distance correction)
     #[clap(short = 'x', long)]
     pub exact: bool,
