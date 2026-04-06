@@ -45,6 +45,10 @@ jobs:
     name: Integration
     needs:
       [
+        integration-detect-gex,
+        integration-detect-gex-unprobed,
+        integration-detect-crispr,
+        integration-detect-crispr-unprobed,
         integration-map-crispr,
         integration-map-crispr-unprobed,
         integration-map-gex,
@@ -314,3 +318,121 @@ jobs:
             --sort-in-memory \
             --force \
             ./data/sequencing/gex.cbq
+
+  integration-detect-gex:
+    name: Integration detect GEX (${{ matrix.format }})
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq", "vbq", "cbq"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run detect gex (${{ matrix.format }})
+        run: |
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/gex_R1.fastq.gz ./data/sequencing/gex_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
+          fi
+
+          OUTPUT=$(./cyto detect gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            $INPUT_FILES)
+
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Detected geometry:"
+          echo "$OUTPUT" | grep -q "\[barcode\]\[umi:12\]"
+          echo "$OUTPUT" | grep -q "\[gex\]"
+          echo "$OUTPUT" | grep -q "\[probe\]"
+
+  integration-detect-crispr:
+    name: Integration detect CRISPR (${{ matrix.format }})
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        format: ["fastq", "bq", "vbq", "cbq"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run detect crispr (${{ matrix.format }})
+        run: |
+          if [ "${{ matrix.format }}" = "fastq" ]; then
+            INPUT_FILES="./data/sequencing/crispr_R1.fastq.gz ./data/sequencing/crispr_R2.fastq.gz"
+          else
+            INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
+          fi
+
+          OUTPUT=$(./cyto detect crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
+            $INPUT_FILES)
+
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Detected geometry:"
+          echo "$OUTPUT" | grep -q "\[barcode\]\[umi:12\]"
+          echo "$OUTPUT" | grep -q "\[anchor\]"
+          echo "$OUTPUT" | grep -q "\[protospacer\]"
+
+  integration-detect-gex-unprobed:
+    name: Integration detect GEX (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run detect gex (unprobed)
+        run: |
+          OUTPUT=$(./cyto detect gex \
+            -c ./data/libraries/gex_probes.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            ./data/sequencing/gex.cbq)
+
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Detected geometry:"
+
+  integration-detect-crispr-unprobed:
+    name: Integration detect CRISPR (unprobed)
+    needs: [build-binary]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyto-binary
+          path: .
+      - name: make binary executable
+        run: chmod +x cyto
+      - name: run detect crispr (unprobed)
+        run: |
+          OUTPUT=$(./cyto detect crispr \
+            -c ./data/libraries/crispr_guides.tsv \
+            -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
+            ./data/sequencing/crispr.cbq)
+
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "Detected geometry:"
