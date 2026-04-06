@@ -35,6 +35,10 @@ pub struct MapOptions {
     #[clap(long, default_value = "0.10")]
     pub geometry_auto_min_proportion: f64,
 
+    /// Minimum proportion of reads at a position for remap window estimation
+    #[clap(long, default_value = "0.01")]
+    pub geometry_auto_remap_min_proportion: f64,
+
     /// Use exact matching (no hamming distance correction)
     #[clap(short = 'x', long)]
     pub exact: bool,

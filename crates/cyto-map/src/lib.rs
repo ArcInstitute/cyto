@@ -11,7 +11,7 @@ type BoxedWriter = Box<dyn std::io::Write + Send>;
 
 pub use detect::{
     ComponentEvidence, DetectionConfig, DetectionResult, detect_crispr_geometry,
-    detect_gex_geometry,
+    detect_gex_geometry, format_detection_result,
 };
 pub use geometry::{Component, Geometry, ReadMate, ResolvedGeometry};
 pub use mapper::{
@@ -19,7 +19,7 @@ pub use mapper::{
     UmiMapper, Unpositioned, WhitelistMapper,
 };
 pub use processor::MapProcessor;
-pub use run::{run_crispr, run_gex};
+pub use run::{run_crispr, run_detect_crispr, run_detect_gex, run_gex};
 pub use utils::initialize_output_ibus;
 
 pub const UMI_MIN_QUALITY: u8 = 10;

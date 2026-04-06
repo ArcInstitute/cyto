@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::{Result, bail};
 use binseq::ParallelReader;
-use cyto_cli::{ArgsCrispr, ArgsGex, ArgsOutput, map::MultiPairedInput};
+use cyto_cli::{ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput, map::MultiPairedInput};
 use cyto_io::{FeatureWriter, write_features};
 use log::{info, warn};
 
@@ -40,6 +40,7 @@ fn autodetect_gex_geometry(
     let config = DetectionConfig {
         num_reads: args.geometry_auto_num_reads,
         min_proportion: args.geometry_auto_min_proportion,
+        remap_min_proportion: args.geometry_auto_remap_min_proportion,
     };
     let result = detect_gex_geometry(whitelist, gex, probe, input, &config)?;
     log_detection_result(&result);
@@ -69,6 +70,7 @@ fn autodetect_crispr_geometry(
     let config = DetectionConfig {
         num_reads: args.geometry_auto_num_reads,
         min_proportion: args.geometry_auto_min_proportion,
+        remap_min_proportion: args.geometry_auto_remap_min_proportion,
     };
     let result = detect_crispr_geometry(whitelist, crispr, probe, input, &config)?;
     log_detection_result(&result);
@@ -99,6 +101,67 @@ fn log_top_alternatives(ev: &ComponentEvidence) {
     for &(mate, pos, count) in ev.top_positions.iter().skip(1).take(3) {
         info!("    alt: {mate:?} pos={pos} count={count}");
     }
+}
+
+pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
+    let whitelist = WhitelistMapper::from_file(
+        &args.whitelist.whitelist,
+        false,
+        1,
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+    )?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+    };
+    let result = detect_gex_geometry(whitelist, gex, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    print!("{}", crate::detect::format_detection_result(&result));
+    Ok(())
+}
+
+pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
+    let whitelist = WhitelistMapper::from_file(
+        &args.whitelist.whitelist,
+        false,
+        1,
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+    )?;
+    let crispr = CrisprMapper::from_file(
+        &args.crispr.guides_filepath,
+        false,
+        1,
+    )?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+    };
+    let result = detect_crispr_geometry(whitelist, crispr, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    print!("{}", crate::detect::format_detection_result(&result));
+    Ok(())
+}
+
+/// Load a probe mapper for detect commands (exact=false, window=1).
+fn load_detect_probe(
+    probe_opts: &cyto_cli::map::ProbeOptions,
+) -> Result<Option<ProbeMapper<Unpositioned>>> {
+    let Some(ref probe_path) = probe_opts.probes else {
+        return Ok(None);
+    };
+    let probe = if let Some(ref regex) = probe_opts.probe_regex {
+        ProbeMapper::from_file_with_alias_regex(probe_path, false, 1, regex)
+    } else {
+        ProbeMapper::from_file(probe_path, false, 1)
+    }?;
+    Ok(Some(probe))
 }
 
 fn load_probe_with_window(

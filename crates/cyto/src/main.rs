@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cyto_cli::{Commands, IbuCommand, MapCommand, WorkflowCommand};
+use cyto_cli::{Commands, DetectCommand, IbuCommand, MapCommand, WorkflowCommand};
 use log::info;
 
 use clap::{
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             wf.validate_outdir()?;
             setup_workflow_logging(wf.log_path())?;
         }
-        Commands::Ibu(_) | Commands::Download(_) => setup_default_logging(),
+        Commands::Detect(_) | Commands::Ibu(_) | Commands::Download(_) => setup_default_logging(),
     }
 
     info!("Initializing...");
@@ -54,6 +54,10 @@ fn main() -> Result<()> {
         Commands::Map(map) => match map {
             MapCommand::Gex(args) => cyto_map::run_gex(&args),
             MapCommand::Crispr(args) => cyto_map::run_crispr(&args),
+        },
+        Commands::Detect(detect) => match detect {
+            DetectCommand::Gex(args) => cyto_map::run_detect_gex(&args),
+            DetectCommand::Crispr(args) => cyto_map::run_detect_crispr(&args),
         },
         Commands::Ibu(ibu) => match ibu {
             IbuCommand::View(args) => cyto_ibu_view::run(&args),

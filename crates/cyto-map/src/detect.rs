@@ -19,6 +19,9 @@ use cyto_cli::map::MultiPairedInput;
 pub struct DetectionConfig {
     pub num_reads: usize,
     pub min_proportion: f64,
+    /// Minimum proportion of sampled reads a position must match to count as
+    /// significant when estimating the remap window (default 0.01 = 1%).
+    pub remap_min_proportion: f64,
 }
 
 /// Evidence for a single component's detected position.
@@ -42,6 +45,33 @@ pub struct DetectionResult {
     pub remap_window: usize,
     pub evidence: Vec<ComponentEvidence>,
     pub total_reads_sampled: usize,
+}
+
+/// Format detection results as human-readable text for stdout.
+pub fn format_detection_result(result: &DetectionResult) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    writeln!(out, "Detected geometry: {}", result.geometry_string).unwrap();
+    writeln!(out, "Remap window:      {}", result.remap_window).unwrap();
+    writeln!(out, "Reads sampled:     {}", result.total_reads_sampled).unwrap();
+    writeln!(out).unwrap();
+    writeln!(out, "Component Evidence:").unwrap();
+    for ev in &result.evidence {
+        writeln!(
+            out,
+            "  {:<14} {:?}  pos={:<4} count={:<6} proportion={:.4}",
+            ev.component.to_string(),
+            ev.mate,
+            ev.position,
+            ev.match_count,
+            ev.match_proportion,
+        )
+        .unwrap();
+        for &(mate, pos, count) in ev.top_positions.iter().skip(1).take(3) {
+            writeln!(out, "    alt: {mate:?} pos={pos} count={count}").unwrap();
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -601,7 +631,12 @@ fn infer_geometry(
     let geometry = Geometry { r1, r2 };
     let geometry_string = format_geometry_string(&geometry);
 
-    let remap_window = estimate_remap_window(accumulator, &components);
+    let remap_window = estimate_remap_window(
+        accumulator,
+        &components,
+        total_reads,
+        config.remap_min_proportion,
+    );
 
     Ok(DetectionResult {
         geometry,
@@ -696,7 +731,9 @@ fn format_read_string(read: &Read) -> String {
 /// Minimum hit count for a position to be considered real (not noise) when
 /// estimating the remap window.  Sequence hashes are exact-match, so for any
 /// component >= 8 bp the expected random-match rate is negligible.
-const REMAP_MIN_HITS: usize = 3;
+/// Default minimum proportion of sampled reads for remap window estimation.
+#[cfg(test)]
+const DEFAULT_REMAP_MIN_PROPORTION: f64 = 0.01;
 
 /// Estimate the optimal remap window from position distributions.
 ///
@@ -707,11 +744,20 @@ const REMAP_MIN_HITS: usize = 3;
 ///
 /// Uses a contiguous-range walk from the best position: starting at the
 /// mode, walks outward in both directions, stopping when a position has
-/// fewer than [`REMAP_MIN_HITS`] matches.  This captures smooth
+/// fewer than `min_hits` matches.  This captures smooth
 /// exponential tails (e.g. Flex V2 anchor at positions 9-19) while
 /// excluding isolated outliers (e.g. a chimeric read matching a
 /// protospacer 15 bp away from the main cluster).
-fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Component]) -> usize {
+fn estimate_remap_window(
+    accumulator: &PositionAccumulator,
+    components: &[Component],
+    total_reads: usize,
+    remap_min_proportion: f64,
+) -> usize {
+    #[allow(clippy::cast_sign_loss)] // proportion is always non-negative
+    let min_hits = ((total_reads as f64 * remap_min_proportion).ceil() as usize).max(1);
+    log::trace!("remap_window: min_hits={min_hits} (proportion={remap_min_proportion}, reads={total_reads})");
+
     let mut max_window = 0usize;
 
     for &comp in components {
@@ -746,13 +792,13 @@ fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Compon
             .collect();
 
         // Walk outward from best_pos, requiring contiguous significant
-        // positions.  Stops at the first gap (position with < REMAP_MIN_HITS).
+        // positions.  Stops at the first gap (position with < min_hits).
         let mut farthest_below = best_pos;
         {
             let mut pos = best_pos;
             while pos > 0 {
                 pos -= 1;
-                if pos_counts.get(&pos).copied().unwrap_or(0) >= REMAP_MIN_HITS {
+                if pos_counts.get(&pos).copied().unwrap_or(0) >= min_hits {
                     farthest_below = pos;
                 } else {
                     break;
@@ -765,7 +811,7 @@ fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Compon
             let mut pos = best_pos;
             loop {
                 pos += 1;
-                if pos_counts.get(&pos).copied().unwrap_or(0) >= REMAP_MIN_HITS {
+                if pos_counts.get(&pos).copied().unwrap_or(0) >= min_hits {
                     farthest_above = pos;
                 } else {
                     break;
@@ -906,6 +952,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -936,6 +983,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, true, &seq_lens, &config).unwrap();
@@ -967,6 +1015,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result =
@@ -1002,6 +1051,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -1030,6 +1080,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -1075,6 +1126,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, true, &seq_lens, &config).unwrap();
@@ -1100,7 +1152,7 @@ mod tests {
             &[(Component::Gex, ReadMate::R2, 0, 5000)],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Gex]);
+        let window = estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1);
     }
 
@@ -1118,7 +1170,7 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Anchor]);
+        let window = estimate_remap_window(&acc, &[Component::Anchor], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 2);
     }
 
@@ -1136,13 +1188,13 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Protospacer]);
+        let window = estimate_remap_window(&acc, &[Component::Protospacer], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 3); // 59 - 56 = 3, pos 44 excluded
     }
 
     #[test]
     fn test_remap_window_noise_below_min_hits_ignored() {
-        // Main at pos 0 (5000), noise at pos 1 (2, below REMAP_MIN_HITS).
+        // Main at pos 0 (5000), noise at pos 1 (2, below 1% threshold).
         // Walk up stops immediately. Window = default 1.
         let acc = build_accumulator(
             &[
@@ -1151,7 +1203,7 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Gex]);
+        let window = estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1);
     }
 
@@ -1167,7 +1219,7 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Barcode]);
+        let window = estimate_remap_window(&acc, &[Component::Barcode], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1); // barcode is skipped, default returned
     }
 
@@ -1182,31 +1234,31 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Probe]);
+        let window = estimate_remap_window(&acc, &[Component::Probe], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1); // probe is skipped
     }
 
     #[test]
     fn test_remap_window_variable_anchor_positions() {
         // Simulates Flex V2 CRISPR: anchor at positions 9-19, mode at 14.
-        // All positions are contiguous with >= REMAP_MIN_HITS.
+        // All positions are contiguous with >= 1% of 10000 = 100 min_hits.
         let acc = build_accumulator(
             &[
-                (Component::Anchor, ReadMate::R2, 9, 5),
-                (Component::Anchor, ReadMate::R2, 10, 15),
-                (Component::Anchor, ReadMate::R2, 11, 50),
-                (Component::Anchor, ReadMate::R2, 12, 200),
-                (Component::Anchor, ReadMate::R2, 13, 500),
+                (Component::Anchor, ReadMate::R2, 9, 100),
+                (Component::Anchor, ReadMate::R2, 10, 150),
+                (Component::Anchor, ReadMate::R2, 11, 300),
+                (Component::Anchor, ReadMate::R2, 12, 600),
+                (Component::Anchor, ReadMate::R2, 13, 1500),
                 (Component::Anchor, ReadMate::R2, 14, 8000),
-                (Component::Anchor, ReadMate::R2, 15, 500),
-                (Component::Anchor, ReadMate::R2, 16, 200),
-                (Component::Anchor, ReadMate::R2, 17, 50),
-                (Component::Anchor, ReadMate::R2, 18, 15),
-                (Component::Anchor, ReadMate::R2, 19, 5),
+                (Component::Anchor, ReadMate::R2, 15, 1500),
+                (Component::Anchor, ReadMate::R2, 16, 600),
+                (Component::Anchor, ReadMate::R2, 17, 300),
+                (Component::Anchor, ReadMate::R2, 18, 150),
+                (Component::Anchor, ReadMate::R2, 19, 100),
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Anchor]);
+        let window = estimate_remap_window(&acc, &[Component::Anchor], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 5); // |14-9| = 5
     }
 
@@ -1231,6 +1283,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let err = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap_err();
@@ -1258,6 +1311,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config);
@@ -1272,6 +1326,7 @@ mod tests {
         let config = DetectionConfig {
             num_reads: 10000,
             min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
         };
 
         let err = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap_err();

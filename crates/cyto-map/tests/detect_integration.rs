@@ -37,6 +37,7 @@ fn test_detect_gex_geometry_from_binseq() {
     let config = DetectionConfig {
         num_reads: 10000,
         min_proportion: 0.10,
+        remap_min_proportion: 0.01,
     };
 
     let result = detect_gex_geometry(whitelist, gex, Some(probe), &input, &config).unwrap();
@@ -77,6 +78,7 @@ fn test_detect_crispr_geometry_from_binseq() {
     let config = DetectionConfig {
         num_reads: 10000,
         min_proportion: 0.10,
+        remap_min_proportion: 0.01,
     };
 
     let result =

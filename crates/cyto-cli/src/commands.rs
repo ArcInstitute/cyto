@@ -1,6 +1,6 @@
 use clap::Subcommand;
 
-use super::{ArgsDownload, IbuCommand, MapCommand, WorkflowCommand};
+use super::{ArgsDownload, DetectCommand, IbuCommand, MapCommand, WorkflowCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -11,6 +11,10 @@ pub enum Commands {
     /// Map sequences to a library
     #[clap(subcommand)]
     Map(MapCommand),
+
+    /// Auto-detect read geometry from input files
+    #[clap(subcommand)]
+    Detect(DetectCommand),
 
     /// Perform operations on an IBU library
     #[clap(subcommand)]
