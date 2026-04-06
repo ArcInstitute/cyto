@@ -693,14 +693,35 @@ fn format_read_string(read: &Read) -> String {
 // Remap window estimation
 // ---------------------------------------------------------------------------
 
+/// Minimum hit count for a position to be considered real (not noise) when
+/// estimating the remap window.  Sequence hashes are exact-match, so for any
+/// component >= 8 bp the expected random-match rate is negligible.
+const REMAP_MIN_HITS: usize = 3;
+
 /// Estimate the optimal remap window from position distributions.
 ///
-/// For each component, finds the best mate and computes the spread of positions
-/// on that mate only (positions on the other mate are spurious and must be excluded).
+/// Only considers feature-mapping components (gex, anchor, protospacer) --
+/// barcode and probe positions are fixed by chemistry and their apparent
+/// spread comes from adapter artifacts or short-sequence noise, not
+/// biological variability.
+///
+/// Uses a contiguous-range walk from the best position: starting at the
+/// mode, walks outward in both directions, stopping when a position has
+/// fewer than [`REMAP_MIN_HITS`] matches.  This captures smooth
+/// exponential tails (e.g. Flex V2 anchor at positions 9-19) while
+/// excluding isolated outliers (e.g. a chimeric read matching a
+/// protospacer 15 bp away from the main cluster).
 fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Component]) -> usize {
-    let mut max_range = 0usize;
+    let mut max_window = 0usize;
 
     for &comp in components {
+        // Barcode and probe positions are chemistry-fixed; their apparent
+        // spread is noise from adapter artifacts (barcode, 16 bp) or
+        // short-sequence false matches (probe, 8 bp).
+        if matches!(comp, Component::Barcode | Component::Probe) {
+            continue;
+        }
+
         // Find the best (mate, position) for this component.
         let best_entry = accumulator
             .counts
@@ -708,7 +729,7 @@ fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Compon
             .filter(|((c, _, _), _)| *c == comp)
             .max_by_key(|&(_, count)| count);
 
-        let Some((&(_, best_mate, _), &best_count)) = best_entry else {
+        let Some((&(_, best_mate, best_pos), &best_count)) = best_entry else {
             continue;
         };
 
@@ -716,32 +737,55 @@ fn estimate_remap_window(accumulator: &PositionAccumulator, components: &[Compon
             continue;
         }
 
-        #[allow(clippy::cast_sign_loss)] // product is always non-negative
-        let threshold = (best_count as f64 * 0.05) as usize;
-
-        // Only consider positions on the same mate as the best hit.
-        let significant_positions: Vec<usize> = accumulator
+        // Build a lookup of counts by position on the best mate.
+        let pos_counts: HashMap<usize, usize> = accumulator
             .counts
             .iter()
-            .filter(|((c, mate, _), count)| {
-                *c == comp && *mate == best_mate && **count >= threshold
-            })
-            .map(|((_, _, pos), _)| *pos)
+            .filter(|((c, mate, _), _)| *c == comp && *mate == best_mate)
+            .map(|((_, _, pos), count)| (*pos, *count))
             .collect();
 
-        if significant_positions.len() > 1 {
-            let min_pos = *significant_positions.iter().min().unwrap();
-            let max_pos = *significant_positions.iter().max().unwrap();
-            let range = max_pos - min_pos;
-            max_range = max_range.max(range);
+        // Walk outward from best_pos, requiring contiguous significant
+        // positions.  Stops at the first gap (position with < REMAP_MIN_HITS).
+        let mut farthest_below = best_pos;
+        {
+            let mut pos = best_pos;
+            while pos > 0 {
+                pos -= 1;
+                if pos_counts.get(&pos).copied().unwrap_or(0) >= REMAP_MIN_HITS {
+                    farthest_below = pos;
+                } else {
+                    break;
+                }
+            }
         }
+
+        let mut farthest_above = best_pos;
+        {
+            let mut pos = best_pos;
+            loop {
+                pos += 1;
+                if pos_counts.get(&pos).copied().unwrap_or(0) >= REMAP_MIN_HITS {
+                    farthest_above = pos;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let window = (best_pos - farthest_below).max(farthest_above - best_pos);
+
+        if window > 0 {
+            log::trace!(
+                "remap_window: [{comp}] best=({best_mate:?}, {best_pos}, {best_count}) \
+                 contiguous range={farthest_below}..={farthest_above} window={window}",
+            );
+        }
+
+        max_window = max_window.max(window);
     }
 
-    if max_range == 0 {
-        1
-    } else {
-        1.max(max_range.div_ceil(2))
-    }
+    if max_window == 0 { 1 } else { max_window }
 }
 
 // ---------------------------------------------------------------------------
@@ -1051,43 +1095,119 @@ mod tests {
 
     #[test]
     fn test_remap_window_tight_distribution() {
-        // All matches at the same position -> window 1
+        // All matches at a single position -> default window 1.
         let acc = build_accumulator(
-            &[(Component::Barcode, ReadMate::R1, 0, 5000)],
+            &[(Component::Gex, ReadMate::R2, 0, 5000)],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Barcode]);
+        let window = estimate_remap_window(&acc, &[Component::Gex]);
         assert_eq!(window, 1);
     }
 
     #[test]
-    fn test_remap_window_spread_distribution() {
-        // Matches spread across positions 0..4 -> range=4, window=ceil(4/2)=2
+    fn test_remap_window_contiguous_spread() {
+        // Anchor positions 0-2 contiguous (all >= 3), gap at 3, isolated at 4.
+        // Contiguous walk from 0: up → 1 → 2 → 3 (0 hits, stop).
+        // Window = 2 (not 4, because pos 4 is non-contiguous).
+        let acc = build_accumulator(
+            &[
+                (Component::Anchor, ReadMate::R2, 0, 5000),
+                (Component::Anchor, ReadMate::R2, 1, 4000),
+                (Component::Anchor, ReadMate::R2, 2, 3000),
+                (Component::Anchor, ReadMate::R2, 4, 1000),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(&acc, &[Component::Anchor]);
+        assert_eq!(window, 2);
+    }
+
+    #[test]
+    fn test_remap_window_isolated_outlier_ignored() {
+        // Main cluster at 56-59 (contiguous), isolated outlier at 44.
+        // The gap at 55 stops the contiguous walk -> pos 44 is excluded.
+        let acc = build_accumulator(
+            &[
+                (Component::Protospacer, ReadMate::R2, 44, 5),
+                (Component::Protospacer, ReadMate::R2, 56, 200),
+                (Component::Protospacer, ReadMate::R2, 57, 100),
+                (Component::Protospacer, ReadMate::R2, 58, 300),
+                (Component::Protospacer, ReadMate::R2, 59, 5000),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(&acc, &[Component::Protospacer]);
+        assert_eq!(window, 3); // 59 - 56 = 3, pos 44 excluded
+    }
+
+    #[test]
+    fn test_remap_window_noise_below_min_hits_ignored() {
+        // Main at pos 0 (5000), noise at pos 1 (2, below REMAP_MIN_HITS).
+        // Walk up stops immediately. Window = default 1.
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R2, 0, 5000),
+                (Component::Gex, ReadMate::R2, 1, 2),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(&acc, &[Component::Gex]);
+        assert_eq!(window, 1);
+    }
+
+    #[test]
+    fn test_remap_window_barcode_excluded() {
+        // Barcode spread is excluded from remap window estimation
+        // (barcode positions are chemistry-fixed, apparent spread is noise).
         let acc = build_accumulator(
             &[
                 (Component::Barcode, ReadMate::R1, 0, 5000),
                 (Component::Barcode, ReadMate::R1, 1, 4000),
                 (Component::Barcode, ReadMate::R1, 2, 3000),
-                (Component::Barcode, ReadMate::R1, 4, 1000),
             ],
             10000,
         );
         let window = estimate_remap_window(&acc, &[Component::Barcode]);
-        assert_eq!(window, 2);
+        assert_eq!(window, 1); // barcode is skipped, default returned
     }
 
     #[test]
-    fn test_remap_window_insignificant_outliers_ignored() {
-        // Main at pos 0 (5000), outlier at pos 100 (10, below 5% of 5000=250)
+    fn test_remap_window_probe_excluded() {
+        // Probe spread is excluded (8bp probes have high false-match rate).
         let acc = build_accumulator(
             &[
-                (Component::Barcode, ReadMate::R1, 0, 5000),
-                (Component::Barcode, ReadMate::R1, 100, 10),
+                (Component::Probe, ReadMate::R2, 68, 9000),
+                (Component::Probe, ReadMate::R2, 69, 8000),
+                (Component::Probe, ReadMate::R2, 59, 2000),
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Barcode]);
-        assert_eq!(window, 1);
+        let window = estimate_remap_window(&acc, &[Component::Probe]);
+        assert_eq!(window, 1); // probe is skipped
+    }
+
+    #[test]
+    fn test_remap_window_variable_anchor_positions() {
+        // Simulates Flex V2 CRISPR: anchor at positions 9-19, mode at 14.
+        // All positions are contiguous with >= REMAP_MIN_HITS.
+        let acc = build_accumulator(
+            &[
+                (Component::Anchor, ReadMate::R2, 9, 5),
+                (Component::Anchor, ReadMate::R2, 10, 15),
+                (Component::Anchor, ReadMate::R2, 11, 50),
+                (Component::Anchor, ReadMate::R2, 12, 200),
+                (Component::Anchor, ReadMate::R2, 13, 500),
+                (Component::Anchor, ReadMate::R2, 14, 8000),
+                (Component::Anchor, ReadMate::R2, 15, 500),
+                (Component::Anchor, ReadMate::R2, 16, 200),
+                (Component::Anchor, ReadMate::R2, 17, 50),
+                (Component::Anchor, ReadMate::R2, 18, 15),
+                (Component::Anchor, ReadMate::R2, 19, 5),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(&acc, &[Component::Anchor]);
+        assert_eq!(window, 5); // |14-9| = 5
     }
 
     // -------------------------------------------------------------------
