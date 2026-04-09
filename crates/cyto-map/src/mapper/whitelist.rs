@@ -164,8 +164,7 @@ mod tests {
     #[test]
     fn test_scan_positions_finds_barcode() {
         let whitelist_path = workspace_root().join("data/metadata/737K-fixed-rna-profiling.txt.gz");
-        let mapper =
-            WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
+        let mapper = WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
 
         assert_eq!(mapper.seq_len(), 16);
 
@@ -195,8 +194,7 @@ mod tests {
     #[test]
     fn test_scan_positions_no_match_on_random_seq() {
         let whitelist_path = workspace_root().join("data/metadata/737K-fixed-rna-profiling.txt.gz");
-        let mapper =
-            WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
+        let mapper = WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
 
         // All Ns should not match any barcode
         let random_read = b"NNNNNNNNNNNNNNNNNNNNNNNNNNNN";

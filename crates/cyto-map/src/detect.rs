@@ -37,6 +37,16 @@ pub struct ComponentEvidence {
     pub top_positions: Vec<(ReadMate, usize, usize)>,
 }
 
+/// Detection result for a single input file/lane.
+#[derive(Debug)]
+pub struct PerFileResult {
+    pub label: String,
+    pub geometry_string: String,
+    pub remap_window: usize,
+    pub evidence: Vec<ComponentEvidence>,
+    pub total_reads_sampled: usize,
+}
+
 /// Full detection result.
 #[derive(Debug)]
 pub struct DetectionResult {
@@ -45,34 +55,9 @@ pub struct DetectionResult {
     pub remap_window: usize,
     pub evidence: Vec<ComponentEvidence>,
     pub total_reads_sampled: usize,
+    pub per_file_results: Vec<PerFileResult>,
 }
 
-/// Format detection results as human-readable text for stdout.
-pub fn format_detection_result(result: &DetectionResult) -> String {
-    use std::fmt::Write;
-    let mut out = String::new();
-    writeln!(out, "Detected geometry: {}", result.geometry_string).unwrap();
-    writeln!(out, "Remap window:      {}", result.remap_window).unwrap();
-    writeln!(out, "Reads sampled:     {}", result.total_reads_sampled).unwrap();
-    writeln!(out).unwrap();
-    writeln!(out, "Component Evidence:").unwrap();
-    for ev in &result.evidence {
-        writeln!(
-            out,
-            "  {:<14} {:?}  pos={:<4} count={:<6} proportion={:.4}",
-            ev.component.to_string(),
-            ev.mate,
-            ev.position,
-            ev.match_count,
-            ev.match_proportion,
-        )
-        .unwrap();
-        for &(mate, pos, count) in ev.top_positions.iter().skip(1).take(3) {
-            writeln!(out, "    alt: {mate:?} pos={pos} count={count}").unwrap();
-        }
-    }
-    out
-}
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -307,16 +292,18 @@ impl<Rf: paraseq::Record> paraseq::prelude::PairedParallelProcessor<Rf>
 // Read sampling
 // ---------------------------------------------------------------------------
 
-/// Sample reads for GEX detection.
+/// Sample reads for GEX detection, returning per-file accumulators.
 ///
-/// Moves the mappers into shared state. Returns the accumulated position data.
+/// Moves the mappers into shared state. Returns one `(label, accumulator)`
+/// per input lane. For BINSEQ each file is one lane; for FASTX each
+/// consecutive pair of files is one lane.
 fn sample_gex_reads(
     whitelist: WhitelistMapper<Unpositioned>,
     gex: GexMapper<Unpositioned>,
     probe: Option<ProbeMapper<Unpositioned>>,
     input: &MultiPairedInput,
     num_reads: usize,
-) -> Result<PositionAccumulator> {
+) -> Result<Vec<(String, PositionAccumulator)>> {
     let shared = Arc::new(GexSharedState {
         whitelist,
         gex,
@@ -326,38 +313,66 @@ fn sample_gex_reads(
         limit: num_reads,
     });
 
-    let mut proc = GexDetectionProcessor {
-        shared: Arc::clone(&shared),
-        local: PositionAccumulator::default(),
-        tid: 0,
-    };
+    let mut results = Vec::new();
 
     if input.is_binseq() {
-        let reader = BinseqReader::new(&input.inputs[0])?;
-        let n = reader.num_records()?.min(num_reads);
-        if n > 0 {
-            reader.process_parallel_range(proc, 1, 0..n)?;
+        for path in &input.inputs {
+            // Reset for this file.
+            shared.counter.store(0, Ordering::Relaxed);
+            *shared.global_accumulator.lock() = PositionAccumulator::default();
+
+            let proc = GexDetectionProcessor {
+                shared: Arc::clone(&shared),
+                local: PositionAccumulator::default(),
+                tid: 0,
+            };
+
+            let reader = BinseqReader::new(path)?;
+            let n = reader.num_records()?.min(num_reads);
+            if n > 0 {
+                reader.process_parallel_range(proc, 1, 0..n)?;
+            }
+
+            results.push((path.clone(), shared.global_accumulator.lock().clone()));
         }
     } else {
-        let collection = input.to_paraseq_collection()?;
-        collection.process_parallel_paired(&mut proc, 1, None)?;
-        // Flush remaining local data (paraseq passes &mut, so we can flush here)
-        proc.flush();
+        for chunk in input.inputs.chunks(2) {
+            // Reset for this lane.
+            shared.counter.store(0, Ordering::Relaxed);
+            *shared.global_accumulator.lock() = PositionAccumulator::default();
+
+            let mut proc = GexDetectionProcessor {
+                shared: Arc::clone(&shared),
+                local: PositionAccumulator::default(),
+                tid: 0,
+            };
+
+            let lane_input = MultiPairedInput {
+                inputs: chunk.to_vec(),
+            };
+            let collection = lane_input.to_paraseq_collection()?;
+            collection.process_parallel_paired(&mut proc, 1, None)?;
+            proc.flush();
+
+            let label = chunk.join(" + ");
+            results.push((label, shared.global_accumulator.lock().clone()));
+        }
     }
 
-    // Extract accumulated data
-    let accumulator = shared.global_accumulator.lock().clone();
-    Ok(accumulator)
+    Ok(results)
 }
 
-/// Sample reads for CRISPR detection.
+/// Sample reads for CRISPR detection, returning per-file accumulators.
+///
+/// Moves the mappers into shared state. Returns one `(label, accumulator)`
+/// per input lane.
 fn sample_crispr_reads(
     whitelist: WhitelistMapper<Unpositioned>,
     crispr: CrisprMapper<Unpositioned>,
     probe: Option<ProbeMapper<Unpositioned>>,
     input: &MultiPairedInput,
     num_reads: usize,
-) -> Result<PositionAccumulator> {
+) -> Result<Vec<(String, PositionAccumulator)>> {
     let shared = Arc::new(CrisprSharedState {
         whitelist,
         crispr,
@@ -367,26 +382,51 @@ fn sample_crispr_reads(
         limit: num_reads,
     });
 
-    let mut proc = CrisprDetectionProcessor {
-        shared: Arc::clone(&shared),
-        local: PositionAccumulator::default(),
-        tid: 0,
-    };
+    let mut results = Vec::new();
 
     if input.is_binseq() {
-        let reader = BinseqReader::new(&input.inputs[0])?;
-        let n = reader.num_records()?.min(num_reads);
-        if n > 0 {
-            reader.process_parallel_range(proc, 1, 0..n)?;
+        for path in &input.inputs {
+            shared.counter.store(0, Ordering::Relaxed);
+            *shared.global_accumulator.lock() = PositionAccumulator::default();
+
+            let proc = CrisprDetectionProcessor {
+                shared: Arc::clone(&shared),
+                local: PositionAccumulator::default(),
+                tid: 0,
+            };
+
+            let reader = BinseqReader::new(path)?;
+            let n = reader.num_records()?.min(num_reads);
+            if n > 0 {
+                reader.process_parallel_range(proc, 1, 0..n)?;
+            }
+
+            results.push((path.clone(), shared.global_accumulator.lock().clone()));
         }
     } else {
-        let collection = input.to_paraseq_collection()?;
-        collection.process_parallel_paired(&mut proc, 1, None)?;
-        proc.flush();
+        for chunk in input.inputs.chunks(2) {
+            shared.counter.store(0, Ordering::Relaxed);
+            *shared.global_accumulator.lock() = PositionAccumulator::default();
+
+            let mut proc = CrisprDetectionProcessor {
+                shared: Arc::clone(&shared),
+                local: PositionAccumulator::default(),
+                tid: 0,
+            };
+
+            let lane_input = MultiPairedInput {
+                inputs: chunk.to_vec(),
+            };
+            let collection = lane_input.to_paraseq_collection()?;
+            collection.process_parallel_paired(&mut proc, 1, None)?;
+            proc.flush();
+
+            let label = chunk.join(" + ");
+            results.push((label, shared.global_accumulator.lock().clone()));
+        }
     }
 
-    let accumulator = shared.global_accumulator.lock().clone();
-    Ok(accumulator)
+    Ok(results)
 }
 
 // ---------------------------------------------------------------------------
@@ -646,6 +686,7 @@ fn infer_geometry(
         remap_window,
         evidence,
         total_reads_sampled: total_reads,
+        per_file_results: Vec::new(),
     })
 }
 
@@ -758,7 +799,9 @@ fn estimate_remap_window(
 ) -> usize {
     #[allow(clippy::cast_sign_loss)] // proportion is always non-negative
     let min_hits = ((total_reads as f64 * remap_min_proportion).ceil() as usize).max(1);
-    log::trace!("remap_window: min_hits={min_hits} (proportion={remap_min_proportion}, reads={total_reads})");
+    log::trace!(
+        "remap_window: min_hits={min_hits} (proportion={remap_min_proportion}, reads={total_reads})"
+    );
 
     let mut max_window = 0usize;
 
@@ -840,7 +883,162 @@ fn estimate_remap_window(
 // Public API
 // ---------------------------------------------------------------------------
 
+/// Validate that all per-file detection results agree on geometry and aggregate
+/// into a single `DetectionResult` with the maximum remap window.
+fn validate_and_aggregate(per_file: Vec<(String, DetectionResult)>) -> Result<DetectionResult> {
+    assert!(!per_file.is_empty(), "per_file must not be empty");
+
+    // Check geometry consistency.
+    let first_geometry = &per_file[0].1.geometry_string;
+    let mismatches: Vec<_> = per_file
+        .iter()
+        .filter(|(_, r)| r.geometry_string != *first_geometry)
+        .collect();
+
+    if !mismatches.is_empty() {
+        use std::fmt::Write;
+        let mut msg = String::from("Geometry mismatch across input files:\n");
+        for (label, result) in &per_file {
+            writeln!(msg, "  {label}: {}", result.geometry_string).unwrap();
+        }
+        write!(
+            msg,
+            "All input files must produce the same detected geometry."
+        )
+        .unwrap();
+        bail!("{msg}");
+    }
+
+    // Aggregate: max remap window, sum reads, collect per-file results.
+    let max_remap_window = per_file.iter().map(|(_, r)| r.remap_window).max().unwrap();
+    let total_reads: usize = per_file.iter().map(|(_, r)| r.total_reads_sampled).sum();
+
+    let per_file_results: Vec<PerFileResult> = per_file
+        .iter()
+        .map(|(label, r)| PerFileResult {
+            label: label.clone(),
+            geometry_string: r.geometry_string.clone(),
+            remap_window: r.remap_window,
+            evidence: r
+                .evidence
+                .iter()
+                .map(|ev| ComponentEvidence {
+                    component: ev.component,
+                    mate: ev.mate,
+                    position: ev.position,
+                    seq_len: ev.seq_len,
+                    match_count: ev.match_count,
+                    match_proportion: ev.match_proportion,
+                    top_positions: ev.top_positions.clone(),
+                })
+                .collect(),
+            total_reads_sampled: r.total_reads_sampled,
+        })
+        .collect();
+
+    // Aggregate evidence across all files: sum counts, recompute proportions.
+    let first_evidence = &per_file[0].1.evidence;
+    let aggregated_evidence: Vec<ComponentEvidence> = first_evidence
+        .iter()
+        .enumerate()
+        .map(|(i, first_ev)| {
+            let total_count: usize = per_file.iter().map(|(_, r)| r.evidence[i].match_count).sum();
+            let proportion = if total_reads > 0 {
+                total_count as f64 / total_reads as f64
+            } else {
+                0.0
+            };
+
+            // Merge top_positions across files.
+            let mut pos_counts: HashMap<(ReadMate, usize), usize> = HashMap::new();
+            for (_, r) in &per_file {
+                for &(mate, pos, count) in &r.evidence[i].top_positions {
+                    *pos_counts.entry((mate, pos)).or_default() += count;
+                }
+            }
+            let mut top_positions: Vec<(ReadMate, usize, usize)> = pos_counts
+                .into_iter()
+                .map(|((mate, pos), count)| (mate, pos, count))
+                .collect();
+            top_positions.sort_by(|a, b| b.2.cmp(&a.2));
+
+            ComponentEvidence {
+                component: first_ev.component,
+                mate: first_ev.mate,
+                position: first_ev.position,
+                seq_len: first_ev.seq_len,
+                match_count: total_count,
+                match_proportion: proportion,
+                top_positions,
+            }
+        })
+        .collect();
+
+    // Take the first file's geometry by consuming the vec.
+    let (_, first) = per_file.into_iter().next().unwrap();
+
+    Ok(DetectionResult {
+        geometry: first.geometry,
+        geometry_string: first.geometry_string,
+        remap_window: max_remap_window,
+        evidence: aggregated_evidence,
+        total_reads_sampled: total_reads,
+        per_file_results,
+    })
+}
+
+/// Log a per-file detection result.
+fn log_per_file_result(label: &str, result: &DetectionResult) {
+    info!(
+        "  [{}] geometry=`{}` remap_window={} reads={}",
+        label, result.geometry_string, result.remap_window, result.total_reads_sampled
+    );
+    for ev in &result.evidence {
+        info!(
+            "    [{}] {:?} pos={} count={} proportion={:.4}",
+            ev.component, ev.mate, ev.position, ev.match_count, ev.match_proportion
+        );
+    }
+}
+
+/// Log the aggregated detection result.
+pub fn log_detection_result(result: &DetectionResult) {
+    let num_files = result.per_file_results.len();
+    if num_files > 1 {
+        info!(
+            "Detected geometry: `{}`  (remap_window={}, {} files sampled, {} reads total)",
+            result.geometry_string, result.remap_window, num_files, result.total_reads_sampled
+        );
+    } else {
+        info!(
+            "Detected geometry: `{}`  (remap_window={})",
+            result.geometry_string, result.remap_window
+        );
+        info!(
+            "Detection sampled {} reads total",
+            result.total_reads_sampled
+        );
+    }
+    for ev in &result.evidence {
+        info!(
+            "  [{}] {:?} pos={} count={} proportion={:.4}",
+            ev.component, ev.mate, ev.position, ev.match_count, ev.match_proportion
+        );
+        log_top_alternatives(ev);
+    }
+}
+
+/// Log top alternative positions for a component (up to 3).
+fn log_top_alternatives(ev: &ComponentEvidence) {
+    for &(mate, pos, count) in ev.top_positions.iter().skip(1).take(3) {
+        info!("    alt: {mate:?} pos={pos} count={count}");
+    }
+}
+
 /// Detect GEX geometry by sampling reads and scanning for component positions.
+///
+/// Samples each input file independently, validates that all files produce the
+/// same geometry string, and returns the result with the maximum remap window.
 ///
 /// The mappers are moved into the detection processor and consumed.
 /// Callers should create fresh mappers for the actual mapping pipeline after
@@ -852,9 +1050,16 @@ pub fn detect_gex_geometry(
     input: &MultiPairedInput,
     config: &DetectionConfig,
 ) -> Result<DetectionResult> {
+    let num_lanes = if input.is_binseq() {
+        input.inputs.len()
+    } else {
+        input.inputs.len() / 2
+    };
     info!(
-        "Auto-detecting GEX geometry from {} reads...",
-        config.num_reads
+        "Auto-detecting GEX geometry from {} reads per file ({} lane{})...",
+        config.num_reads,
+        num_lanes,
+        if num_lanes == 1 { "" } else { "s" },
     );
 
     let mut component_seq_lens: HashMap<Component, Option<usize>> = HashMap::new();
@@ -865,18 +1070,28 @@ pub fn detect_gex_geometry(
     }
 
     let has_probe = probe.is_some();
-    let accumulator = sample_gex_reads(whitelist, gex, probe, input, config.num_reads)?;
+    let per_file_accumulators = sample_gex_reads(whitelist, gex, probe, input, config.num_reads)?;
 
-    infer_geometry(
-        &accumulator,
-        DetectionMode::Gex,
-        has_probe,
-        &component_seq_lens,
-        config,
-    )
+    let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
+    for (label, accumulator) in per_file_accumulators {
+        let result = infer_geometry(
+            &accumulator,
+            DetectionMode::Gex,
+            has_probe,
+            &component_seq_lens,
+            config,
+        )?;
+        log_per_file_result(&label, &result);
+        per_file_results.push((label, result));
+    }
+
+    validate_and_aggregate(per_file_results)
 }
 
 /// Detect CRISPR geometry by sampling reads and scanning for component positions.
+///
+/// Samples each input file independently, validates that all files produce the
+/// same geometry string, and returns the result with the maximum remap window.
 ///
 /// The mappers are moved into the detection processor and consumed.
 pub fn detect_crispr_geometry(
@@ -886,9 +1101,16 @@ pub fn detect_crispr_geometry(
     input: &MultiPairedInput,
     config: &DetectionConfig,
 ) -> Result<DetectionResult> {
+    let num_lanes = if input.is_binseq() {
+        input.inputs.len()
+    } else {
+        input.inputs.len() / 2
+    };
     info!(
-        "Auto-detecting CRISPR geometry from {} reads...",
-        config.num_reads
+        "Auto-detecting CRISPR geometry from {} reads per file ({} lane{})...",
+        config.num_reads,
+        num_lanes,
+        if num_lanes == 1 { "" } else { "s" },
     );
 
     let mut component_seq_lens: HashMap<Component, Option<usize>> = HashMap::new();
@@ -900,15 +1122,23 @@ pub fn detect_crispr_geometry(
     }
 
     let has_probe = probe.is_some();
-    let accumulator = sample_crispr_reads(whitelist, crispr, probe, input, config.num_reads)?;
+    let per_file_accumulators =
+        sample_crispr_reads(whitelist, crispr, probe, input, config.num_reads)?;
 
-    infer_geometry(
-        &accumulator,
-        DetectionMode::Crispr,
-        has_probe,
-        &component_seq_lens,
-        config,
-    )
+    let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
+    for (label, accumulator) in per_file_accumulators {
+        let result = infer_geometry(
+            &accumulator,
+            DetectionMode::Crispr,
+            has_probe,
+            &component_seq_lens,
+            config,
+        )?;
+        log_per_file_result(&label, &result);
+        per_file_results.push((label, result));
+    }
+
+    validate_and_aggregate(per_file_results)
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,10 +1318,7 @@ mod tests {
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
 
         // Should have skip:3, barcode, umi:12 on R1
-        assert_eq!(
-            result.geometry_string,
-            "[:3][barcode][umi:12] | [gex]"
-        );
+        assert_eq!(result.geometry_string, "[:3][barcode][umi:12] | [gex]");
     }
 
     // -------------------------------------------------------------------
@@ -1150,11 +1377,9 @@ mod tests {
     #[test]
     fn test_remap_window_tight_distribution() {
         // All matches at a single position -> default window 1.
-        let acc = build_accumulator(
-            &[(Component::Gex, ReadMate::R2, 0, 5000)],
-            10000,
-        );
-        let window = estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let acc = build_accumulator(&[(Component::Gex, ReadMate::R2, 0, 5000)], 10000);
+        let window =
+            estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1);
     }
 
@@ -1172,7 +1397,12 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Anchor], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Anchor],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
         assert_eq!(window, 2);
     }
 
@@ -1190,7 +1420,12 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Protospacer], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Protospacer],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
         assert_eq!(window, 3); // 59 - 56 = 3, pos 44 excluded
     }
 
@@ -1205,7 +1440,8 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window =
+            estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
         assert_eq!(window, 1);
     }
 
@@ -1221,7 +1457,12 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Barcode], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Barcode],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
         assert_eq!(window, 1); // barcode is skipped, default returned
     }
 
@@ -1236,7 +1477,12 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Probe], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
         assert_eq!(window, 1); // probe is skipped
     }
 
@@ -1260,7 +1506,12 @@ mod tests {
             ],
             10000,
         );
-        let window = estimate_remap_window(&acc, &[Component::Anchor], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Anchor],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
         assert_eq!(window, 5); // |14-9| = 5
     }
 
@@ -1392,7 +1643,10 @@ mod tests {
                 }],
             },
         };
-        assert_eq!(format_geometry_string(&geometry), "[barcode][umi:12] | [gex]");
+        assert_eq!(
+            format_geometry_string(&geometry),
+            "[barcode][umi:12] | [gex]"
+        );
     }
 
     // -------------------------------------------------------------------
@@ -1414,13 +1668,122 @@ mod tests {
         a.merge_from(&b);
 
         assert_eq!(a.total_reads, 150);
-        assert_eq!(
-            a.counts[&(Component::Barcode, ReadMate::R1, 0)],
-            3
+        assert_eq!(a.counts[&(Component::Barcode, ReadMate::R1, 0)], 3);
+        assert_eq!(a.counts[&(Component::Barcode, ReadMate::R1, 5)], 1);
+    }
+
+    // -------------------------------------------------------------------
+    // validate_and_aggregate tests
+    // -------------------------------------------------------------------
+
+    /// Helper: build a minimal `DetectionResult` with the given geometry string
+    /// and remap window.
+    fn build_detection_result(
+        geometry_string: &str,
+        remap_window: usize,
+        reads: usize,
+    ) -> DetectionResult {
+        DetectionResult {
+            geometry: Geometry {
+                r1: Read { regions: vec![] },
+                r2: Read { regions: vec![] },
+            },
+            geometry_string: geometry_string.to_string(),
+            remap_window,
+            evidence: vec![ComponentEvidence {
+                component: Component::Barcode,
+                mate: ReadMate::R1,
+                position: 0,
+                seq_len: Some(16),
+                match_count: reads / 2,
+                match_proportion: 0.5,
+                top_positions: vec![(ReadMate::R1, 0, reads / 2)],
+            }],
+            total_reads_sampled: reads,
+            per_file_results: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_validate_and_aggregate_single_file() {
+        let r = build_detection_result("[barcode][umi:12] | [gex]", 3, 10000);
+        let result = validate_and_aggregate(vec![("file1.cbq".to_string(), r)]).unwrap();
+
+        assert_eq!(result.geometry_string, "[barcode][umi:12] | [gex]");
+        assert_eq!(result.remap_window, 3);
+        assert_eq!(result.total_reads_sampled, 10000);
+        assert_eq!(result.per_file_results.len(), 1);
+        assert_eq!(result.per_file_results[0].label, "file1.cbq");
+    }
+
+    #[test]
+    fn test_validate_and_aggregate_matching_geometries_max_remap() {
+        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
+        let r2 = build_detection_result("[barcode][umi:12] | [gex]", 5, 8000);
+        let result = validate_and_aggregate(vec![
+            ("lane1.cbq".to_string(), r1),
+            ("lane2.cbq".to_string(), r2),
+        ])
+        .unwrap();
+
+        assert_eq!(result.geometry_string, "[barcode][umi:12] | [gex]");
+        assert_eq!(result.remap_window, 5); // max of 2 and 5
+        assert_eq!(result.total_reads_sampled, 18000); // 10000 + 8000
+        assert_eq!(result.per_file_results.len(), 2);
+        assert_eq!(result.per_file_results[0].remap_window, 2);
+        assert_eq!(result.per_file_results[1].remap_window, 5);
+    }
+
+    #[test]
+    fn test_validate_and_aggregate_mismatched_geometries() {
+        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
+        let r2 = build_detection_result("[barcode][umi:12] | [:5][gex]", 3, 10000);
+        let err = validate_and_aggregate(vec![
+            ("lane1.cbq".to_string(), r1),
+            ("lane2.cbq".to_string(), r2),
+        ])
+        .unwrap_err();
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Geometry mismatch"),
+            "error should mention mismatch: {msg}"
         );
-        assert_eq!(
-            a.counts[&(Component::Barcode, ReadMate::R1, 5)],
-            1
+        assert!(
+            msg.contains("lane1.cbq"),
+            "error should name first file: {msg}"
+        );
+        assert!(
+            msg.contains("lane2.cbq"),
+            "error should name second file: {msg}"
+        );
+        assert!(
+            msg.contains("[barcode][umi:12] | [gex]"),
+            "error should show first geometry: {msg}"
+        );
+        assert!(
+            msg.contains("[barcode][umi:12] | [:5][gex]"),
+            "error should show second geometry: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_validate_and_aggregate_three_files_one_mismatch() {
+        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
+        let r2 = build_detection_result("[barcode][umi:12] | [gex]", 3, 10000);
+        let r3 = build_detection_result("[barcode][umi:12] | [:5][gex]", 4, 10000);
+        let err = validate_and_aggregate(vec![
+            ("a.cbq".to_string(), r1),
+            ("b.cbq".to_string(), r2),
+            ("c.cbq".to_string(), r3),
+        ])
+        .unwrap_err();
+
+        let msg = err.to_string();
+        assert!(msg.contains("Geometry mismatch"), "{msg}");
+        assert!(
+            msg.contains("c.cbq"),
+            "error should list the mismatched file: {msg}"
         );
     }
 }

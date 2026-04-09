@@ -3,17 +3,22 @@ use std::time::Instant;
 
 use anyhow::{Result, bail};
 use binseq::ParallelReader;
-use cyto_cli::{ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput, map::MultiPairedInput};
+use cyto_cli::{
+    ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput, map::MultiPairedInput,
+};
 use cyto_io::{FeatureWriter, write_features};
 use log::{info, warn};
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
-    ResolvedGeometry, UmiMapper, WhitelistMapper, initialize_output_ibus,
-    detect::{ComponentEvidence, DetectionConfig, DetectionResult, detect_crispr_geometry, detect_gex_geometry},
+    ResolvedGeometry, UmiMapper, Unpositioned, WhitelistMapper,
+    detect::{
+        DetectionConfig, detect_crispr_geometry, detect_gex_geometry,
+        log_detection_result,
+    },
+    initialize_output_ibus,
     stats::{InputRuntimeStatistics, LibraryStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
-    Unpositioned,
 };
 
 /// Auto-detect GEX geometry by sampling reads.
@@ -77,31 +82,6 @@ fn autodetect_crispr_geometry(
     Ok((result.geometry, result.remap_window))
 }
 
-/// Log detection results at info level.
-fn log_detection_result(result: &DetectionResult) {
-    info!(
-        "Detected geometry: `{}`  (remap_window={})",
-        result.geometry_string, result.remap_window
-    );
-    info!(
-        "Detection sampled {} reads total",
-        result.total_reads_sampled
-    );
-    for ev in &result.evidence {
-        info!(
-            "  [{}] {:?} pos={} count={} proportion={:.4}",
-            ev.component, ev.mate, ev.position, ev.match_count, ev.match_proportion
-        );
-        log_top_alternatives(ev);
-    }
-}
-
-/// Log top alternative positions for a component (up to 3).
-fn log_top_alternatives(ev: &ComponentEvidence) {
-    for &(mate, pos, count) in ev.top_positions.iter().skip(1).take(3) {
-        info!("    alt: {mate:?} pos={pos} count={count}");
-    }
-}
 
 pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
     let whitelist = WhitelistMapper::from_file(
@@ -120,7 +100,6 @@ pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
     };
     let result = detect_gex_geometry(whitelist, gex, probe, &args.input, &config)?;
     log_detection_result(&result);
-    print!("{}", crate::detect::format_detection_result(&result));
     Ok(())
 }
 
@@ -131,11 +110,7 @@ pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
         1,
         std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
     )?;
-    let crispr = CrisprMapper::from_file(
-        &args.crispr.guides_filepath,
-        false,
-        1,
-    )?;
+    let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, false, 1)?;
     let probe = load_detect_probe(&args.probe)?;
 
     let config = DetectionConfig {
@@ -145,7 +120,6 @@ pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
     };
     let result = detect_crispr_geometry(whitelist, crispr, probe, &args.input, &config)?;
     log_detection_result(&result);
-    print!("{}", crate::detect::format_detection_result(&result));
     Ok(())
 }
 
@@ -323,11 +297,7 @@ pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
             1,
             args.runtime.num_threads,
         )?;
-        let det_crispr = CrisprMapper::from_file(
-            &args.crispr.guides_filepath,
-            args.map.exact,
-            1,
-        )?;
+        let det_crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, args.map.exact, 1)?;
         autodetect_crispr_geometry(&args.map, det_whitelist, det_crispr, det_probe, &args.input)?
     };
 
@@ -341,11 +311,8 @@ pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
         remap_window,
         args.runtime.num_threads,
     )?;
-    let crispr = CrisprMapper::from_file(
-        &args.crispr.guides_filepath,
-        args.map.exact,
-        remap_window,
-    )?;
+    let crispr =
+        CrisprMapper::from_file(&args.crispr.guides_filepath, args.map.exact, remap_window)?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {

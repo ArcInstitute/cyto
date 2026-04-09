@@ -24,11 +24,9 @@ fn test_detect_gex_geometry_from_binseq() {
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let input_path = root.join("data/sequencing/gex.cbq");
 
-    let whitelist =
-        WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
-    let probe: ProbeMapper<Unpositioned> =
-        ProbeMapper::from_file(&probe_path, false, 1).unwrap();
+    let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
 
     let input = MultiPairedInput {
         inputs: vec![input_path.to_string_lossy().to_string()],
@@ -44,8 +42,7 @@ fn test_detect_gex_geometry_from_binseq() {
 
     // Expected V1 geometry: [barcode][umi:12] | [gex][:18][probe]
     assert_eq!(
-        result.geometry_string,
-        "[barcode][umi:12] | [gex][:18][probe]",
+        result.geometry_string, "[barcode][umi:12] | [gex][:18][probe]",
         "detected geometry should match GEX Flex V1"
     );
 
@@ -67,8 +64,7 @@ fn test_detect_crispr_geometry_from_binseq() {
     let crispr_path = root.join("data/libraries/crispr_guides.tsv");
     let input_path = root.join("data/sequencing/crispr.cbq");
 
-    let whitelist =
-        WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
     let crispr = CrisprMapper::from_file(&crispr_path, false, 1).unwrap();
 
     let input = MultiPairedInput {
@@ -81,8 +77,7 @@ fn test_detect_crispr_geometry_from_binseq() {
         remap_min_proportion: 0.01,
     };
 
-    let result =
-        detect_crispr_geometry(whitelist, crispr, None, &input, &config).unwrap();
+    let result = detect_crispr_geometry(whitelist, crispr, None, &input, &config).unwrap();
 
     // Verify the geometry contains the expected CRISPR components
     let gs = &result.geometry_string;
@@ -121,8 +116,7 @@ fn test_detect_gex_geometry_unprobed() {
     let gex_path = root.join("data/libraries/gex_probes.tsv");
     let input_path = root.join("data/sequencing/gex.cbq");
 
-    let whitelist =
-        WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
 
     let input = MultiPairedInput {
@@ -147,10 +141,7 @@ fn test_detect_gex_geometry_unprobed() {
         gs.contains("[umi:12]"),
         "geometry should contain [umi:12]: {gs}"
     );
-    assert!(
-        gs.contains("[gex]"),
-        "geometry should contain [gex]: {gs}"
-    );
+    assert!(gs.contains("[gex]"), "geometry should contain [gex]: {gs}");
     assert!(
         !gs.contains("[probe]"),
         "geometry should NOT contain [probe]: {gs}"
@@ -174,11 +165,9 @@ fn test_detect_crispr_geometry_probed() {
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let input_path = root.join("data/sequencing/crispr.cbq");
 
-    let whitelist =
-        WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
     let crispr = CrisprMapper::from_file(&crispr_path, false, 1).unwrap();
-    let probe: ProbeMapper<Unpositioned> =
-        ProbeMapper::from_file(&probe_path, false, 1).unwrap();
+    let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
 
     let input = MultiPairedInput {
         inputs: vec![input_path.to_string_lossy().to_string()],
@@ -190,8 +179,7 @@ fn test_detect_crispr_geometry_probed() {
         remap_min_proportion: 0.01,
     };
 
-    let result =
-        detect_crispr_geometry(whitelist, crispr, Some(probe), &input, &config).unwrap();
+    let result = detect_crispr_geometry(whitelist, crispr, Some(probe), &input, &config).unwrap();
 
     // Verify the geometry contains the expected CRISPR components with probe
     let gs = &result.geometry_string;
