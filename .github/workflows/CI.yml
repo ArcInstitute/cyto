@@ -347,7 +347,7 @@ jobs:
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            $INPUT_FILES)
+            $INPUT_FILES 2>&1)
 
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "Detected geometry:"
@@ -383,7 +383,7 @@ jobs:
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            $INPUT_FILES)
+            $INPUT_FILES 2>&1)
 
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "Detected geometry:"
@@ -409,7 +409,7 @@ jobs:
           OUTPUT=$(./cyto detect gex \
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            ./data/sequencing/gex.cbq)
+            ./data/sequencing/gex.cbq 2>&1)
 
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "Detected geometry:"
@@ -432,7 +432,7 @@ jobs:
           OUTPUT=$(./cyto detect crispr \
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            ./data/sequencing/crispr.cbq)
+            ./data/sequencing/crispr.cbq 2>&1)
 
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "Detected geometry:"
