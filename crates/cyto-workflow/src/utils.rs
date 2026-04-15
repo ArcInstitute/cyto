@@ -98,10 +98,18 @@ fn filter_h5ad<P: AsRef<Path>>(
         .arg(logfile)
         .output()
         .context("Unable to run cell-filter")?;
+
     if !output.status.success() {
-        error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
-        error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
-        bail!("Unable to filter {}", count_path.as_ref().display());
+        let stderr_str = std::str::from_utf8(&output.stderr)?;
+        if stderr_str.contains("IndexError: index 1 is out of bounds") {
+            // Allows the process to continue and will warn the user that this barcode has failed to filter
+            // TODO: "Handle the error case in cell-filter ")
+            warn!("Unable to filter {}", in_h5ad.display());
+        } else {
+            error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
+            error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
+            bail!("Unable to filter {}", count_path.as_ref().display());
+        }
     }
 
     if out_h5ad.exists() {
