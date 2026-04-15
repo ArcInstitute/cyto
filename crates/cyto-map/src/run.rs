@@ -4,44 +4,151 @@ use std::time::Instant;
 use anyhow::{Result, bail};
 use binseq::ParallelReader;
 use cyto_cli::{
-    ArgsCrispr, ArgsGex, ArgsOutput,
-    map::MultiPairedInput,
-    map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
+    ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput, map::MultiPairedInput,
 };
 use cyto_io::{FeatureWriter, write_features};
 use log::{info, warn};
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
-    ResolvedGeometry, UmiMapper, WhitelistMapper, initialize_output_ibus,
+    ResolvedGeometry, UmiMapper, Unpositioned, WhitelistMapper,
+    detect::{
+        DetectionConfig, detect_crispr_geometry, detect_gex_geometry,
+        log_detection_result,
+    },
+    initialize_output_ibus,
     stats::{InputRuntimeStatistics, LibraryStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
 };
 
-fn parse_geometry(args: &cyto_cli::map::MapOptions, default: &str) -> Result<Geometry> {
-    if let Some(preset) = args.preset {
-        let geometry_str = preset.into_geometry_str();
-        info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
-        Ok(geometry_str.parse()?)
-    } else if let Some(ref g) = args.geometry {
-        info!("Using geometry: `{g}`");
-        Ok(g.parse()?)
-    } else {
-        info!("Using default geometry: `{default}`");
-        Ok(default.parse()?)
+/// Auto-detect GEX geometry by sampling reads.
+///
+/// The mappers are consumed by the detection process.
+/// Returns the detected geometry and remap window.
+fn autodetect_gex_geometry(
+    args: &cyto_cli::map::MapOptions,
+    whitelist: WhitelistMapper<Unpositioned>,
+    gex: GexMapper<Unpositioned>,
+    probe: Option<ProbeMapper<Unpositioned>>,
+    input: &MultiPairedInput,
+) -> Result<(Geometry, usize)> {
+    if args.geometry_auto_num_reads == 0 {
+        bail!(
+            "No geometry, preset, or auto-detection configured. \
+             Provide --geometry, --preset, or set --geometry-auto-num-reads > 0."
+        );
     }
+    info!(
+        "No geometry specified. Auto-detecting from {} reads...",
+        args.geometry_auto_num_reads
+    );
+    let config = DetectionConfig {
+        num_reads: args.geometry_auto_num_reads,
+        min_proportion: args.geometry_auto_min_proportion,
+        remap_min_proportion: args.geometry_auto_remap_min_proportion,
+    };
+    let result = detect_gex_geometry(whitelist, gex, probe, input, &config)?;
+    log_detection_result(&result);
+    Ok((result.geometry, result.remap_window))
 }
 
-fn load_probe(
+/// Auto-detect CRISPR geometry by sampling reads.
+///
+/// The mappers are consumed by the detection process.
+fn autodetect_crispr_geometry(
     args: &cyto_cli::map::MapOptions,
-) -> Result<Option<ProbeMapper<crate::Unpositioned>>> {
+    whitelist: WhitelistMapper<Unpositioned>,
+    crispr: CrisprMapper<Unpositioned>,
+    probe: Option<ProbeMapper<Unpositioned>>,
+    input: &MultiPairedInput,
+) -> Result<(Geometry, usize)> {
+    if args.geometry_auto_num_reads == 0 {
+        bail!(
+            "No geometry, preset, or auto-detection configured. \
+             Provide --geometry, --preset, or set --geometry-auto-num-reads > 0."
+        );
+    }
+    info!(
+        "No geometry specified. Auto-detecting from {} reads...",
+        args.geometry_auto_num_reads
+    );
+    let config = DetectionConfig {
+        num_reads: args.geometry_auto_num_reads,
+        min_proportion: args.geometry_auto_min_proportion,
+        remap_min_proportion: args.geometry_auto_remap_min_proportion,
+    };
+    let result = detect_crispr_geometry(whitelist, crispr, probe, input, &config)?;
+    log_detection_result(&result);
+    Ok((result.geometry, result.remap_window))
+}
+
+
+pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
+    let whitelist = WhitelistMapper::from_file(
+        &args.whitelist.whitelist,
+        false,
+        1,
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+    )?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+    };
+    let result = detect_gex_geometry(whitelist, gex, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    Ok(())
+}
+
+pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
+    let whitelist = WhitelistMapper::from_file(
+        &args.whitelist.whitelist,
+        false,
+        1,
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+    )?;
+    let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, false, 1)?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+    };
+    let result = detect_crispr_geometry(whitelist, crispr, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    Ok(())
+}
+
+/// Load a probe mapper for detect commands (exact=false, window=1).
+fn load_detect_probe(
+    probe_opts: &cyto_cli::map::ProbeOptions,
+) -> Result<Option<ProbeMapper<Unpositioned>>> {
+    let Some(ref probe_path) = probe_opts.probes else {
+        return Ok(None);
+    };
+    let probe = if let Some(ref regex) = probe_opts.probe_regex {
+        ProbeMapper::from_file_with_alias_regex(probe_path, false, 1, regex)
+    } else {
+        ProbeMapper::from_file(probe_path, false, 1)
+    }?;
+    Ok(Some(probe))
+}
+
+fn load_probe_with_window(
+    args: &cyto_cli::map::MapOptions,
+    window: usize,
+) -> Result<Option<ProbeMapper<Unpositioned>>> {
     let Some(probe_path) = args.probe_path() else {
         return Ok(None);
     };
     let probe = if let Some(regex) = args.probe_regex() {
-        ProbeMapper::from_file_with_alias_regex(probe_path, args.exact, args.remap_window(), regex)
+        ProbeMapper::from_file_with_alias_regex(probe_path, args.exact, window, regex)
     } else {
-        ProbeMapper::from_file(probe_path, args.exact, args.remap_window())
+        ProbeMapper::from_file(probe_path, args.exact, window)
     }?;
     Ok(Some(probe))
 }
@@ -103,18 +210,44 @@ where
 }
 
 pub fn run_gex(args: &ArgsGex) -> Result<()> {
-    let geometry = parse_geometry(&args.map, GEOMETRY_GEX_FLEX_V1)?;
-    let probe = load_probe(&args.map)?;
+    let has_manual_geometry = args.map.preset.is_some() || args.map.geometry.is_some();
+
+    // When auto-detecting, mappers are loaded for detection (consumed), then
+    // reloaded below for mapping. Manual geometry skips detection entirely.
+    let (geometry, remap_window) = if has_manual_geometry {
+        if let Some(preset) = args.map.preset {
+            let geometry_str = preset.into_geometry_str();
+            info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
+            (geometry_str.parse()?, args.map.remap_window())
+        } else {
+            let g = args.map.geometry.as_ref().unwrap();
+            info!("Using custom geometry: `{g}`");
+            (g.parse()?, args.map.remap_window())
+        }
+    } else {
+        // Auto-detect: load mappers for detection (consumed by detect)
+        let det_probe = load_probe_with_window(&args.map, 1)?;
+        let det_whitelist = WhitelistMapper::from_file(
+            args.map.whitelist_path(),
+            args.map.exact,
+            1,
+            args.runtime.num_threads,
+        )?;
+        let det_gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
+        autodetect_gex_geometry(&args.map, det_whitelist, det_gex, det_probe, &args.input)?
+    };
+
+    let probe = load_probe_with_window(&args.map, remap_window)?;
     validate_probe_geometry(&geometry, probe.is_some())?;
 
-    // Load mappers (unpositioned)
+    // Load mappers for mapping with detected/specified remap window
     let whitelist = WhitelistMapper::from_file(
         args.map.whitelist_path(),
         args.map.exact,
-        args.map.remap_window(),
+        remap_window,
         args.runtime.num_threads,
     )?;
-    let gex = GexMapper::from_file(&args.gex.gex_filepath, args.map.remap_window())?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, remap_window)?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {
@@ -143,22 +276,43 @@ pub fn run_gex(args: &ArgsGex) -> Result<()> {
 }
 
 pub fn run_crispr(args: &ArgsCrispr) -> Result<()> {
-    let geometry = parse_geometry(&args.map, GEOMETRY_CRISPR_FLEX_V1)?;
-    let probe = load_probe(&args.map)?;
+    let has_manual_geometry = args.map.preset.is_some() || args.map.geometry.is_some();
+
+    let (geometry, remap_window) = if has_manual_geometry {
+        if let Some(preset) = args.map.preset {
+            let geometry_str = preset.into_geometry_str();
+            info!("Using preset ({preset:?}) geometry: `{geometry_str}`");
+            (geometry_str.parse()?, args.map.remap_window())
+        } else {
+            let g = args.map.geometry.as_ref().unwrap();
+            info!("Using custom geometry: `{g}`");
+            (g.parse()?, args.map.remap_window())
+        }
+    } else {
+        // Auto-detect: load mappers for detection (consumed by detect)
+        let det_probe = load_probe_with_window(&args.map, 1)?;
+        let det_whitelist = WhitelistMapper::from_file(
+            args.map.whitelist_path(),
+            args.map.exact,
+            1,
+            args.runtime.num_threads,
+        )?;
+        let det_crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, args.map.exact, 1)?;
+        autodetect_crispr_geometry(&args.map, det_whitelist, det_crispr, det_probe, &args.input)?
+    };
+
+    let probe = load_probe_with_window(&args.map, remap_window)?;
     validate_probe_geometry(&geometry, probe.is_some())?;
 
-    // Load mappers (unpositioned)
+    // Load mappers for mapping with detected/specified remap window
     let whitelist = WhitelistMapper::from_file(
         args.map.whitelist_path(),
         args.map.exact,
-        args.map.remap_window(),
+        remap_window,
         args.runtime.num_threads,
     )?;
-    let crispr = CrisprMapper::from_file(
-        &args.crispr.guides_filepath,
-        args.map.exact,
-        args.map.remap_window(),
-    )?;
+    let crispr =
+        CrisprMapper::from_file(&args.crispr.guides_filepath, args.map.exact, remap_window)?;
 
     // Resolve geometry
     let resolved = geometry.resolve(|component| match component {

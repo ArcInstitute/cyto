@@ -9,7 +9,7 @@ Main binary crate and entry point for the entire application. Parses top-level C
 - `src/main.rs` — CLI parsing (`Cli` struct via Clap), command routing via `match` on `Commands` enum, output directory validation
 - `src/logging.rs` — Logging infrastructure with two modes:
   - `setup_workflow_logging()` — Dual-output: stderr (with ANSI colors) + log file (ANSI-stripped), used for `map` and `workflow` commands
-  - `setup_default_logging()` — Standard stderr logging, used for `ibu` subcommands
+  - `setup_default_logging()` — Standard stderr logging, used for `detect` and `ibu` subcommands
 
 ## Key Types
 

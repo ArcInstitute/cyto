@@ -6,21 +6,22 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 
 ## Key Source Files
 
-- `src/commands.rs` — Top-level `Commands` enum (`Workflow`, `Map`, `Ibu`)
+- `src/commands.rs` — Top-level `Commands` enum (`Workflow`, `Map`, `Detect`, `Ibu`)
 - `src/map/mod.rs` — `MapCommand` enum (Gex, Crispr) and geometry preset string constants (`GEOMETRY_GEX_FLEX_V1`, `GEOMETRY_GEX_FLEX_V2`, etc.)
-- `src/map/options.rs` — `MapOptions` (geometry DSL, preset selection, exact matching, remap window), `GeometryPreset` enum, `WhitelistOptions`, `ProbeOptions`
+- `src/map/options.rs` — `MapOptions` (geometry DSL, preset selection, exact matching, remap window, auto-detection params: `geometry_auto_num_reads`, `geometry_auto_min_proportion`, `geometry_auto_remap_min_proportion`), `GeometryPreset` enum, `WhitelistOptions`, `ProbeOptions`
 - `src/map/input.rs` — `MultiPairedInput` handles both BINSEQ (`.bq`/`.vbq`/`.cbq`) and FASTX paired-end inputs
 - `src/map/gex.rs` — `ArgsGex` flattens input, map options, GEX library path, runtime, and output
 - `src/map/crispr.rs` — `ArgsCrispr` same structure but with CRISPR guides path
 - `src/map/runtime.rs` — `RuntimeOptions` (thread count, verbose flag)
 - `src/output.rs` — `ArgsOutput` (output directory, force overwrite, `min_ibu_records` threshold)
 - `src/ibu/mod.rs` — `IbuCommand` enum with subcommands (View, Cat, Sort, Count, Umi, Reads) and their `Args*` structs in submodules
+- `src/detect/mod.rs` — `DetectCommand` enum (Gex, Crispr), `ArgsDetectGex`, `ArgsDetectCrispr`, `DetectionOptions`. Flattens `WhitelistOptions`, `ProbeOptions`, `GexOptions`/`CrisprOptions` from `map/` -- no `MapOptions`, `ArgsOutput`, or `RuntimeOptions`.
 - `src/workflow/mod.rs` — `WorkflowCommand`, `ArgsWorkflow` (skip flags, format selection, sort options), `ArgsGeomux` (CRISPR guide assignment params), external tool version constants and `uv` installation logic
 
 ## Key Types
 
 - `Commands` — Top-level subcommand routing enum
-- `MapCommand` / `IbuCommand` / `WorkflowCommand` — Per-module subcommand enums
+- `MapCommand` / `DetectCommand` / `IbuCommand` / `WorkflowCommand` — Per-module subcommand enums
 - `GeometryPreset` — Enum mapping preset names to geometry DSL strings
 - `MultiPairedInput` — Handles BINSEQ vs FASTX input detection and reader creation
 - `ArgsWorkflow` — Workflow options including `CountFormat` (H5ad, Mtx, Tsv) and external tool validation via `uv`

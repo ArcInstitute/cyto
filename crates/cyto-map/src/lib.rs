@@ -1,3 +1,4 @@
+pub mod detect;
 mod geometry;
 mod mapper;
 mod processor;
@@ -8,13 +9,17 @@ mod utils;
 const GEX_MAX_HDIST: usize = 3;
 type BoxedWriter = Box<dyn std::io::Write + Send>;
 
+pub use detect::{
+    ComponentEvidence, DetectionConfig, DetectionResult, PerFileResult, detect_crispr_geometry,
+    detect_gex_geometry,
+};
 pub use geometry::{Component, Geometry, ReadMate, ResolvedGeometry};
 pub use mapper::{
     Bijection, CrisprMapper, FeatureMatch, GexMapper, Library, Mapper, ProbeMapper, Ready,
     UmiMapper, Unpositioned, WhitelistMapper,
 };
 pub use processor::MapProcessor;
-pub use run::{run_crispr, run_gex};
+pub use run::{run_crispr, run_detect_crispr, run_detect_gex, run_gex};
 pub use utils::initialize_output_ibus;
 
 pub const UMI_MIN_QUALITY: u8 = 10;

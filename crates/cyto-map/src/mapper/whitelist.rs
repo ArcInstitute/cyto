@@ -91,6 +91,14 @@ impl WhitelistMapper<Unpositioned> {
         }
     }
 
+    /// Scan all positions in `seq` for barcode matches, returning matched positions.
+    pub fn scan_positions(&self, seq: &[u8]) -> Vec<usize> {
+        self.hash
+            .query_sliding_iter(seq)
+            .map(|(_, pos)| pos)
+            .collect()
+    }
+
     pub fn resolve(self, geometry: &ResolvedGeometry) -> Result<WhitelistMapper<Ready>> {
         let Some(region) = geometry.get(Component::Barcode) else {
             bail!("geometry missing [barcode]")
@@ -137,5 +145,63 @@ impl Library for WhitelistMapper<Ready> {
             window: self.window,
             exact: self.exact,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace_root() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    #[test]
+    fn test_scan_positions_finds_barcode() {
+        let whitelist_path = workspace_root().join("data/metadata/737K-fixed-rna-profiling.txt.gz");
+        let mapper = WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
+
+        assert_eq!(mapper.seq_len(), 16);
+
+        // Read the first barcode from the whitelist and embed it in a synthetic read
+        let first_barcode = b"AAACAAGCAAACAAGA"; // first entry in the whitelist
+
+        // Embed at position 0
+        let mut read = first_barcode.to_vec();
+        read.extend_from_slice(b"NNNNNNNNNNNN"); // padding
+        let positions = mapper.scan_positions(&read);
+        assert!(
+            positions.contains(&0),
+            "expected barcode match at position 0, got: {positions:?}"
+        );
+
+        // Embed at position 5
+        let mut read2 = b"NNNNN".to_vec();
+        read2.extend_from_slice(first_barcode);
+        read2.extend_from_slice(b"NNNNNNNNNNNN");
+        let positions2 = mapper.scan_positions(&read2);
+        assert!(
+            positions2.contains(&5),
+            "expected barcode match at position 5, got: {positions2:?}"
+        );
+    }
+
+    #[test]
+    fn test_scan_positions_no_match_on_random_seq() {
+        let whitelist_path = workspace_root().join("data/metadata/737K-fixed-rna-profiling.txt.gz");
+        let mapper = WhitelistMapper::from_file(&whitelist_path, true, 1, 1).unwrap();
+
+        // All Ns should not match any barcode
+        let random_read = b"NNNNNNNNNNNNNNNNNNNNNNNNNNNN";
+        let positions = mapper.scan_positions(random_read);
+        assert!(
+            positions.is_empty(),
+            "expected no matches on random sequence, got: {positions:?}"
+        );
     }
 }
