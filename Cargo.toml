@@ -13,7 +13,7 @@ cyto-cli = { path = "crates/cyto-cli", version = "0.7.2" }
 cyto-download = { path = "crates/cyto-download", version = "0.1.0" }
 cyto-io = { path = "crates/cyto-io", version = "0.2.0" }
 cyto-map = { path = "crates/cyto-map", version = "0.5.2" }
-cyto-workflow = { path = "crates/cyto-workflow", version = "0.3.0" }
+cyto-workflow = { path = "crates/cyto-workflow", version = "0.3.1" }
 
 anyhow = "1.0.102"
 binseq = "0.9.0"
