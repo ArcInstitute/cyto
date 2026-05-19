@@ -12,7 +12,7 @@ pub enum Commands {
     #[clap(subcommand)]
     Map(MapCommand),
 
-    /// Auto-detect read geometry from input files
+    /// Detect read geometry from input files and print it to stdout
     #[clap(subcommand)]
     Detect(DetectCommand),
 

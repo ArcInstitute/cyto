@@ -343,17 +343,15 @@ jobs:
             INPUT_FILES="./data/sequencing/gex.${{ matrix.format }}"
           fi
 
-          OUTPUT=$(./cyto detect gex \
+          GEOMETRY=$(./cyto detect gex \
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            $INPUT_FILES 2>&1)
+            $INPUT_FILES 2>/dev/null)
 
-          echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "Detected geometry:"
-          echo "$OUTPUT" | grep -q "\[barcode\]\[umi:12\]"
-          echo "$OUTPUT" | grep -q "\[gex\]"
-          echo "$OUTPUT" | grep -q "\[probe\]"
+          echo "Detected: $GEOMETRY"
+          test "$GEOMETRY" = "[barcode][umi:12] | [gex][:18][probe]"
+          test "$(echo "$GEOMETRY" | wc -l)" -eq 1
 
   integration-detect-crispr:
     name: Integration detect CRISPR (${{ matrix.format }})
@@ -379,17 +377,16 @@ jobs:
             INPUT_FILES="./data/sequencing/crispr.${{ matrix.format }}"
           fi
 
-          OUTPUT=$(./cyto detect crispr \
+          GEOMETRY=$(./cyto detect crispr \
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
             -p ./data/metadata/probe-barcodes-fixed-rna-profiling.txt \
-            $INPUT_FILES 2>&1)
+            $INPUT_FILES 2>/dev/null)
 
-          echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "Detected geometry:"
-          echo "$OUTPUT" | grep -q "\[barcode\]\[umi:12\]"
-          echo "$OUTPUT" | grep -q "\[anchor\]"
-          echo "$OUTPUT" | grep -q "\[protospacer\]"
+          echo "Detected: $GEOMETRY"
+          echo "$GEOMETRY" | grep -qE "^\[barcode\]\[umi:12\].*\|.*\[anchor\]\[protospacer\]"
+          echo "$GEOMETRY" | grep -q "\[probe\]"
+          test "$(echo "$GEOMETRY" | wc -l)" -eq 1
 
   integration-detect-gex-unprobed:
     name: Integration detect GEX (unprobed)
@@ -406,13 +403,15 @@ jobs:
         run: chmod +x cyto
       - name: run detect gex (unprobed)
         run: |
-          OUTPUT=$(./cyto detect gex \
+          GEOMETRY=$(./cyto detect gex \
             -c ./data/libraries/gex_probes.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            ./data/sequencing/gex.cbq 2>&1)
+            ./data/sequencing/gex.cbq 2>/dev/null)
 
-          echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "Detected geometry:"
+          echo "Detected: $GEOMETRY"
+          echo "$GEOMETRY" | grep -qE "^\[barcode\]\[umi:12\].*\|.*\[gex\]"
+          ! echo "$GEOMETRY" | grep -q "\[probe\]"
+          test "$(echo "$GEOMETRY" | wc -l)" -eq 1
 
   integration-detect-crispr-unprobed:
     name: Integration detect CRISPR (unprobed)
@@ -429,10 +428,12 @@ jobs:
         run: chmod +x cyto
       - name: run detect crispr (unprobed)
         run: |
-          OUTPUT=$(./cyto detect crispr \
+          GEOMETRY=$(./cyto detect crispr \
             -c ./data/libraries/crispr_guides.tsv \
             -w ./data/metadata/737K-fixed-rna-profiling.txt.gz \
-            ./data/sequencing/crispr.cbq 2>&1)
+            ./data/sequencing/crispr.cbq 2>/dev/null)
 
-          echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "Detected geometry:"
+          echo "Detected: $GEOMETRY"
+          echo "$GEOMETRY" | grep -qE "^\[barcode\]\[umi:12\].*\|.*\[anchor\]\[protospacer\]"
+          ! echo "$GEOMETRY" | grep -q "\[probe\]"
+          test "$(echo "$GEOMETRY" | wc -l)" -eq 1

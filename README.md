@@ -261,6 +261,38 @@ For non-standard designs, use the `--geometry` flag with a DSL string:
 cyto workflow gex --geometry "[barcode][umi:12]|[gex][:18][probe]" ...
 ```
 
+#### Detecting Geometry
+
+If you're unsure of the geometry for a dataset, `cyto detect` infers it from a sample of reads and prints the geometry string to stdout, ready to pipe into `--geometry`:
+
+```bash
+# Inspect the detected geometry
+cyto detect gex \
+    -c gene_probes.tsv \
+    -w cell_barcode_whitelist.txt \
+    -p probe_barcodes.txt \
+    sample.cbq
+# stdout:  [barcode][umi:12] | [gex][:18][probe]
+```
+
+Feed it directly into a mapping run with shell substitution:
+
+```bash
+cyto workflow gex \
+    --geometry "$(cyto detect gex -c gene_probes.tsv -w cell_barcode_whitelist.txt -p probe_barcodes.txt sample.cbq)" \
+    -c gene_probes.tsv \
+    -w cell_barcode_whitelist.txt \
+    -p probe_barcodes.txt \
+    -o output_dir \
+    sample.cbq
+```
+
+`cyto detect crispr` works the same way for CRISPR libraries (`-c guide_library.tsv`).
+
+Per-component evidence (positions, match counts, alternative placements) is logged to stderr; only the bare geometry string goes to stdout, so it composes cleanly with `$(...)`. By default 100,000 reads per input file are sampled; tune with `--num-reads`, `--min-proportion`, and `--remap-min-proportion`.
+
+> **Note**: BINSEQ inputs are sampled via a parallel range scan; FASTQ inputs are streamed through their full length. Use BINSEQ for fast detection on large datasets.
+
 #### DSL Syntax
 
 A geometry string describes the structure of paired-end reads (R1 and R2), separated by `|`:
