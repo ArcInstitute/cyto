@@ -11,6 +11,9 @@ use crate::geometry::{Component, Geometry, Read, ReadMate, Region};
 use crate::mapper::{CrisprMapper, GexMapper, ProbeMapper, Unpositioned, WhitelistMapper};
 use cyto_cli::map::MultiPairedInput;
 
+/// UMI length for all current Flex chemistries (V1 and V2).
+const FLEX_UMI_LENGTH: usize = 12;
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -22,6 +25,8 @@ pub struct DetectionConfig {
     /// Minimum proportion of sampled reads a position must match to count as
     /// significant when estimating the remap window (default 0.01 = 1%).
     pub remap_min_proportion: f64,
+    /// Number of worker threads for parallel record sampling.
+    pub num_threads: usize,
 }
 
 /// Evidence for a single component's detected position.
@@ -302,7 +307,7 @@ fn sample_gex_reads(
     gex: GexMapper<Unpositioned>,
     probe: Option<ProbeMapper<Unpositioned>>,
     input: &MultiPairedInput,
-    num_reads: usize,
+    config: &DetectionConfig,
 ) -> Result<Vec<(String, PositionAccumulator)>> {
     let shared = Arc::new(GexSharedState {
         whitelist,
@@ -310,13 +315,13 @@ fn sample_gex_reads(
         probe,
         global_accumulator: Mutex::new(PositionAccumulator::default()),
         counter: AtomicUsize::new(0),
-        limit: num_reads,
+        limit: config.num_reads,
     });
 
     let mut results = Vec::new();
 
     if input.is_binseq() {
-        for path in &input.inputs {
+        for (i, path) in input.inputs.iter().enumerate() {
             // Reset for this file.
             shared.counter.store(0, Ordering::Relaxed);
             *shared.global_accumulator.lock() = PositionAccumulator::default();
@@ -328,15 +333,16 @@ fn sample_gex_reads(
             };
 
             let reader = BinseqReader::new(path)?;
-            let n = reader.num_records()?.min(num_reads);
+            let n = reader.num_records()?.min(config.num_reads);
             if n > 0 {
-                reader.process_parallel_range(proc, 1, 0..n)?;
+                reader.process_parallel_range(proc, config.num_threads, 0..n)?;
             }
 
-            results.push((path.clone(), shared.global_accumulator.lock().clone()));
+            let label = format!("lane{}: {}", i + 1, path);
+            results.push((label, shared.global_accumulator.lock().clone()));
         }
     } else {
-        for chunk in input.inputs.chunks(2) {
+        for (i, chunk) in input.inputs.chunks(2).enumerate() {
             // Reset for this lane.
             shared.counter.store(0, Ordering::Relaxed);
             *shared.global_accumulator.lock() = PositionAccumulator::default();
@@ -351,10 +357,10 @@ fn sample_gex_reads(
                 inputs: chunk.to_vec(),
             };
             let collection = lane_input.to_paraseq_collection()?;
-            collection.process_parallel_paired(&mut proc, 1, None)?;
+            collection.process_parallel_paired(&mut proc, config.num_threads, None)?;
             proc.flush();
 
-            let label = chunk.join(" + ");
+            let label = format!("lane{}: {}", i + 1, chunk.join(" + "));
             results.push((label, shared.global_accumulator.lock().clone()));
         }
     }
@@ -371,7 +377,7 @@ fn sample_crispr_reads(
     crispr: CrisprMapper<Unpositioned>,
     probe: Option<ProbeMapper<Unpositioned>>,
     input: &MultiPairedInput,
-    num_reads: usize,
+    config: &DetectionConfig,
 ) -> Result<Vec<(String, PositionAccumulator)>> {
     let shared = Arc::new(CrisprSharedState {
         whitelist,
@@ -379,13 +385,13 @@ fn sample_crispr_reads(
         probe,
         global_accumulator: Mutex::new(PositionAccumulator::default()),
         counter: AtomicUsize::new(0),
-        limit: num_reads,
+        limit: config.num_reads,
     });
 
     let mut results = Vec::new();
 
     if input.is_binseq() {
-        for path in &input.inputs {
+        for (i, path) in input.inputs.iter().enumerate() {
             shared.counter.store(0, Ordering::Relaxed);
             *shared.global_accumulator.lock() = PositionAccumulator::default();
 
@@ -396,15 +402,16 @@ fn sample_crispr_reads(
             };
 
             let reader = BinseqReader::new(path)?;
-            let n = reader.num_records()?.min(num_reads);
+            let n = reader.num_records()?.min(config.num_reads);
             if n > 0 {
-                reader.process_parallel_range(proc, 1, 0..n)?;
+                reader.process_parallel_range(proc, config.num_threads, 0..n)?;
             }
 
-            results.push((path.clone(), shared.global_accumulator.lock().clone()));
+            let label = format!("lane{}: {}", i + 1, path);
+            results.push((label, shared.global_accumulator.lock().clone()));
         }
     } else {
-        for chunk in input.inputs.chunks(2) {
+        for (i, chunk) in input.inputs.chunks(2).enumerate() {
             shared.counter.store(0, Ordering::Relaxed);
             *shared.global_accumulator.lock() = PositionAccumulator::default();
 
@@ -418,10 +425,10 @@ fn sample_crispr_reads(
                 inputs: chunk.to_vec(),
             };
             let collection = lane_input.to_paraseq_collection()?;
-            collection.process_parallel_paired(&mut proc, 1, None)?;
+            collection.process_parallel_paired(&mut proc, config.num_threads, None)?;
             proc.flush();
 
-            let label = chunk.join(" + ");
+            let label = format!("lane{}: {}", i + 1, chunk.join(" + "));
             results.push((label, shared.global_accumulator.lock().clone()));
         }
     }
@@ -588,8 +595,18 @@ fn infer_geometry(
         bail!("0 reads were sampled during geometry detection. Is the input file empty?");
     }
 
-    if total_reads < 1000 {
-        warn!("Only {total_reads} reads sampled for geometry detection; confidence may be low.");
+    if total_reads < 10_000 {
+        #[allow(clippy::cast_sign_loss)]
+        // total_reads * remap_min_proportion is non-negative; cast cannot lose sign.
+        // cast_possible_truncation is globally allowed in workspace Cargo.toml.
+        let min_hits =
+            ((total_reads as f64 * config.remap_min_proportion).ceil() as usize).max(1);
+        warn!(
+            "Only {total_reads} reads sampled for geometry detection \
+             (min_hits={min_hits} at remap_min_proportion={:.2}); \
+             confidence may be low. Increase --num-reads or raise --remap-min-proportion.",
+            config.remap_min_proportion
+        );
     }
 
     // Determine required components
@@ -623,7 +640,7 @@ fn infer_geometry(
         if proportion < config.min_proportion {
             bail!(
                 "component [{}] has match proportion {:.4} ({}/{} reads), \
-                 below threshold {:.2}. Auto-detection failed.\n\
+                 below threshold {:.2}. Geometry detection failed.\n\
                  Provide --geometry or --preset manually.",
                 assignment.component,
                 proportion,
@@ -656,8 +673,6 @@ fn infer_geometry(
     let barcode_seq_len = barcode.seq_len.expect("barcode seq_len must be known");
     let umi_mate = barcode.mate;
     let umi_pos = barcode.position + barcode_seq_len;
-    // All current Flex chemistries (v1, v2) use a 12bp UMI.
-    const FLEX_UMI_LENGTH: usize = 12;
     let umi_len: usize = FLEX_UMI_LENGTH;
 
     // Build placement list for geometry construction
@@ -797,7 +812,9 @@ fn estimate_remap_window(
     total_reads: usize,
     remap_min_proportion: f64,
 ) -> usize {
-    #[allow(clippy::cast_sign_loss)] // proportion is always non-negative
+    #[allow(clippy::cast_sign_loss)]
+    // total_reads * remap_min_proportion is non-negative; cast cannot lose sign.
+    // cast_possible_truncation is globally allowed in workspace Cargo.toml.
     let min_hits = ((total_reads as f64 * remap_min_proportion).ceil() as usize).max(1);
     log::trace!(
         "remap_window: min_hits={min_hits} (proportion={remap_min_proportion}, reads={total_reads})"
@@ -886,7 +903,9 @@ fn estimate_remap_window(
 /// Validate that all per-file detection results agree on geometry and aggregate
 /// into a single `DetectionResult` with the maximum remap window.
 fn validate_and_aggregate(per_file: Vec<(String, DetectionResult)>) -> Result<DetectionResult> {
-    assert!(!per_file.is_empty(), "per_file must not be empty");
+    if per_file.is_empty() {
+        bail!("validate_and_aggregate called with no detection results");
+    }
 
     // Check geometry consistency.
     let first_geometry = &per_file[0].1.geometry_string;
@@ -1056,7 +1075,7 @@ pub fn detect_gex_geometry(
         input.inputs.len() / 2
     };
     info!(
-        "Auto-detecting GEX geometry from {} reads per file ({} lane{})...",
+        "Detecting GEX geometry from {} reads per file ({} lane{})...",
         config.num_reads,
         num_lanes,
         if num_lanes == 1 { "" } else { "s" },
@@ -1070,7 +1089,7 @@ pub fn detect_gex_geometry(
     }
 
     let has_probe = probe.is_some();
-    let per_file_accumulators = sample_gex_reads(whitelist, gex, probe, input, config.num_reads)?;
+    let per_file_accumulators = sample_gex_reads(whitelist, gex, probe, input, config)?;
 
     let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
     for (label, accumulator) in per_file_accumulators {
@@ -1107,7 +1126,7 @@ pub fn detect_crispr_geometry(
         input.inputs.len() / 2
     };
     info!(
-        "Auto-detecting CRISPR geometry from {} reads per file ({} lane{})...",
+        "Detecting CRISPR geometry from {} reads per file ({} lane{})...",
         config.num_reads,
         num_lanes,
         if num_lanes == 1 { "" } else { "s" },
@@ -1123,7 +1142,7 @@ pub fn detect_crispr_geometry(
 
     let has_probe = probe.is_some();
     let per_file_accumulators =
-        sample_crispr_reads(whitelist, crispr, probe, input, config.num_reads)?;
+        sample_crispr_reads(whitelist, crispr, probe, input, config)?;
 
     let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
     for (label, accumulator) in per_file_accumulators {
@@ -1185,6 +1204,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -1216,6 +1236,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, true, &seq_lens, &config).unwrap();
@@ -1248,6 +1269,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result =
@@ -1284,6 +1306,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -1313,6 +1336,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
@@ -1356,6 +1380,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, true, &seq_lens, &config).unwrap();
@@ -1537,6 +1562,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let err = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap_err();
@@ -1565,6 +1591,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config);
@@ -1580,6 +1607,7 @@ mod tests {
             num_reads: 10000,
             min_proportion: 0.10,
             remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
         };
 
         let err = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap_err();
@@ -1784,6 +1812,84 @@ mod tests {
         assert!(
             msg.contains("c.cbq"),
             "error should list the mismatched file: {msg}"
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // find_best_positions top-5 cap
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_find_best_positions_top_five_cap() {
+        // 7 entries for the same (Component, ReadMate) at distinct positions
+        // with monotonically-decreasing counts. `find_best_positions` should
+        // cap `top_positions` at 5.
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Gex, ReadMate::R2, 1, 6000),
+                (Component::Gex, ReadMate::R2, 2, 5000),
+                (Component::Gex, ReadMate::R2, 3, 4000),
+                (Component::Gex, ReadMate::R2, 4, 3000),
+                (Component::Gex, ReadMate::R2, 5, 2000),
+                (Component::Gex, ReadMate::R2, 6, 1000),
+            ],
+            10000,
+        );
+        let assignments = find_best_positions(&acc, &[Component::Gex]);
+        assert_eq!(assignments.len(), 1);
+        let top = &assignments[0].top_positions;
+        assert_eq!(
+            top.len(),
+            5,
+            "top_positions must be capped at 5, got {}",
+            top.len()
+        );
+        // Sorted by count descending: 7000, 6000, 5000, 4000, 3000.
+        let counts: Vec<usize> = top.iter().map(|&(_, _, c)| c).collect();
+        assert_eq!(counts, vec![7000, 6000, 5000, 4000, 3000]);
+    }
+
+    // -------------------------------------------------------------------
+    // resolve_overlaps no-alternative bail
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_resolve_overlaps_no_alternative_bail() {
+        // Winner: Gex at R2:0 with seq_len=100, count=10000 -- covers R2 0..100.
+        // Loser:  Probe at R2:5 with seq_len=8, count=3000.
+        //         Loser's top_positions at R2:5, R2:30, R2:70 all fall within
+        //         R2:0..100, so every alternative overlaps with the winner.
+        //         alt_len = 8 (loser's seq_len); 5+8=13, 30+8=38, 70+8=78 -- all < 100.
+        //         resolve_overlaps cannot find a non-overlapping alternative -> bails.
+        let mut assignments = vec![
+            ComponentAssignment {
+                component: Component::Gex,
+                mate: ReadMate::R2,
+                position: 0,
+                seq_len: Some(100),
+                count: 10000,
+                top_positions: vec![(ReadMate::R2, 0, 10000)],
+            },
+            ComponentAssignment {
+                component: Component::Probe,
+                mate: ReadMate::R2,
+                position: 5,
+                seq_len: Some(8),
+                count: 3000,
+                top_positions: vec![
+                    (ReadMate::R2, 5, 3000),
+                    (ReadMate::R2, 30, 2000),
+                    (ReadMate::R2, 70, 1000),
+                ],
+            },
+        ];
+
+        let err = resolve_overlaps(&mut assignments).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("cannot find non-overlapping position"),
+            "expected no-alternative bail, got: {msg}"
         );
     }
 }

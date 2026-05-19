@@ -15,7 +15,7 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 - `src/map/runtime.rs` — `RuntimeOptions` (thread count, verbose flag)
 - `src/output.rs` — `ArgsOutput` (output directory, force overwrite, `min_ibu_records` threshold)
 - `src/ibu/mod.rs` — `IbuCommand` enum with subcommands (View, Cat, Sort, Count, Umi, Reads) and their `Args*` structs in submodules
-- `src/detect/mod.rs` — `DetectCommand` enum (Gex, Crispr), `ArgsDetectGex`, `ArgsDetectCrispr`, `DetectionOptions`. Flattens `WhitelistOptions`, `ProbeOptions`, `GexOptions`/`CrisprOptions` from `map/` -- no `MapOptions`, `ArgsOutput`, or `RuntimeOptions`.
+- `src/detect/mod.rs` — `DetectCommand` enum (Gex, Crispr), `ArgsDetectGex`, `ArgsDetectCrispr`, `DetectionOptions` (fields: `num_threads`, `num_reads`, `min_proportion`, `remap_min_proportion`; `num_threads()` accessor resolves `0 → num_cpus::get()` mirroring `RuntimeOptions`). Flattens `WhitelistOptions`, `ProbeOptions`, `GexOptions`/`CrisprOptions` from `map/` -- no `MapOptions`, `ArgsOutput`, or `RuntimeOptions`.
 - `src/workflow/mod.rs` — `WorkflowCommand`, `ArgsWorkflow` (skip flags, format selection, sort options), `ArgsGeomux` (CRISPR guide assignment params), external tool version constants and `uv` installation logic
 
 ## Key Types

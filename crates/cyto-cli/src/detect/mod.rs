@@ -49,6 +49,10 @@ pub struct ArgsDetectCrispr {
 #[derive(Parser, Debug)]
 #[clap(next_help_heading = "Detection Options")]
 pub struct DetectionOptions {
+    /// Number of threads to use [0: auto]
+    #[clap(short = 'T', long, default_value_t = 0)]
+    pub num_threads: usize,
+
     /// Number of reads to sample for geometry detection
     #[clap(long, default_value = "100000")]
     pub num_reads: usize,
@@ -62,4 +66,14 @@ pub struct DetectionOptions {
     /// Positions with fewer matches than this proportion are treated as noise.
     #[clap(long, default_value = "0.01")]
     pub remap_min_proportion: f64,
+}
+
+impl DetectionOptions {
+    pub fn num_threads(&self) -> usize {
+        if self.num_threads == 0 {
+            num_cpus::get()
+        } else {
+            self.num_threads
+        }
+    }
 }

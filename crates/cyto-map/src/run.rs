@@ -6,7 +6,10 @@ use binseq::ParallelReader;
 use cyto_cli::{
     ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput,
     map::MultiPairedInput,
-    map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
+    map::{
+        GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_CRISPR_FLEX_V2, GEOMETRY_GEX_FLEX_V1,
+        GEOMETRY_GEX_FLEX_V2,
+    },
 };
 use cyto_io::{FeatureWriter, write_features};
 use log::{info, warn};
@@ -53,12 +56,9 @@ fn load_probe(
 
 pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
     warn_if_fastq(&args.input);
-    let whitelist = WhitelistMapper::from_file(
-        &args.whitelist.whitelist,
-        false,
-        1,
-        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
-    )?;
+    let num_threads = args.detection.num_threads();
+    let whitelist =
+        WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
     let gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
     let probe = load_detect_probe(&args.probe)?;
 
@@ -66,21 +66,22 @@ pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
         num_reads: args.detection.num_reads,
         min_proportion: args.detection.min_proportion,
         remap_min_proportion: args.detection.remap_min_proportion,
+        num_threads,
     };
     let result = detect_gex_geometry(whitelist, gex, probe, &args.input, &config)?;
     log_detection_result(&result);
+    if let Some(preset) = preset_name_for_geometry(&result.geometry_string) {
+        info!("Detected geometry matches preset `{preset}`");
+    }
     println!("{}", result.geometry_string);
     Ok(())
 }
 
 pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
     warn_if_fastq(&args.input);
-    let whitelist = WhitelistMapper::from_file(
-        &args.whitelist.whitelist,
-        false,
-        1,
-        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
-    )?;
+    let num_threads = args.detection.num_threads();
+    let whitelist =
+        WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
     let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, false, 1)?;
     let probe = load_detect_probe(&args.probe)?;
 
@@ -88,11 +89,30 @@ pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
         num_reads: args.detection.num_reads,
         min_proportion: args.detection.min_proportion,
         remap_min_proportion: args.detection.remap_min_proportion,
+        num_threads,
     };
     let result = detect_crispr_geometry(whitelist, crispr, probe, &args.input, &config)?;
     log_detection_result(&result);
+    if let Some(preset) = preset_name_for_geometry(&result.geometry_string) {
+        info!("Detected geometry matches preset `{preset}`");
+    }
     println!("{}", result.geometry_string);
     Ok(())
+}
+
+/// Map a detected geometry string to its preset name, if any.
+///
+/// Only the four canonical Flex presets are considered. `GEOMETRY_CRISPR_PROPERSEQ`
+/// is intentionally excluded because there is no user-facing `properseq` preset on
+/// the detect command.
+fn preset_name_for_geometry(geometry_string: &str) -> Option<&'static str> {
+    match geometry_string {
+        s if s == GEOMETRY_GEX_FLEX_V1 => Some("gex-v1"),
+        s if s == GEOMETRY_GEX_FLEX_V2 => Some("gex-v2"),
+        s if s == GEOMETRY_CRISPR_FLEX_V1 => Some("crispr-v1"),
+        s if s == GEOMETRY_CRISPR_FLEX_V2 => Some("crispr-v2"),
+        _ => None,
+    }
 }
 
 /// Warn when detection is invoked on FASTQ inputs.
@@ -326,4 +346,57 @@ where
     delete_sparse_ibus(&filepaths, output.min_ibu_records)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Imported only in tests: PROPERSEQ is intentionally absent from module-level
+    // imports so the helper's wildcard arm (not a named arm) handles it.
+    use cyto_cli::map::GEOMETRY_CRISPR_PROPERSEQ;
+
+    #[test]
+    fn test_preset_name_for_geometry_gex_v1() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_GEX_FLEX_V1),
+            Some("gex-v1")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_gex_v2() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_GEX_FLEX_V2),
+            Some("gex-v2")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_crispr_v1() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_CRISPR_FLEX_V1),
+            Some("crispr-v1")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_crispr_v2() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_CRISPR_FLEX_V2),
+            Some("crispr-v2")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_properseq_excluded() {
+        assert_eq!(preset_name_for_geometry(GEOMETRY_CRISPR_PROPERSEQ), None);
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_non_preset() {
+        assert_eq!(
+            preset_name_for_geometry("[barcode][umi:12] | [:5][gex]"),
+            None
+        );
+    }
 }

@@ -36,6 +36,7 @@ fn test_detect_gex_geometry_from_binseq() {
         num_reads: 10000,
         min_proportion: 0.10,
         remap_min_proportion: 0.01,
+        num_threads: 1,
     };
 
     let result = detect_gex_geometry(whitelist, gex, Some(probe), &input, &config).unwrap();
@@ -75,6 +76,7 @@ fn test_detect_crispr_geometry_from_binseq() {
         num_reads: 10000,
         min_proportion: 0.10,
         remap_min_proportion: 0.01,
+        num_threads: 1,
     };
 
     let result = detect_crispr_geometry(whitelist, crispr, None, &input, &config).unwrap();
@@ -127,6 +129,7 @@ fn test_detect_gex_geometry_unprobed() {
         num_reads: 10000,
         min_proportion: 0.10,
         remap_min_proportion: 0.01,
+        num_threads: 1,
     };
 
     let result = detect_gex_geometry(whitelist, gex, None, &input, &config).unwrap();
@@ -177,6 +180,7 @@ fn test_detect_crispr_geometry_probed() {
         num_reads: 10000,
         min_proportion: 0.10,
         remap_min_proportion: 0.01,
+        num_threads: 1,
     };
 
     let result = detect_crispr_geometry(whitelist, crispr, Some(probe), &input, &config).unwrap();
