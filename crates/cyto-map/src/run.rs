@@ -17,10 +17,7 @@ use log::{info, warn};
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
     ResolvedGeometry, UmiMapper, Unpositioned, WhitelistMapper,
-    detect::{
-        DetectionConfig, detect_crispr_geometry, detect_gex_geometry,
-        log_detection_result,
-    },
+    detect::{DetectionConfig, detect_crispr_geometry, detect_gex_geometry, log_detection_result},
     initialize_output_ibus,
     stats::{InputRuntimeStatistics, LibraryStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
@@ -40,9 +37,7 @@ fn parse_geometry(args: &cyto_cli::map::MapOptions, default: &str) -> Result<Geo
     }
 }
 
-fn load_probe(
-    args: &cyto_cli::map::MapOptions,
-) -> Result<Option<ProbeMapper<Unpositioned>>> {
+fn load_probe(args: &cyto_cli::map::MapOptions) -> Result<Option<ProbeMapper<Unpositioned>>> {
     let Some(probe_path) = args.probe_path() else {
         return Ok(None);
     };
@@ -55,10 +50,8 @@ fn load_probe(
 }
 
 pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
-    warn_if_fastq(&args.input);
     let num_threads = args.detection.num_threads();
-    let whitelist =
-        WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
+    let whitelist = WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
     let gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
     let probe = load_detect_probe(&args.probe)?;
 
@@ -78,10 +71,8 @@ pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
 }
 
 pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
-    warn_if_fastq(&args.input);
     let num_threads = args.detection.num_threads();
-    let whitelist =
-        WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
+    let whitelist = WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
     let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, false, 1)?;
     let probe = load_detect_probe(&args.probe)?;
 
@@ -112,22 +103,6 @@ fn preset_name_for_geometry(geometry_string: &str) -> Option<&'static str> {
         s if s == GEOMETRY_CRISPR_FLEX_V1 => Some("crispr-v1"),
         s if s == GEOMETRY_CRISPR_FLEX_V2 => Some("crispr-v2"),
         _ => None,
-    }
-}
-
-/// Warn when detection is invoked on FASTQ inputs.
-///
-/// paraseq does not yet support a `process_parallel_range` equivalent, so the
-/// FASTQ path iterates the entire input (excess records are no-ops past
-/// `--num-reads`, but the file is still streamed end-to-end). BINSEQ uses
-/// `process_parallel_range` and actually stops after N records.
-fn warn_if_fastq(input: &MultiPairedInput) {
-    if !input.is_binseq() {
-        warn!(
-            "Detecting on FASTQ inputs reads each file end-to-end. \
-             Convert to BINSEQ (.cbq) with \
-             `bqtools` for faster detection on large datasets."
-        );
     }
 }
 

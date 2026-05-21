@@ -63,7 +63,6 @@ pub struct DetectionResult {
     pub per_file_results: Vec<PerFileResult>,
 }
 
-
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
@@ -202,7 +201,6 @@ struct CrisprSharedState {
     probe: Option<ProbeMapper<Unpositioned>>,
     global_accumulator: Mutex<PositionAccumulator>,
     counter: AtomicUsize,
-    limit: usize,
 }
 
 /// Processor for CRISPR geometry detection.
@@ -224,9 +222,6 @@ impl Clone for CrisprDetectionProcessor {
 
 impl CrisprDetectionProcessor {
     fn scan_record(&mut self, r1_seq: &[u8], r2_seq: &[u8]) {
-        if self.shared.counter.fetch_add(1, Ordering::Relaxed) >= self.shared.limit {
-            return;
-        }
         self.local.total_reads += 1;
 
         for (seq, mate) in [(r1_seq, ReadMate::R1), (r2_seq, ReadMate::R2)] {
@@ -357,7 +352,12 @@ fn sample_gex_reads(
                 inputs: chunk.to_vec(),
             };
             let collection = lane_input.to_paraseq_collection()?;
-            collection.process_parallel_paired(&mut proc, config.num_threads, None)?;
+            collection.process_parallel_paired_range(
+                &mut proc,
+                config.num_threads,
+                None,
+                0..config.num_reads,
+            )?;
             proc.flush();
 
             let label = format!("lane{}: {}", i + 1, chunk.join(" + "));
@@ -385,7 +385,6 @@ fn sample_crispr_reads(
         probe,
         global_accumulator: Mutex::new(PositionAccumulator::default()),
         counter: AtomicUsize::new(0),
-        limit: config.num_reads,
     });
 
     let mut results = Vec::new();
@@ -425,7 +424,12 @@ fn sample_crispr_reads(
                 inputs: chunk.to_vec(),
             };
             let collection = lane_input.to_paraseq_collection()?;
-            collection.process_parallel_paired(&mut proc, config.num_threads, None)?;
+            collection.process_parallel_paired_range(
+                &mut proc,
+                config.num_threads,
+                None,
+                0..config.num_reads,
+            )?;
             proc.flush();
 
             let label = format!("lane{}: {}", i + 1, chunk.join(" + "));
@@ -599,8 +603,7 @@ fn infer_geometry(
         #[allow(clippy::cast_sign_loss)]
         // total_reads * remap_min_proportion is non-negative; cast cannot lose sign.
         // cast_possible_truncation is globally allowed in workspace Cargo.toml.
-        let min_hits =
-            ((total_reads as f64 * config.remap_min_proportion).ceil() as usize).max(1);
+        let min_hits = ((total_reads as f64 * config.remap_min_proportion).ceil() as usize).max(1);
         warn!(
             "Only {total_reads} reads sampled for geometry detection \
              (min_hits={min_hits} at remap_min_proportion={:.2}); \
@@ -961,7 +964,10 @@ fn validate_and_aggregate(per_file: Vec<(String, DetectionResult)>) -> Result<De
         .iter()
         .enumerate()
         .map(|(i, first_ev)| {
-            let total_count: usize = per_file.iter().map(|(_, r)| r.evidence[i].match_count).sum();
+            let total_count: usize = per_file
+                .iter()
+                .map(|(_, r)| r.evidence[i].match_count)
+                .sum();
             let proportion = if total_reads > 0 {
                 total_count as f64 / total_reads as f64
             } else {
@@ -1141,8 +1147,7 @@ pub fn detect_crispr_geometry(
     }
 
     let has_probe = probe.is_some();
-    let per_file_accumulators =
-        sample_crispr_reads(whitelist, crispr, probe, input, config)?;
+    let per_file_accumulators = sample_crispr_reads(whitelist, crispr, probe, input, config)?;
 
     let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
     for (label, accumulator) in per_file_accumulators {
