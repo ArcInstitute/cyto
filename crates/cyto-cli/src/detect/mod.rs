@@ -54,17 +54,17 @@ pub struct DetectionOptions {
     pub num_threads: usize,
 
     /// Number of reads to sample for geometry detection
-    #[clap(long, default_value = "100000")]
+    #[clap(long, default_value_t = 100_000)]
     pub num_reads: usize,
 
     /// Minimum proportion of reads matching a component to accept it
-    #[clap(long, default_value = "0.10")]
+    #[clap(long, default_value_t = 0.10)]
     pub min_proportion: f64,
 
     /// Minimum proportion of reads at a position for remap window estimation
     ///
     /// Positions with fewer matches than this proportion are treated as noise.
-    #[clap(long, default_value = "0.01")]
+    #[clap(long, default_value_t = 0.01)]
     pub remap_min_proportion: f64,
 }
 
