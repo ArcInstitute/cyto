@@ -291,8 +291,6 @@ cyto workflow gex \
 
 Per-component evidence (positions, match counts, alternative placements) is logged to stderr; only the bare geometry string goes to stdout, so it composes cleanly with `$(...)`. By default 100,000 reads per input file are sampled; tune with `--num-reads`, `--min-proportion`, and `--remap-min-proportion`.
 
-> **Note**: BINSEQ inputs are sampled via a parallel range scan; FASTQ inputs are streamed through their full length. Use BINSEQ for fast detection on large datasets.
-
 #### DSL Syntax
 
 A geometry string describes the structure of paired-end reads (R1 and R2), separated by `|`:
