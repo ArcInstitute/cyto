@@ -111,6 +111,9 @@ cyto
 ├── map
 │   ├── gex        # Map to gene expression library
 │   └── crispr     # Map to CRISPR guides
+├── detect
+│   ├── gex        # Auto-detect GEX read geometry
+│   └── crispr     # Auto-detect CRISPR read geometry
 └── ibu
     ├── view, sort, count, cat, umi, reads
 ```

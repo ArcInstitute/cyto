@@ -117,6 +117,14 @@ impl ProbeMapper<Unpositioned> {
         })
     }
 
+    /// Scan all positions in `seq` for probe matches, returning matched positions.
+    pub fn scan_positions(&self, seq: &[u8]) -> Vec<usize> {
+        self.hash
+            .query_sliding_iter(seq)
+            .map(|(_, pos)| pos)
+            .collect()
+    }
+
     /// Finalize the mapper with a position, read mate, and dynamic flag.
     pub fn with_position(self, pos: usize, mate: ReadMate, dynamic: bool) -> ProbeMapper<Ready> {
         ProbeMapper {
@@ -211,5 +219,64 @@ impl Library for ProbeMapper<Ready> {
             window: self.window,
             exact: self.exact,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace_root() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    #[test]
+    fn test_scan_positions_finds_probe() {
+        let probe_path =
+            workspace_root().join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
+        let mapper = ProbeMapper::from_file(&probe_path, true, 1).unwrap();
+
+        assert_eq!(mapper.seq_len(), 8);
+
+        // First probe sequence from probe-barcodes file: "ACTTTAGG"
+        let probe_seq = b"ACTTTAGG";
+
+        // Embed at position 0
+        let mut read = probe_seq.to_vec();
+        read.extend_from_slice(b"NNNNNNNNNNNNNNNN");
+        let positions = mapper.scan_positions(&read);
+        assert!(
+            positions.contains(&0),
+            "expected probe match at position 0, got: {positions:?}"
+        );
+
+        // Embed at position 20
+        let mut read2 = b"NNNNNNNNNNNNNNNNNNNN".to_vec();
+        read2.extend_from_slice(probe_seq);
+        read2.extend_from_slice(b"NNNNNNNNNNNNNNNN");
+        let positions2 = mapper.scan_positions(&read2);
+        assert!(
+            positions2.contains(&20),
+            "expected probe match at position 20, got: {positions2:?}"
+        );
+    }
+
+    #[test]
+    fn test_scan_positions_no_match_on_random_seq() {
+        let probe_path =
+            workspace_root().join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
+        let mapper = ProbeMapper::from_file(&probe_path, true, 1).unwrap();
+
+        let random_read = vec![b'N'; 40];
+        let positions = mapper.scan_positions(&random_read);
+        assert!(
+            positions.is_empty(),
+            "expected no matches on random sequence, got: {positions:?}"
+        );
     }
 }

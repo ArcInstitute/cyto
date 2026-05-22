@@ -4,16 +4,21 @@ use std::time::Instant;
 use anyhow::{Result, bail};
 use binseq::ParallelReader;
 use cyto_cli::{
-    ArgsCrispr, ArgsGex, ArgsOutput,
+    ArgsCrispr, ArgsDetectCrispr, ArgsDetectGex, ArgsGex, ArgsOutput,
     map::MultiPairedInput,
-    map::{GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_GEX_FLEX_V1},
+    map::{
+        GEOMETRY_CRISPR_FLEX_V1, GEOMETRY_CRISPR_FLEX_V2, GEOMETRY_GEX_FLEX_V1,
+        GEOMETRY_GEX_FLEX_V2,
+    },
 };
 use cyto_io::{FeatureWriter, write_features};
 use log::{info, warn};
 
 use crate::{
     Component, CrisprMapper, Geometry, GexMapper, Library, MapProcessor, Mapper, ProbeMapper,
-    ResolvedGeometry, UmiMapper, WhitelistMapper, initialize_output_ibus,
+    ResolvedGeometry, UmiMapper, Unpositioned, WhitelistMapper,
+    detect::{DetectionConfig, detect_crispr_geometry, detect_gex_geometry, log_detection_result},
+    initialize_output_ibus,
     stats::{InputRuntimeStatistics, LibraryStatistics, write_statistics},
     utils::{build_filepath, build_filepaths, delete_sparse_ibus, initialize_output_ibu},
 };
@@ -32,9 +37,7 @@ fn parse_geometry(args: &cyto_cli::map::MapOptions, default: &str) -> Result<Geo
     }
 }
 
-fn load_probe(
-    args: &cyto_cli::map::MapOptions,
-) -> Result<Option<ProbeMapper<crate::Unpositioned>>> {
+fn load_probe(args: &cyto_cli::map::MapOptions) -> Result<Option<ProbeMapper<Unpositioned>>> {
     let Some(probe_path) = args.probe_path() else {
         return Ok(None);
     };
@@ -42,6 +45,78 @@ fn load_probe(
         ProbeMapper::from_file_with_alias_regex(probe_path, args.exact, args.remap_window(), regex)
     } else {
         ProbeMapper::from_file(probe_path, args.exact, args.remap_window())
+    }?;
+    Ok(Some(probe))
+}
+
+pub fn run_detect_gex(args: &ArgsDetectGex) -> Result<()> {
+    let num_threads = args.detection.num_threads();
+    let whitelist = WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
+    let gex = GexMapper::from_file(&args.gex.gex_filepath, 1)?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+        num_threads,
+    };
+    let result = detect_gex_geometry(whitelist, gex, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    if let Some(preset) = preset_name_for_geometry(&result.geometry_string) {
+        info!("Detected geometry matches preset `{preset}`");
+    }
+    println!("{}", result.geometry_string);
+    Ok(())
+}
+
+pub fn run_detect_crispr(args: &ArgsDetectCrispr) -> Result<()> {
+    let num_threads = args.detection.num_threads();
+    let whitelist = WhitelistMapper::from_file(&args.whitelist.whitelist, false, 1, num_threads)?;
+    let crispr = CrisprMapper::from_file(&args.crispr.guides_filepath, false, 1)?;
+    let probe = load_detect_probe(&args.probe)?;
+
+    let config = DetectionConfig {
+        num_reads: args.detection.num_reads,
+        min_proportion: args.detection.min_proportion,
+        remap_min_proportion: args.detection.remap_min_proportion,
+        num_threads,
+    };
+    let result = detect_crispr_geometry(whitelist, crispr, probe, &args.input, &config)?;
+    log_detection_result(&result);
+    if let Some(preset) = preset_name_for_geometry(&result.geometry_string) {
+        info!("Detected geometry matches preset `{preset}`");
+    }
+    println!("{}", result.geometry_string);
+    Ok(())
+}
+
+/// Map a detected geometry string to its preset name, if any.
+///
+/// Only the four canonical Flex presets are considered. `GEOMETRY_CRISPR_PROPERSEQ`
+/// is intentionally excluded because there is no user-facing `properseq` preset on
+/// the detect command.
+fn preset_name_for_geometry(geometry_string: &str) -> Option<&'static str> {
+    match geometry_string {
+        s if s == GEOMETRY_GEX_FLEX_V1 => Some("gex-v1"),
+        s if s == GEOMETRY_GEX_FLEX_V2 => Some("gex-v2"),
+        s if s == GEOMETRY_CRISPR_FLEX_V1 => Some("crispr-v1"),
+        s if s == GEOMETRY_CRISPR_FLEX_V2 => Some("crispr-v2"),
+        _ => None,
+    }
+}
+
+/// Load a probe mapper for detect commands (exact=false, window=1).
+fn load_detect_probe(
+    probe_opts: &cyto_cli::map::ProbeOptions,
+) -> Result<Option<ProbeMapper<Unpositioned>>> {
+    let Some(ref probe_path) = probe_opts.probes else {
+        return Ok(None);
+    };
+    let probe = if let Some(ref regex) = probe_opts.probe_regex {
+        ProbeMapper::from_file_with_alias_regex(probe_path, false, 1, regex)
+    } else {
+        ProbeMapper::from_file(probe_path, false, 1)
     }?;
     Ok(Some(probe))
 }
@@ -246,4 +321,57 @@ where
     delete_sparse_ibus(&filepaths, output.min_ibu_records)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Imported only in tests: PROPERSEQ is intentionally absent from module-level
+    // imports so the helper's wildcard arm (not a named arm) handles it.
+    use cyto_cli::map::GEOMETRY_CRISPR_PROPERSEQ;
+
+    #[test]
+    fn test_preset_name_for_geometry_gex_v1() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_GEX_FLEX_V1),
+            Some("gex-v1")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_gex_v2() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_GEX_FLEX_V2),
+            Some("gex-v2")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_crispr_v1() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_CRISPR_FLEX_V1),
+            Some("crispr-v1")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_crispr_v2() {
+        assert_eq!(
+            preset_name_for_geometry(GEOMETRY_CRISPR_FLEX_V2),
+            Some("crispr-v2")
+        );
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_properseq_excluded() {
+        assert_eq!(preset_name_for_geometry(GEOMETRY_CRISPR_PROPERSEQ), None);
+    }
+
+    #[test]
+    fn test_preset_name_for_geometry_non_preset() {
+        assert_eq!(
+            preset_name_for_geometry("[barcode][umi:12] | [:5][gex]"),
+            None
+        );
+    }
 }
