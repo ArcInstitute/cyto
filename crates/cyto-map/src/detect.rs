@@ -109,10 +109,14 @@ impl PositionAccumulator {
         self.total_reads += other.total_reads;
     }
 
-    /// Sum hits across `[best_pos.saturating_sub(window), best_pos + window]`
+    /// Sum hits across
+    /// `[best_pos.saturating_sub(window), best_pos.saturating_add(window)]`
     /// on the given `(component, mate)`. Mirrors
     /// `seqhash::query_at_with_remap` edge-case behavior: when
-    /// `best_pos < window`, the lower bound clips to 0.
+    /// `best_pos < window`, the lower bound clips to 0. The upper bound
+    /// saturates symmetrically; in practice `best_pos + window` cannot
+    /// overflow `usize` (both are bounded by read length), so this is
+    /// purely defensive.
     fn windowed_count(
         &self,
         component: Component,
@@ -121,7 +125,7 @@ impl PositionAccumulator {
         window: usize,
     ) -> usize {
         let lo = best_pos.saturating_sub(window);
-        let hi = best_pos + window;
+        let hi = best_pos.saturating_add(window);
         self.counts
             .iter()
             .filter(|((c, m, p), _)| {
