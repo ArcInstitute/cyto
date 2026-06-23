@@ -798,17 +798,27 @@ const DEFAULT_REMAP_MIN_PROPORTION: f64 = 0.01;
 
 /// Estimate the optimal remap window from position distributions.
 ///
-/// Only considers feature-mapping components (gex, anchor, protospacer) --
-/// barcode and probe positions are fixed by chemistry and their apparent
-/// spread comes from adapter artifacts or short-sequence noise, not
-/// biological variability.
+/// Excludes `[barcode]` only.  Barcodes sit at position 0 by chemistry in
+/// both Flex V1 and V2, so any apparent spread is artifactual (poly-N
+/// bleed-through, adapter contamination) and should not inflate the
+/// recommendation.
+///
+/// All other components -- including `[probe]` -- are included.  On some
+/// Flex V2 libraries the `[:18]` spacer between `[gex]` and `[probe]`
+/// drifts in length (template switching / RT artifacts), producing real
+/// positional spread on `[probe]` that the recommendation must capture.
+/// The contiguous-range walk + `min_hits = ceil(total_reads *
+/// remap_min_proportion)` threshold remain self-protecting against
+/// short-sequence false matches: isolated low-count positions are
+/// filtered, and the walk stops at the first sub-threshold position so
+/// disjoint false-match clusters cannot extend the window.
 ///
 /// Uses a contiguous-range walk from the best position: starting at the
 /// mode, walks outward in both directions, stopping when a position has
-/// fewer than `min_hits` matches.  This captures smooth
-/// exponential tails (e.g. Flex V2 anchor at positions 9-19) while
-/// excluding isolated outliers (e.g. a chimeric read matching a
-/// protospacer 15 bp away from the main cluster).
+/// fewer than `min_hits` matches.  This captures smooth exponential
+/// tails (e.g. Flex V2 anchor at positions 9-19, or V2 probe with
+/// spacer drift) while excluding isolated outliers (e.g. a chimeric
+/// read matching a protospacer 15 bp away from the main cluster).
 fn estimate_remap_window(
     accumulator: &PositionAccumulator,
     components: &[Component],
@@ -826,10 +836,12 @@ fn estimate_remap_window(
     let mut max_window = 0usize;
 
     for &comp in components {
-        // Barcode and probe positions are chemistry-fixed; their apparent
-        // spread is noise from adapter artifacts (barcode, 16 bp) or
-        // short-sequence false matches (probe, 8 bp).
-        if matches!(comp, Component::Barcode | Component::Probe) {
+        // Barcode positions are chemistry-fixed at 0; any apparent spread
+        // is artifactual (poly-N bleed-through, adapter contamination).
+        // Probe is intentionally NOT excluded: V2 libraries can have real
+        // [:18] spacer drift, and the min_hits threshold + contiguous walk
+        // already filter short-sequence false matches.
+        if matches!(comp, Component::Barcode) {
             continue;
         }
 
@@ -1029,16 +1041,14 @@ fn log_per_file_result(label: &str, result: &DetectionResult) {
 /// Log the aggregated detection result.
 pub fn log_detection_result(result: &DetectionResult) {
     let num_files = result.per_file_results.len();
+    info!("Detected geometry: `{}`", result.geometry_string);
+    info!("Recommended --remap-window: {}", result.remap_window);
     if num_files > 1 {
         info!(
-            "Detected geometry: `{}`  (remap_window={}, {} files sampled, {} reads total)",
-            result.geometry_string, result.remap_window, num_files, result.total_reads_sampled
+            "Detection sampled {} reads total ({} files)",
+            result.total_reads_sampled, num_files
         );
     } else {
-        info!(
-            "Detected geometry: `{}`  (remap_window={})",
-            result.geometry_string, result.remap_window
-        );
         info!(
             "Detection sampled {} reads total",
             result.total_reads_sampled
@@ -1497,13 +1507,24 @@ mod tests {
     }
 
     #[test]
-    fn test_remap_window_probe_excluded() {
-        // Probe spread is excluded (8bp probes have high false-match rate).
+    fn test_remap_window_probe_variable_positions() {
+        // V2 GEX with variable [:18] spacer drift: probe at 60..=72, mode 66.
+        // All counts >= 100 (min_hits = 1% of 10000). Window = max(66-60, 72-66) = 6.
         let acc = build_accumulator(
             &[
-                (Component::Probe, ReadMate::R2, 68, 9000),
-                (Component::Probe, ReadMate::R2, 69, 8000),
-                (Component::Probe, ReadMate::R2, 59, 2000),
+                (Component::Probe, ReadMate::R2, 60, 100),
+                (Component::Probe, ReadMate::R2, 61, 150),
+                (Component::Probe, ReadMate::R2, 62, 300),
+                (Component::Probe, ReadMate::R2, 63, 600),
+                (Component::Probe, ReadMate::R2, 64, 1200),
+                (Component::Probe, ReadMate::R2, 65, 1800),
+                (Component::Probe, ReadMate::R2, 66, 3000),
+                (Component::Probe, ReadMate::R2, 67, 1800),
+                (Component::Probe, ReadMate::R2, 68, 1200),
+                (Component::Probe, ReadMate::R2, 69, 600),
+                (Component::Probe, ReadMate::R2, 70, 300),
+                (Component::Probe, ReadMate::R2, 71, 150),
+                (Component::Probe, ReadMate::R2, 72, 100),
             ],
             10000,
         );
@@ -1513,7 +1534,96 @@ mod tests {
             10000,
             DEFAULT_REMAP_MIN_PROPORTION,
         );
-        assert_eq!(window, 1); // probe is skipped
+        assert_eq!(window, 6);
+    }
+
+    #[test]
+    fn test_remap_window_probe_noise_at_adjacent_position_ignored() {
+        // Mode at 68 (8000), adjacent 67 (7000), adjacent outlier 69 (2 < 100 min_hits).
+        // Walk down: 67 above, 66 absent -> stop. Walk up: 69 below threshold -> stop.
+        // farthest_below = 67, farthest_above = 68.
+        // window = max(best_pos - farthest_below, farthest_above - best_pos)
+        //        = max(68 - 67, 68 - 68) = max(1, 0) = 1.
+        // Exercises the threshold filter, not gap-stopping.
+        let acc = build_accumulator(
+            &[
+                (Component::Probe, ReadMate::R2, 67, 7000),
+                (Component::Probe, ReadMate::R2, 68, 8000),
+                (Component::Probe, ReadMate::R2, 69, 2),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 1);
+    }
+
+    #[test]
+    fn test_remap_window_probe_two_clusters_separated_by_gap() {
+        // True cluster at 66..=70 (mode 68); false-match cluster at 60..=63 (each 500);
+        // gap at 64..=65 halts the walk. False cluster is above min_hits but unreachable.
+        // Window = max(68 - 66, 70 - 68) = 2.
+        let acc = build_accumulator(
+            &[
+                (Component::Probe, ReadMate::R2, 60, 500),
+                (Component::Probe, ReadMate::R2, 61, 500),
+                (Component::Probe, ReadMate::R2, 62, 500),
+                (Component::Probe, ReadMate::R2, 63, 500),
+                (Component::Probe, ReadMate::R2, 66, 1500),
+                (Component::Probe, ReadMate::R2, 67, 2000),
+                (Component::Probe, ReadMate::R2, 68, 3000),
+                (Component::Probe, ReadMate::R2, 69, 2000),
+                (Component::Probe, ReadMate::R2, 70, 1500),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 2);
+    }
+
+    #[test]
+    fn test_remap_window_probe_wider_than_gex() {
+        // Joint-component call: gex tight (window=1), probe wide (window=6).
+        // estimate_remap_window must return the max across both -> 6.
+        let acc = build_accumulator(
+            &[
+                // gex: tight 3-position cluster.
+                (Component::Gex, ReadMate::R2, 78, 1000),
+                (Component::Gex, ReadMate::R2, 79, 5000),
+                (Component::Gex, ReadMate::R2, 80, 1000),
+                // probe: wide 13-position cluster (same as variable_positions test).
+                (Component::Probe, ReadMate::R2, 60, 100),
+                (Component::Probe, ReadMate::R2, 61, 150),
+                (Component::Probe, ReadMate::R2, 62, 300),
+                (Component::Probe, ReadMate::R2, 63, 600),
+                (Component::Probe, ReadMate::R2, 64, 1200),
+                (Component::Probe, ReadMate::R2, 65, 1800),
+                (Component::Probe, ReadMate::R2, 66, 3000),
+                (Component::Probe, ReadMate::R2, 67, 1800),
+                (Component::Probe, ReadMate::R2, 68, 1200),
+                (Component::Probe, ReadMate::R2, 69, 600),
+                (Component::Probe, ReadMate::R2, 70, 300),
+                (Component::Probe, ReadMate::R2, 71, 150),
+                (Component::Probe, ReadMate::R2, 72, 100),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Gex, Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 6);
     }
 
     #[test]
