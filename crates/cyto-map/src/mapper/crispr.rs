@@ -55,26 +55,31 @@ impl CrisprMapper<Unpositioned> {
 
         for (row_idx, result) in reader.deserialize().enumerate() {
             let record: CrisprRecord = result?;
+            let CrisprRecord {
+                name,
+                anchor,
+                protospacer,
+            } = record;
 
             // Anchor global index. Dedup by first-occurrence order, which equals the
             // global `parent_idx` returned by `MultiLenSeqHash` (built from `anchors`),
             // even when anchors span multiple length groups. Anchor count is tiny (2 in
             // all known libraries), so a linear scan is fine.
-            let anchor_idx = if let Some(i) = anchors.iter().position(|a| a == &record.anchor) {
+            let anchor_idx = if let Some(i) = anchors.iter().position(|a| a == &anchor) {
                 i
             } else {
-                anchors.push(record.anchor.clone());
+                anchors.push(anchor);
                 anchors.len() - 1
             };
 
             // Protospacer parent index. Dedup by first-occurrence order, which equals the
             // `parent_idx` returned by the protospacer `SeqHash` (built from `proto_unique`).
-            let proto_idx = if let Some(&i) = proto_index.get(&record.protospacer) {
+            let proto_idx = if let Some(&i) = proto_index.get(&protospacer) {
                 i
             } else {
                 let i = proto_unique.len();
-                proto_unique.push(record.protospacer.clone());
-                proto_index.insert(record.protospacer.clone(), i);
+                proto_index.insert(protospacer.clone(), i);
+                proto_unique.push(protospacer);
                 proto_guides.push(Vec::new());
                 i
             };
@@ -88,7 +93,7 @@ impl CrisprMapper<Unpositioned> {
                 bail!(
                     "guide '{}' (row {}) shares both anchor and protospacer with guide '{}' (row {}); \
                      cyto cannot distinguish guides identical in both anchor and protospacer",
-                    record.name,
+                    name,
                     row_idx,
                     names[earlier_row as usize],
                     earlier_row
@@ -96,7 +101,7 @@ impl CrisprMapper<Unpositioned> {
             }
             proto_guides[proto_idx].push((anchor_idx as u32, row_idx as u32));
 
-            names.push(record.name);
+            names.push(name);
         }
 
         trace!("[CRISPR seqhash] - Starting build");
