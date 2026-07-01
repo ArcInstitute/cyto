@@ -331,9 +331,9 @@ mod tests {
 
     // --- (anchor, protospacer) disambiguate-on-collision keying tests ---
 
-    // Real anchors from the library (also written verbatim into crispr_dup_anchor.tsv):
-    // A = 33bp (row 0 of crispr_guides.tsv), B = 30bp. C is a distinct 30bp anchor that
-    // carries none of the shared protospacer's guides.
+    // Anchors A and B are the real library anchors (A = 33bp, row 0 of crispr_guides.tsv;
+    // B = 30bp), written verbatim into crispr_dup_anchor.tsv. C is a synthetic distinct
+    // 30bp anchor carrying none of the shared protospacer's guides (for the None path).
     const ANCHOR_A: &[u8] = b"CTTGCTATGCACTCTTGTGCTTAGCTCTGAAAC"; // 33bp
     const ANCHOR_B: &[u8] = b"GCTATGCTGTTTCCAGCTTAGCTCTTAAAC"; // 30bp
     const ANCHOR_C: &[u8] = b"AACCGGTTAACCGGTTAACCGGTTAACCGG"; // 30bp
