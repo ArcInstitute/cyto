@@ -29,7 +29,7 @@ pub struct ArgsCount {
 
     /// Output h5ad format directly.
     ///
-    /// Writes a native AnnData file (`output` is the `.h5ad` file path) without
+    /// Writes a native `AnnData` file (`output` is the `.h5ad` file path) without
     /// staging through MTX or requiring any external Python conversion tool.
     #[clap(
         long,
