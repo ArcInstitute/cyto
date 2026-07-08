@@ -434,10 +434,10 @@ ACGTACGT   ENSG00000000005   12
 
 #### Matrix Market Format
 
-For downstream analysis with scanpy/Seurat:
+For downstream analysis from MTX with scanpy/Seurat:
 
 ```bash
-cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --format mtx
+cyto ibu count -i sample.ibu -f features.tsv -o counts_mtx --mtx
 ```
 
 Generates:
@@ -446,15 +446,17 @@ Generates:
 - `barcodes.tsv` - Cell barcodes
 - `features.tsv` - Feature names
 
-#### Convert to h5ad
+#### h5ad Format
 
-Use [pycyto](https://github.com/arcinstitute/pycyto) utilities for format conversion and aggregation:
+Writes a native AnnData file directly without MTX staging. This is the default format for `cyto workflow`:
 
 ```bash
-# Convert MTX to h5ad
-pycyto mtx-to-h5ad counts_mtx/ output.h5ad
+cyto ibu count -i sample.ibu -f features.tsv -o output.h5ad --h5ad
+```
 
-# Aggregate cyto output into a single h5ad per sample
+To aggregate multiple cyto outputs into a single h5ad per sample, use [pycyto](https://github.com/arcinstitute/pycyto):
+
+```bash
 pycyto aggregate <config>.json <cyto_output_dir> <aggr_dir>
 ```
 
