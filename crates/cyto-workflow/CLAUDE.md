@@ -2,20 +2,19 @@
 
 ## Purpose
 
-Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> convert -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. Invokes external Python tools (`pycyto`, `cell-filter`, `geomux`) via `std::process::Command`.
+Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. h5ad is written natively by `cyto-ibu-count` (no external tool); `cell-filter` and `geomux` are still invoked via `std::process::Command` for GEX droplet filtering and CRISPR guide assignment.
 
 ## Key Source Files
 
 - `src/gex.rs` — `run()`: GEX workflow entry point. Calls `cyto_map::run_gex()`, then parallelizes `ibu_steps()` across all per-probe IBU files. Distributes threads proportionally across files.
 - `src/crispr.rs` — `run()`: CRISPR workflow entry point. Same structure as GEX but passes `ArgsGeomux` for guide assignment step.
 - `src/utils.rs` — Core workflow utilities:
-  - `ibu_steps()` — Orchestrates per-IBU pipeline: sort -> umi-correct (optional) -> reads stats (optional) -> count -> h5ad conversion (optional) -> filter/assign. Cleans up intermediate files.
+  - `ibu_steps()` — Orchestrates per-IBU pipeline: sort -> umi-correct (optional) -> reads stats (optional) -> count (writes h5ad/mtx/tsv directly based on format) -> filter/assign. Cleans up intermediate files.
   - `identify_ibu_files()` — Globs `outdir/ibu/*.ibu`, excludes `.sort.ibu`
-  - `convert_to_h5ad()` — Calls `pycyto convert`, removes MTX directory on success
   - `filter_h5ad()` — Calls `cell-filter` (EmptyDrops), handles missing filtered output gracefully
   - `assign_guides()` — Calls `geomux` with full parameter passthrough, handles known warning conditions
   - `write_done_file()` / `write_timings_file()` — Writes workflow completion marker and timing TSV
-- `src/timing.rs` — `ModuleTiming` (ibu_name, module, elapsed_secs), `Module` enum (Mapping, InitialSort, UmiCorrection, ReadsDump, Counting, ConversionH5ad, DropletFiltering, GuideAssignment)
+- `src/timing.rs` — `ModuleTiming` (ibu_name, module, elapsed_secs), `Module` enum (Mapping, InitialSort, UmiCorrection, ReadsDump, Counting, DropletFiltering, GuideAssignment)
 
 ## Key Types
 
@@ -28,6 +27,7 @@ Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort 
 - Thread distribution: total threads divided evenly across IBU files, minimum 1 per file
 - Intermediate IBU files are removed as they're consumed (unsorted -> sorted -> umi-corrected)
 - External tool errors surface as `bail!()` with stdout/stderr logged, except for known warnings (e.g., "No guides passed the cell threshold") which are logged as warnings
+- `filter_h5ad()`/`assign_guides()` set `HDF5_USE_FILE_LOCKING=FALSE` on the `cell-filter`/`geomux` subprocess env: since probes are counted concurrently via Rayon within this same process, HDF5's advisory file locking can spuriously report a just-written, already-closed h5ad file as locked when a sibling probe's h5ad is still open elsewhere in-process
 - Output directory structure: `ibu/`, `counts/`, `stats/`, `assignments/`, `metadata/`
 
 ## Dependencies (within workspace)

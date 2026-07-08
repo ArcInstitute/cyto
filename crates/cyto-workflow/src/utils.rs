@@ -6,7 +6,7 @@ use std::time::Instant;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::ibu::ArgsReads;
-use cyto_cli::workflow::{ArgsGeomux, CrisprMappingCommand, GexMappingCommand};
+use cyto_cli::workflow::{ArgsGeomux, CountFormat, CrisprMappingCommand, GexMappingCommand};
 use cyto_cli::{
     ibu::{ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
@@ -42,44 +42,6 @@ fn strip_ibu_basename(ibu_path: &str) -> Result<&str> {
     Ok(base_ibu_path)
 }
 
-fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
-    info!(
-        "Converting MTX {} -> {}.h5ad",
-        count_path.as_ref().display(),
-        count_path.as_ref().display()
-    );
-
-    let output = Command::new("pycyto")
-        .arg("convert")
-        .arg(count_path.as_ref().display().to_string())
-        .arg(format!("{}.h5ad", count_path.as_ref().display()))
-        .output()?;
-    if output.status.success() {
-        debug!(
-            "Successfully converted {} to h5ad",
-            count_path.as_ref().display()
-        );
-        debug!("Removing MTX directory");
-        std::fs::remove_dir_all(&count_path).context(format!(
-            "Unable to remove directory {}",
-            count_path.as_ref().display()
-        ))?;
-    } else {
-        error!(
-            "Unable to run h5ad conversion for {}",
-            count_path.as_ref().display()
-        );
-        error!("stdout: {}", std::str::from_utf8(&output.stdout)?);
-        error!("stderr: {}", std::str::from_utf8(&output.stderr)?);
-        bail!(
-            "Unable to convert {} to h5ad",
-            count_path.as_ref().display()
-        );
-    }
-
-    Ok(())
-}
-
 fn filter_h5ad<P: AsRef<Path>>(
     count_path: P,
     stats_outdir: P,
@@ -96,6 +58,10 @@ fn filter_h5ad<P: AsRef<Path>>(
         .arg(&out_h5ad)
         .arg("--logfile")
         .arg(logfile)
+        // Our own process writes h5ad files concurrently across probes via Rayon;
+        // HDF5's advisory file locking can spuriously report a still-open file as
+        // locked under that concurrency, so disable it for the reading process.
+        .env("HDF5_USE_FILE_LOCKING", "FALSE")
         .output()
         .context("Unable to run cell-filter")?;
 
@@ -184,6 +150,9 @@ pub fn assign_guides<P: AsRef<Path>>(
     }
     let output = Command::new("geomux")
         .args(&geomux_args_vec)
+        // See the comment in `filter_h5ad`: avoids spurious lock errors from
+        // concurrent h5ad writes across probes within our own process.
+        .env("HDF5_USE_FILE_LOCKING", "FALSE")
         .output()
         .context("Unable to run geomux")?;
 
@@ -298,13 +267,16 @@ pub fn ibu_steps<P: AsRef<Path>>(
     // Locate the expected feature path
     let feature_path = outdir.as_ref().join("metadata").join("features.tsv");
     // Build the expected count path
-    let count_path = if wf_args.mtx() {
-        outdir.as_ref().join("counts").join(base_ibu_path)
-    } else {
-        outdir
+    let count_path = match wf_args.format {
+        CountFormat::Mtx => outdir.as_ref().join("counts").join(base_ibu_path),
+        CountFormat::H5ad => outdir
             .as_ref()
             .join("counts")
-            .join(format!("{base_ibu_path}.counts.tsv"))
+            .join(format!("{base_ibu_path}.h5ad")),
+        CountFormat::Tsv => outdir
+            .as_ref()
+            .join("counts")
+            .join(format!("{base_ibu_path}.counts.tsv")),
     };
     // Create the argument struct
     let count_args = ArgsCount::from_wf_path(
@@ -312,7 +284,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         &count_path,
         &feature_path,
         1,
-        wf_args.mtx(),
+        wf_args.format,
         if base_ibu_path == DEFAULT_OUTPUT_BASENAME {
             None
         } else {
@@ -320,7 +292,7 @@ pub fn ibu_steps<P: AsRef<Path>>(
         },
     );
 
-    // Run the counting step
+    // Run the counting step (writes h5ad directly when format is h5ad)
     info!("Counting {sort_path} -> {}", count_path.display());
     let start = Instant::now();
     cyto_ibu_count::run(&count_args)?;
@@ -332,17 +304,8 @@ pub fn ibu_steps<P: AsRef<Path>>(
         std::fs::remove_file(&sort_path).context("Unable to remove IBU file")?;
     }
 
-    // Convert to h5ad if required
+    // Post-process the h5ad if required
     if wf_args.to_h5ad() {
-        let start = Instant::now();
-        convert_to_h5ad(&count_path)?;
-        let elapsed = start.elapsed();
-        timings.push(ModuleTiming::new(
-            base_ibu_path,
-            Module::ConversionH5ad,
-            elapsed,
-        ));
-
         match wf_mode {
             WorkflowMode::Gex => {
                 if !wf_args.no_filter {

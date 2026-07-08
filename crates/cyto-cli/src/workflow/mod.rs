@@ -8,7 +8,6 @@ use crate::{ArgsCrispr, ArgsGex};
 
 pub const VERSION_GEOMUX: &str = "0.5.5";
 pub const VERSION_CELL_FILTER: &str = "0.1.2";
-pub const VERSION_PYCYTO: &str = "0.1.14";
 
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
@@ -126,8 +125,19 @@ pub struct ArgsWorkflow {
     pub format: CountFormat,
 }
 impl ArgsWorkflow {
+    /// Checks for the external Python tools needed to post-process an h5ad file.
+    ///
+    /// h5ad itself is written natively (no external tool required); `cell-filter`
+    /// (GEX droplet filtering) and `geomux` (CRISPR guide assignment) are only
+    /// needed when producing h5ad output and their respective step isn't skipped.
     pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
-        if self.format == CountFormat::H5ad || !self.no_filter {
+        let needs_cell_filter =
+            mode == WorkflowMode::Gex && self.format == CountFormat::H5ad && !self.no_filter;
+        let needs_geomux = mode == WorkflowMode::Crispr
+            && self.format == CountFormat::H5ad
+            && !self.skip_assignment;
+
+        if needs_cell_filter || needs_geomux {
             debug!("Checking if `uv` exists in $PATH");
             match Command::new("uv").args(["--version"]).output() {
                 Ok(_) => debug!("Found `uv` in $PATH"),
@@ -136,25 +146,14 @@ impl ArgsWorkflow {
                     bail!("Encountered an unexpected error checking for `uv`: {e}");
                 }
             }
-            transparent_uv_install("pycyto", VERSION_PYCYTO)?;
         }
-        if mode == WorkflowMode::Gex && !self.no_filter {
+        if needs_cell_filter {
             transparent_uv_install("cell-filter", VERSION_CELL_FILTER)?;
         }
-        if mode == WorkflowMode::Crispr {
+        if needs_geomux {
             transparent_uv_install("geomux", VERSION_GEOMUX)?;
         }
         Ok(())
-    }
-
-    /// Check whether the workflow should output mtx files
-    ///
-    /// This is true if the format is mtx or h5ad but mtx is consumed by h5ad
-    pub fn mtx(&self) -> bool {
-        match self.format {
-            CountFormat::H5ad | CountFormat::Mtx => true,
-            CountFormat::Tsv => false,
-        }
     }
 
     /// Check whether the workflow should output h5ad files

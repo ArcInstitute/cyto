@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::workflow::CountFormat;
+
 use super::IbuInput;
 
 #[derive(clap::Parser, Debug)]
@@ -17,8 +19,25 @@ pub struct ArgsCount {
     /// (1) barcodes.txt.gz
     /// (2) features.txt.gz
     /// (3) matrix.mtx.gz
-    #[clap(long, requires = "output", requires = "features")]
+    #[clap(
+        long,
+        requires = "output",
+        requires = "features",
+        conflicts_with = "h5ad"
+    )]
     pub mtx: bool,
+
+    /// Output h5ad format directly.
+    ///
+    /// Writes a native AnnData file (`output` is the `.h5ad` file path) without
+    /// staging through MTX or requiring any external Python conversion tool.
+    #[clap(
+        long,
+        requires = "output",
+        requires = "features",
+        conflicts_with = "mtx"
+    )]
+    pub h5ad: bool,
 
     /// Number of threads to use in counting
     #[clap(short = 't', long, default_value = "1")]
@@ -50,14 +69,15 @@ impl ArgsCount {
         out_path: P,
         features_path: P,
         num_threads: usize,
-        mtx: bool,
+        format: CountFormat,
         suffix: Option<String>,
     ) -> Self {
         Self {
             input: IbuInput::from_path(sort_path),
             output: Some(out_path.as_ref().to_str().unwrap().to_string()),
             features: Some(features_path.as_ref().to_str().unwrap().to_string()),
-            mtx,
+            mtx: format == CountFormat::Mtx,
+            h5ad: format == CountFormat::H5ad,
             compressed: false,
             feature_col: 1,
             num_threads,

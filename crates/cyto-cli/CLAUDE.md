@@ -31,8 +31,9 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 
 - Geometry presets: V2 presets force `remap_window=5`, V1 uses default of 1
 - `MultiPairedInput.is_binseq()` auto-detects format by file extension
-- `ArgsWorkflow.validate_requirements()` transparently installs Python tools (`pycyto`, `cell-filter`, `geomux`) via `uv tool install` at pinned versions
-- External tool versions are pinned as constants: `VERSION_GEOMUX`, `VERSION_CELL_FILTER`, `VERSION_PYCYTO`
+- `ArgsWorkflow.validate_requirements()` transparently installs Python tools (`cell-filter`, `geomux`) via `uv tool install` at pinned versions, only when format is h5ad and the corresponding step isn't skipped. h5ad itself is written natively by `cyto-ibu-count` — no Python tool required.
+- External tool versions are pinned as constants: `VERSION_GEOMUX`, `VERSION_CELL_FILTER`
+- `ArgsCount` (`src/ibu/count.rs`) has mutually-exclusive `mtx`/`h5ad` flags (`conflicts_with` each other); `from_wf_path()` takes a `CountFormat` and sets the corresponding bool
 
 ## Dependencies (within workspace)
 

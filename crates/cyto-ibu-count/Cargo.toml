@@ -20,7 +20,10 @@ log = { workspace = true }
 hashbrown = { workspace = true }
 serde = { workspace = true }
 
+anndata = "0.7"
+anndata-hdf5 = "0.5"
 gzp = "2.0.2"
+nalgebra-sparse = "0.11"
 thiserror = "2.0.18"
 
 [lints]

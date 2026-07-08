@@ -13,7 +13,9 @@ use ibu::{Header, Reader};
 use log::{debug, error, info};
 
 mod dedup;
+mod h5ad;
 pub use dedup::{BarcodeIndexCount, BarcodeIndexCounts, deduplicate_umis};
+use h5ad::write_counts_h5ad;
 
 /// Extends a barcode buffer with an optional suffix
 fn extend_suffix(buffer: &mut Vec<u8>, suffix: Option<&str>) {
@@ -326,7 +328,19 @@ pub fn run(args: &ArgsCount) -> Result<()> {
         }
     }
 
-    if args.mtx {
+    if args.h5ad {
+        write_counts_h5ad(
+            args.output
+                .as_ref()
+                .expect("Must provide an output path to write h5ad"),
+            &counts,
+            features
+                .expect("Must provide a feature file to write h5ad")
+                .as_slice(),
+            header,
+            args.suffix.as_deref(),
+        )
+    } else if args.mtx {
         write_counts_mtx(
             args.output
                 .as_ref()
