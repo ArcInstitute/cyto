@@ -128,9 +128,7 @@ impl PositionAccumulator {
         let hi = best_pos.saturating_add(window);
         self.counts
             .iter()
-            .filter(|((c, m, p), _)| {
-                *c == component && *m == mate && *p >= lo && *p <= hi
-            })
+            .filter(|((c, m, p), _)| *c == component && *m == mate && *p >= lo && *p <= hi)
             .map(|(_, &count)| count)
             .sum()
     }
@@ -2367,10 +2365,7 @@ mod tests {
                     // Per-file W=1: [65,67] on file A's acc = 0 + 5000 + 0 = 5000.
                     windowed_match_count: 5000,
                     windowed_match_proportion: 0.5,
-                    top_positions: vec![
-                        (ReadMate::R2, 66, 5000),
-                        (ReadMate::R2, 68, 500),
-                    ],
+                    top_positions: vec![(ReadMate::R2, 66, 5000), (ReadMate::R2, 68, 500)],
                 },
             ],
             total_reads_sampled: 10_000,
@@ -2433,7 +2428,10 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(aggregated.remap_window, 2, "max_remap_window = max(1,2) = 2");
+        assert_eq!(
+            aggregated.remap_window, 2,
+            "max_remap_window = max(1,2) = 2"
+        );
         assert_eq!(aggregated.total_reads_sampled, 20_000);
 
         // Merged accumulator at R2: 66->8000, 67->2000, 68->2500.
