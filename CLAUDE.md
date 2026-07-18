@@ -27,6 +27,10 @@ just install
 
 ### Dependencies
 
+System `libhdf5` is required to build (the `cyto-summary` crate links it for
+genes/guides-detected metrics). Install e.g. `libhdf5-dev`; it is located via
+`pkg-config` at build time.
+
 Not strictly necessary but recommended: `bqtools`
 
 - If not installed, run `cargo install bqtools`

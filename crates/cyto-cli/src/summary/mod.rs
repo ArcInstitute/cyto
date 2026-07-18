@@ -34,6 +34,13 @@ pub struct ArgsSummary {
     #[clap(long)]
     pub no_master: bool,
 
+    /// Skip reading count matrices for genes/guides-detected metrics
+    ///
+    /// Reading the h5ad panels adds a pass over the count matrices; disable it
+    /// for a faster, metrics-only report.
+    #[clap(long)]
+    pub no_features: bool,
+
     /// Number of points to sample for each barcode-rank plot polyline
     #[clap(long, default_value_t = 400)]
     pub rank_points: usize,

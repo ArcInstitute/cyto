@@ -136,6 +136,8 @@ pub struct ProbeSummary {
     pub median_reads_per_barcode: f64,
     pub median_umis_per_barcode: f64,
     pub umi_corrected_frac: Option<f64>,
+    /// Distinct features (genes/guides) with at least one count in this probe's matrix.
+    pub features_detected: Option<u64>,
     pub assignment: Option<AssignmentSummary>,
     /// Downsampled points for the barcode-rank plot (not present when reads are absent).
     pub knee: Vec<KneePoint>,
@@ -158,6 +160,10 @@ pub struct SampleReport {
     pub total_umis: u64,
     /// Aggregate saturation across probes (`1 - total_umis / total_reads`).
     pub overall_saturation: Option<f64>,
+    /// Total features (genes/guides) in the count matrix panel.
+    pub features_total: Option<u64>,
+    /// Distinct features detected across all probes (union).
+    pub features_detected: Option<u64>,
     /// Non-fatal issues encountered while collecting (missing/failed files).
     pub notes: Vec<String>,
 }

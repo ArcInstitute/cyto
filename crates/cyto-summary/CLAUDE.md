@@ -32,6 +32,11 @@ present, and a `<sample>.cyto-report.json` machine-readable sidecar per sample
   expansion; `read_reads()` parses `reads.tsv.zst` (via `cyto_io::match_input_transparent`)
   into totals, medians, and the log-spaced barcode-rank `knee_points()`;
   `detect_kind()` classifies GEX vs CRISPR from `.done`/stats subdirs.
+  `read_h5ad_seen()` (gated by `read_features`, i.e. not `--no-features`) opens the
+  count matrix (`counts/{probe}.filt.h5ad` preferred, else `.h5ad`) via the `hdf5`
+  crate and streams the CSR column indices in chunks to count distinct
+  features detected; per-probe counts and the cross-probe union land in
+  `ProbeSummary::features_detected` and `SampleReport::features_{total,detected}`.
 - `src/render.rs` — HTML rendering. Inlined CSS (`CSS`, a white "printout" theme),
   hand-built SVG barcode-rank plot (`knee_svg`), and section builders
   (`sample_metrics`, `cells_section`, `mapping_section`, `probe_section`,
@@ -63,6 +68,13 @@ present, and a `<sample>.cyto-report.json` machine-readable sidecar per sample
 
 - `cyto-cli` — `ArgsSummary`
 - `cyto-io` — `match_input_transparent` for transparent `.zst` reads
+
+## External dependencies
+
+- `hdf5` (`hdf5-metno`) + `ndarray` for reading count-matrix `h5ad` files. This
+  links **system libhdf5** (found via `pkg-config`, e.g. `libhdf5-dev`) — building
+  cyto now requires it. Only the genes/guides-detected metrics use it; `--no-features`
+  skips the h5ad read but the link dependency remains.
 
 ## Testing
 

@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cyto_io::match_input_transparent;
-use log::{debug, warn};
+use log::{debug, info, warn};
+use ndarray::s;
 use serde::de::DeserializeOwned;
 
 use crate::model::{
@@ -207,6 +208,61 @@ fn read_reads(path: &Path, rank_points: usize) -> Result<ReadsAgg> {
     })
 }
 
+/// Locate the count matrix for a probe, preferring the cell-filtered variant.
+fn h5ad_path(dir: &Path, name: &str) -> Option<PathBuf> {
+    let filt = dir.join(format!("counts/{name}.filt.h5ad"));
+    if filt.is_file() {
+        return Some(filt);
+    }
+    let raw = dir.join(format!("counts/{name}.h5ad"));
+    if raw.is_file() {
+        return Some(raw);
+    }
+    None
+}
+
+/// Read an `AnnData` (CSR) h5ad and return the panel size and a per-feature
+/// "seen" mask (feature had at least one count somewhere in the matrix).
+///
+/// Streams the sparse column indices in chunks so a multi-hundred-million-nnz
+/// matrix does not have to be held in memory at once.
+#[allow(clippy::cast_sign_loss)] // sparse column indices are non-negative
+fn read_h5ad_seen(path: &Path) -> Result<(usize, Vec<bool>)> {
+    let file = hdf5::File::open(path)?;
+    let x = file
+        .group("X")
+        .context("h5ad has no /X group (dense matrix?)")?;
+    let shape = x.attr("shape")?.read_raw::<i64>()?;
+    let n_features = usize::try_from(*shape.get(1).context("X/shape missing n_var")?)?;
+    let indices = x.dataset("indices")?;
+    let nnz = indices.shape().first().copied().unwrap_or(0);
+    let is_64 = indices.dtype().map(|d| d.size() >= 8).unwrap_or(true);
+
+    let mut seen = vec![false; n_features];
+    let chunk = 8_000_000usize;
+    let mut start = 0usize;
+    while start < nnz {
+        let end = (start + chunk).min(nnz);
+        if is_64 {
+            for &c in &indices.read_slice_1d::<i64, _>(s![start..end])? {
+                let c = c as usize;
+                if c < n_features {
+                    seen[c] = true;
+                }
+            }
+        } else {
+            for &c in &indices.read_slice_1d::<i32, _>(s![start..end])? {
+                let c = c as usize;
+                if c < n_features {
+                    seen[c] = true;
+                }
+            }
+        }
+        start = end;
+    }
+    Ok((n_features, seen))
+}
+
 /// Enumerate probe basenames from `stats/reads/*.reads.tsv.zst`.
 fn probe_names(path: &Path) -> Vec<String> {
     let reads_dir = path.join("stats/reads");
@@ -277,9 +333,12 @@ fn read_timings(path: &Path) -> Vec<TimingRow> {
 }
 
 /// Collect all available information from a single sample directory.
-pub fn collect_sample(path: &Path, rank_points: usize) -> SampleReport {
+pub fn collect_sample(path: &Path, rank_points: usize, read_features: bool) -> SampleReport {
     debug!("Collecting sample {}", path.display());
     let mut notes: Vec<String> = Vec::new();
+    // Union of per-probe "feature seen" masks, for the sample-level detected count.
+    let mut sample_seen: Option<Vec<bool>> = None;
+    let mut features_total: Option<u64> = None;
 
     let sample = path.file_name().map_or_else(
         || path.display().to_string(),
@@ -315,6 +374,33 @@ pub fn collect_sample(path: &Path, rank_points: usize) -> SampleReport {
         )
         .map(|raw| assignment_summary(&raw));
 
+        // Optional: distinct features detected, read from the count matrix.
+        let mut features_detected = None;
+        if read_features && let Some(h5) = h5ad_path(path, &name) {
+            info!("Reading features from {}", h5.display());
+            match read_h5ad_seen(&h5) {
+                Ok((n_features, seen)) => {
+                    features_detected = Some(seen.iter().filter(|&&b| b).count() as u64);
+                    features_total = Some(n_features as u64);
+                    match sample_seen.as_mut() {
+                        Some(acc) if acc.len() == seen.len() => {
+                            for (a, b) in acc.iter_mut().zip(seen.iter()) {
+                                *a |= *b;
+                            }
+                        }
+                        _ => sample_seen = Some(seen),
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read features from {}: {e}", h5.display());
+                    notes.push(format!(
+                        "Failed to read features from {}: {e}",
+                        h5.display()
+                    ));
+                }
+            }
+        }
+
         probes.push(ProbeSummary {
             name,
             n_barcodes: agg.n_barcodes,
@@ -324,10 +410,13 @@ pub fn collect_sample(path: &Path, rank_points: usize) -> SampleReport {
             median_reads_per_barcode: agg.median_reads,
             median_umis_per_barcode: agg.median_umis,
             umi_corrected_frac,
+            features_detected,
             assignment,
             knee: agg.knee,
         });
     }
+
+    let features_detected = sample_seen.map(|s| s.iter().filter(|&&b| b).count() as u64);
 
     let total_reads: u64 = probes.iter().map(|p| p.total_reads).sum();
     let total_umis: u64 = probes.iter().map(|p| p.total_umis).sum();
@@ -350,6 +439,8 @@ pub fn collect_sample(path: &Path, rank_points: usize) -> SampleReport {
         total_reads,
         total_umis,
         overall_saturation,
+        features_total,
+        features_detected,
         notes,
     }
 }

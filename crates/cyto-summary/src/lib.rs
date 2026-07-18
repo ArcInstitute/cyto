@@ -75,7 +75,7 @@ pub fn run(args: &ArgsSummary) -> Result<()> {
 
     let mut reports: Vec<(SampleReport, String)> = Vec::new();
     for sample_dir in &samples {
-        let report = collect::collect_sample(sample_dir, args.rank_points);
+        let report = collect::collect_sample(sample_dir, args.rank_points, !args.no_features);
         let stem = sanitize(&report.sample);
         let html_name = format!("{stem}.cyto-report.html");
         write_string(&outdir.join(&html_name), &render::render_sample(&report))?;

@@ -152,6 +152,16 @@ fn f1(x: f64) -> String {
     format!("{x:.1}")
 }
 
+/// "Genes"/"Guides" label with a suffix, e.g. `feature_word(kind, "detected")`.
+fn feature_word(kind: SampleKind, suffix: &str) -> String {
+    let noun = if kind == SampleKind::Crispr {
+        "Guides"
+    } else {
+        "Genes"
+    };
+    format!("{noun} {suffix}")
+}
+
 fn metric(v: &str, k: &str) -> String {
     format!(
         "<div class=\"metric\"><div class=\"v\">{}</div><div class=\"k\">{}</div></div>",
@@ -351,6 +361,9 @@ fn sample_metrics(r: &SampleReport) -> String {
     m.push_str(&metric(&compact(r.total_umis), "UMIs"));
     let barcodes: u64 = r.probes.iter().map(|p| p.n_barcodes).sum();
     m.push_str(&metric(&compact(barcodes), "Barcodes"));
+    if let Some(det) = r.features_detected {
+        m.push_str(&metric(&int(det), &feature_word(r.kind, "detected")));
+    }
     if r.kind == SampleKind::Crispr {
         let assigned: u64 = r
             .probes
@@ -409,6 +422,30 @@ fn cells_section(r: &SampleReport) -> String {
             "<tr><td>Reads mapped</td><td>{}</td></tr>",
             pct(mp.mapped_reads_frac)
         );
+    }
+    if let Some(det) = r.features_detected {
+        let val = r
+            .features_total
+            .map_or_else(|| int(det), |tot| format!("{} / {}", int(det), int(tot)));
+        let _ = write!(
+            keys,
+            "<tr><td>{}</td><td>{val}</td></tr>",
+            feature_word(r.kind, "detected"),
+        );
+    }
+    if r.kind == SampleKind::Crispr {
+        let tested: u64 = r
+            .probes
+            .iter()
+            .filter_map(|p| p.assignment.as_ref().map(|a| a.n_tested))
+            .sum();
+        if tested > 0 {
+            let _ = write!(
+                keys,
+                "<tr><td>Cells tested (UMI threshold)</td><td>{}</td></tr>",
+                int(tested)
+            );
+        }
     }
     let _ = write!(keys, "<tr><td>Probes</td><td>{}</td></tr>", r.probes.len());
 
@@ -480,10 +517,19 @@ fn probe_section(r: &SampleReport) -> String {
         return String::new();
     }
     let is_crispr = r.kind == SampleKind::Crispr;
+    let detected_hdr = if is_crispr {
+        "Guides det."
+    } else {
+        "Genes det."
+    };
+    let has_detected = r.probes.iter().any(|p| p.features_detected.is_some());
     let mut head = String::from(
         "<tr><th>Probe</th><th>Barcodes</th><th>Reads</th><th>UMIs</th><th>Saturation</th>\
          <th>Median reads/bc</th><th>Median UMIs/bc</th><th>UMI corr.</th>",
     );
+    if has_detected {
+        let _ = write!(head, "<th>{detected_hdr}</th>");
+    }
     if is_crispr {
         head.push_str("<th>Cells assigned</th><th>Dom. MOI</th>");
     }
@@ -506,6 +552,14 @@ fn probe_section(r: &SampleReport) -> String {
             f1(p.median_umis_per_barcode),
             umi_corr,
         );
+        if has_detected {
+            let _ = write!(
+                body,
+                "<td>{}</td>",
+                p.features_detected
+                    .map_or_else(|| "&mdash;".to_string(), int),
+            );
+        }
         if is_crispr {
             if let Some(a) = &p.assignment {
                 let _ = write!(
