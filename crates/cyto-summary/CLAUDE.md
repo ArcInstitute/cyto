@@ -32,11 +32,12 @@ present, and a `<sample>.cyto-report.json` machine-readable sidecar per sample
   expansion; `read_reads()` parses `reads.tsv.zst` (via `cyto_io::match_input_transparent`)
   into totals, medians, and the log-spaced barcode-rank `knee_points()`;
   `detect_kind()` classifies GEX vs CRISPR from `.done`/stats subdirs.
-- `src/render.rs` — HTML rendering. Inlined CSS (`CSS`), hand-built SVG barcode-rank
-  plot (`knee_svg`), and card builders (`mapping_card`, `probe_table`, `moi_card`,
-  `timings_card`, `libraries_card`, `notes_card`, `sample_kpis`). Entry points:
-  `render_sample()` and `render_master()`. Formatting helpers: `int`, `compact`,
-  `pct`, `f1`, `esc`, `hbar`, `kpi`, `page`.
+- `src/render.rs` — HTML rendering. Inlined CSS (`CSS`, a white "printout" theme),
+  hand-built SVG barcode-rank plot (`knee_svg`), and section builders
+  (`sample_metrics`, `cells_section`, `mapping_section`, `probe_section`,
+  `moi_section`, `timing_section`, `library_section`, `alerts`). Entry points:
+  `render_sample()` and `render_master()`. Formatting/layout helpers: `int`,
+  `compact`, `pct`, `f1`, `esc`, `metric`, `eyebrow`, `bar`, `page`, `footer`.
 
 ## Design Notes
 
@@ -47,6 +48,11 @@ present, and a `<sample>.cyto-report.json` machine-readable sidecar per sample
 - **Self-contained output**: all CSS inlined, plots emitted as inline SVG (no JS,
   no external assets, no plotting dependency). A report is one portable file, KB-
   sized rather than the tens of MB a Cell Ranger `web_summary.html` embeds.
+- **Visual style**: a flat white "sequencing QC printout" -- hairline rules rather
+  than filled cards, all numeric data in tabular monospace, one restrained accent,
+  eyebrow section labels. Layout order follows what single-cell users know from
+  Cell Ranger (headline metrics -> metrics-left / barcode-rank-right -> mapping ->
+  per-probe) without copying its styling. Light theme only (no system fonts fetched).
 - **Robustness**: every panel is guarded. A sample missing `stats/filtering` or a
   malformed JSON still produces a report; issues surface in the Notes card.
 - Metrics richer than Cell Ranger where cyto has them: per-reason unmapped

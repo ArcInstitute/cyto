@@ -1,53 +1,101 @@
 //! Render `SampleReport`s into self-contained HTML.
 //!
-//! No external assets: all CSS is inlined and plots are hand-built SVG, so a
-//! report is a single portable file. Two entry points: [`render_sample`] for a
-//! per-sample report and [`render_master`] for the cross-sample index.
+//! Design: a white "sequencing QC printout" -- flat paper, hairline rules
+//! instead of filled cards, all numeric data set in tabular monospace, a single
+//! restrained accent. Layout follows the flow single-cell users know from
+//! Cell Ranger (headline metrics, then a metrics-left / barcode-rank-plot-right
+//! block, then mapping and per-probe detail) without copying its styling.
+//!
+//! No external assets: CSS is inlined and plots are hand-built SVG, so a report
+//! is a single portable file. Entry points: [`render_sample`] and
+//! [`render_master`].
 
 use std::fmt::Write as _;
 
 use crate::model::{ProbeSummary, SampleKind, SampleReport};
 
-const PALETTE: [&str; 10] = [
-    "#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d",
-    "#9333ea", "#0d9488",
+/// Muted, print-leaning categorical palette for barcode-rank lines.
+const PALETTE: [&str; 8] = [
+    "#0b6a83", "#b4531f", "#3b6b35", "#7a4fa3", "#9c2f4a", "#2f5f8a", "#8a6d1f", "#496b6b",
 ];
 
 const CSS: &str = r#"
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--good:#059669;--warn:#d97706;--bad:#dc2626;--track:#eef0f3}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#171b21;--ink:#e6e9ee;--muted:#9aa4b2;--line:#262c35;--accent:#60a5fa;--track:#20262e}}
+:root{
+  --paper:#ffffff;--ink:#14181c;--muted:#727a82;--faint:#9aa1a8;
+  --rule:#e7e9ec;--rule-strong:#d2d6da;--accent:#0b6a83;
+  --good:#2f6b3a;--warn:#9a6a15;--bad:#a23b3b;--track:#f1f2f4;--hover:#fafbfc;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
-h1{font-size:22px;margin:0 0 2px}
-h2{font-size:15px;margin:0 0 14px;font-weight:600}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-.muted{color:var(--muted)}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
-.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:20px}
-.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--accent);color:#fff}
-.badge.gex{background:#2563eb}.badge.crispr{background:#7c3aed}.badge.unknown{background:#6b7280}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.kpi .num{font-size:22px;font-weight:700;letter-spacing:-.02em}
-.kpi .lbl{font-size:12px;color:var(--muted);margin-top:2px}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-th{font-size:12px;color:var(--muted);font-weight:600}
-tbody tr:last-child td{border-bottom:none}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:14px/1.55 "Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:1060px;margin:0 auto;padding:44px 32px 72px}
+.mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(11,106,131,.32)}
+a:hover{border-bottom-color:var(--accent)}
+
+.masthead{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;
+  padding-bottom:14px;border-bottom:2px solid var(--ink)}
+.title{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.04;margin:0}
+.kind{margin-left:12px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+.sub{color:var(--muted);font-size:12.5px;margin-top:7px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.brand{text-align:right;color:var(--faint);font-size:11.5px;white-space:nowrap;line-height:1.5}
+.brand b{display:block;color:var(--ink);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+
+.metrics{display:flex;flex-wrap:wrap;margin:30px 0 4px;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.metric{flex:1 1 0;min-width:132px;padding:16px 20px 15px;border-left:1px solid var(--rule)}
+.metric:first-child{border-left:none;padding-left:0}
+.metric .v{font-size:23px;font-weight:600;letter-spacing:-.01em;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.metric .k{margin-top:4px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+
+.section{margin-top:40px}
+.eyebrow{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.eyebrow h2{font-size:12px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;margin:0}
+.eyebrow .ln{flex:1;height:1px;background:var(--rule-strong)}
+.hint{color:var(--muted);font-size:12px;margin:-6px 0 16px;max-width:70ch}
+
+.split{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:36px;align-items:start}
+@media(max-width:780px){.split{grid-template-columns:1fr;gap:24px}}
+
+.keys{width:100%;border-collapse:collapse}
+.keys td{padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;color:var(--muted)}
+.keys td:last-child{text-align:right;color:var(--ink);
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.keys tr:last-child td{border-bottom:none}
+
+table.data{width:100%;border-collapse:collapse}
+table.data th,table.data td{padding:9px 14px;white-space:nowrap;font-size:13px}
+table.data th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  font-weight:700;text-align:right;border-bottom:1px solid var(--rule-strong)}
+table.data td{text-align:right;border-bottom:1px solid var(--rule)}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.data td:not(:first-child){font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+table.data tbody tr:last-child td{border-bottom:none}
+table.data tbody tr:hover td{background:var(--hover)}
 .overflow{overflow-x:auto}
-.bar-row{display:flex;align-items:center;gap:10px;margin:6px 0}
-.bar-label{width:170px;flex:none;font-size:13px}
-.bar-track{flex:1;height:14px;background:var(--track);border-radius:7px;overflow:hidden}
-.bar-fill{height:100%;border-radius:7px}
-.bar-val{width:150px;flex:none;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
-.plot{width:100%;height:auto;overflow:visible}
-.note{color:var(--warn);font-size:13px;margin:3px 0}
-.foot{color:var(--muted);font-size:12px;margin-top:8px;text-align:center}
-.hint{font-size:12px;color:var(--muted);margin:-6px 0 12px}
+
+.bars{margin-top:2px}
+.bar{display:grid;grid-template-columns:200px 1fr 168px;align-items:center;gap:16px;padding:5px 0}
+.bar .lbl{font-size:13px}
+.bar .track{height:7px;background:var(--track)}
+.bar .fill{height:100%}
+.bar .val{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:12px;color:var(--muted);text-align:right}
+.subhead{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
+@media(max-width:780px){.bar{grid-template-columns:130px 1fr 120px;gap:10px}}
+
+figure{margin:0}
+figcaption{color:var(--muted);font-size:11.5px;margin-top:10px}
+svg.plot{display:block;width:100%;height:auto}
+
+.alert{border:1px solid var(--rule);border-left:3px solid var(--warn);
+  padding:11px 15px;margin:22px 0 0;font-size:13px;color:#4a4f55}
+.alert b{color:var(--warn);font-weight:700}
+
+.foot{margin-top:60px;padding-top:16px;border-top:1px solid var(--rule);
+  color:var(--faint);font-size:11.5px;display:flex;justify-content:space-between;gap:16px}
 "#;
 
 // ---------------------------------------------------------------------------
@@ -76,7 +124,7 @@ fn int(n: u64) -> String {
     out
 }
 
-/// Compact magnitude (e.g. `10.72B`) for headline tiles.
+/// Compact magnitude (e.g. `10.72B`) for headline figures.
 fn compact(n: u64) -> String {
     let f = n as f64;
     if f >= 1e9 {
@@ -98,20 +146,27 @@ fn f1(x: f64) -> String {
     format!("{x:.1}")
 }
 
-fn kpi(num: &str, lbl: &str) -> String {
+fn metric(v: &str, k: &str) -> String {
     format!(
-        "<div class=\"kpi\"><div class=\"num\">{}</div><div class=\"lbl\">{}</div></div>",
-        esc(num),
-        esc(lbl)
+        "<div class=\"metric\"><div class=\"v\">{}</div><div class=\"k\">{}</div></div>",
+        esc(v),
+        esc(k)
     )
 }
 
-fn hbar(label: &str, value: &str, frac: f64, color: &str) -> String {
+fn eyebrow(title: &str) -> String {
+    format!(
+        "<div class=\"eyebrow\"><h2>{}</h2><div class=\"ln\"></div></div>",
+        esc(title)
+    )
+}
+
+fn bar(label: &str, value: &str, frac: f64, color: &str) -> String {
     let w = (frac.clamp(0.0, 1.0) * 100.0).max(0.0);
     format!(
-        "<div class=\"bar-row\"><div class=\"bar-label\">{}</div>\
-         <div class=\"bar-track\"><div class=\"bar-fill\" style=\"width:{w:.2}%;background:{color}\"></div></div>\
-         <div class=\"bar-val\">{}</div></div>",
+        "<div class=\"bar\"><div class=\"lbl\">{}</div>\
+         <div class=\"track\"><div class=\"fill\" style=\"width:{w:.2}%;background:{color}\"></div></div>\
+         <div class=\"val\">{}</div></div>",
         esc(label),
         esc(value)
     )
@@ -121,10 +176,15 @@ fn page(title: &str, body: &str) -> String {
     format!(
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\
          \n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\
-         \n<title>{}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<div class=\"wrap\">\n{body}\n\
-         <div class=\"foot\">Generated by <span class=\"mono\">cyto summary</span> v{}</div>\n\
-         </div>\n</body>\n</html>\n",
+         \n<title>{}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<div class=\"page\">\n{body}\n</div>\n</body>\n</html>\n",
         esc(title),
+    )
+}
+
+fn footer(left: &str) -> String {
+    format!(
+        "<div class=\"foot\"><span>{}</span><span class=\"mono\">cyto summary v{}</span></div>",
+        esc(left),
         env!("CARGO_PKG_VERSION"),
     )
 }
@@ -154,8 +214,8 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
         .unwrap_or(1)
         .max(1);
 
-    let (w, h) = (780.0_f64, 340.0_f64);
-    let (pl, pr, pt, pb) = (56.0_f64, 16.0_f64, 14.0_f64, 40.0_f64);
+    let (w, h) = (720.0_f64, 300.0_f64);
+    let (pl, pr, pt, pb) = (54.0_f64, 14.0_f64, 12.0_f64, 38.0_f64);
     let iw = w - pl - pr;
     let ih = h - pt - pb;
     let lx = (max_rank as f64).log10().max(1e-9);
@@ -166,20 +226,7 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
     let mut s = String::new();
     let _ = write!(
         s,
-        "<svg class=\"plot\" viewBox=\"0 0 {w} {h}\" preserveAspectRatio=\"xMidYMid meet\" role=\"img\">"
-    );
-    // axes
-    let _ = write!(
-        s,
-        "<line x1=\"{pl}\" y1=\"{pt}\" x2=\"{pl}\" y2=\"{}\" stroke=\"var(--line)\"/>",
-        pt + ih
-    );
-    let _ = write!(
-        s,
-        "<line x1=\"{pl}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"var(--line)\"/>",
-        pt + ih,
-        pl + iw,
-        pt + ih
+        "<svg class=\"plot\" viewBox=\"0 0 {w} {h}\" preserveAspectRatio=\"xMidYMid meet\" role=\"img\" aria-label=\"Barcode rank plot\">"
     );
     // x gridlines (powers of 10)
     let mut e = 0u32;
@@ -187,12 +234,12 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
         let x = px(10u64.pow(e));
         let _ = write!(
             s,
-            "<line x1=\"{x:.1}\" y1=\"{pt}\" x2=\"{x:.1}\" y2=\"{:.1}\" stroke=\"var(--line)\" stroke-dasharray=\"2 3\" opacity=\"0.6\"/>",
+            "<line x1=\"{x:.1}\" y1=\"{pt}\" x2=\"{x:.1}\" y2=\"{:.1}\" stroke=\"var(--rule)\"/>",
             pt + ih
         );
         let _ = write!(
             s,
-            "<text x=\"{x:.1}\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"middle\">{}</text>",
+            "<text x=\"{x:.1}\" y=\"{:.1}\" fill=\"var(--faint)\" font-size=\"10.5\" font-family=\"ui-monospace,Menlo,monospace\" text-anchor=\"middle\">{}</text>",
             pt + ih + 16.0,
             compact(10u64.pow(e))
         );
@@ -204,28 +251,41 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
         let y = py(10u64.pow(e));
         let _ = write!(
             s,
-            "<line x1=\"{pl}\" y1=\"{y:.1}\" x2=\"{:.1}\" y2=\"{y:.1}\" stroke=\"var(--line)\" stroke-dasharray=\"2 3\" opacity=\"0.6\"/>",
+            "<line x1=\"{pl}\" y1=\"{y:.1}\" x2=\"{:.1}\" y2=\"{y:.1}\" stroke=\"var(--rule)\"/>",
             pl + iw
         );
         let _ = write!(
             s,
-            "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"end\">{}</text>",
-            pl - 6.0,
+            "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"var(--faint)\" font-size=\"10.5\" font-family=\"ui-monospace,Menlo,monospace\" text-anchor=\"end\">{}</text>",
+            pl - 7.0,
             y + 3.5,
             compact(10u64.pow(e))
         );
         e += 1;
     }
-    // axis titles
+    // axes (drawn over gridlines)
     let _ = write!(
         s,
-        "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"middle\">Barcode rank</text>",
-        pl + iw / 2.0,
-        h - 4.0
+        "<line x1=\"{pl}\" y1=\"{pt}\" x2=\"{pl}\" y2=\"{:.1}\" stroke=\"var(--rule-strong)\"/>",
+        pt + ih
     );
     let _ = write!(
         s,
-        "<text transform=\"rotate(-90 12 {:.1})\" x=\"12\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"middle\">UMIs per barcode</text>",
+        "<line x1=\"{pl}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"var(--rule-strong)\"/>",
+        pt + ih,
+        pl + iw,
+        pt + ih
+    );
+    // axis titles
+    let _ = write!(
+        s,
+        "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"middle\">barcode rank</text>",
+        pl + iw / 2.0,
+        h - 3.0
+    );
+    let _ = write!(
+        s,
+        "<text transform=\"rotate(-90 11 {:.1})\" x=\"11\" y=\"{:.1}\" fill=\"var(--muted)\" font-size=\"11\" text-anchor=\"middle\">UMIs per barcode</text>",
         pt + ih / 2.0,
         pt + ih / 2.0
     );
@@ -241,23 +301,25 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
             .join(" ");
         let _ = write!(
             s,
-            "<polyline points=\"{pts}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"1.8\"/>"
+            "<polyline points=\"{pts}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/>"
         );
     }
-    // legend
-    let mut ly0 = pt + 6.0;
+    // legend (top-right, over the empty high-rank corner)
+    let mut ly0 = pt + 10.0;
     for (i, p) in with_data.iter().enumerate() {
         let color = PALETTE[i % PALETTE.len()];
-        let x = pl + iw - 96.0;
+        let x = pl + iw - 90.0;
         let _ = write!(
             s,
-            "<rect x=\"{x:.1}\" y=\"{:.1}\" width=\"10\" height=\"10\" fill=\"{color}\" rx=\"2\"/>",
-            ly0 - 8.0
+            "<line x1=\"{x:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"{color}\" stroke-width=\"2\"/>",
+            ly0 - 3.5,
+            x + 16.0,
+            ly0 - 3.5
         );
         let _ = write!(
             s,
-            "<text x=\"{:.1}\" y=\"{ly0:.1}\" fill=\"var(--ink)\" font-size=\"11\">{}</text>",
-            x + 15.0,
+            "<text x=\"{:.1}\" y=\"{ly0:.1}\" fill=\"var(--ink)\" font-size=\"11\" font-family=\"ui-monospace,Menlo,monospace\">{}</text>",
+            x + 22.0,
             esc(&p.name)
         );
         ly0 += 15.0;
@@ -267,21 +329,92 @@ fn knee_svg(probes: &[ProbeSummary]) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// per-sample report
+// per-sample sections
 // ---------------------------------------------------------------------------
 
-fn mapping_card(r: &SampleReport) -> String {
+fn sample_metrics(r: &SampleReport) -> String {
+    let mut m = String::new();
+    let total_reads = r.mapping.as_ref().map_or(r.total_reads, |x| x.total_reads);
+    m.push_str(&metric(&compact(total_reads), "Reads"));
+    if let Some(mp) = &r.mapping {
+        m.push_str(&metric(&pct(mp.mapped_reads_frac), "Mapped"));
+    }
+    if let Some(s) = r.overall_saturation {
+        m.push_str(&metric(&pct(s), "Saturation"));
+    }
+    m.push_str(&metric(&compact(r.total_umis), "UMIs"));
+    let barcodes: u64 = r.probes.iter().map(|p| p.n_barcodes).sum();
+    m.push_str(&metric(&compact(barcodes), "Barcodes"));
+    if r.kind == SampleKind::Crispr {
+        let assigned: u64 = r
+            .probes
+            .iter()
+            .filter_map(|p| p.assignment.as_ref().map(|a| a.n_assigned))
+            .sum();
+        if assigned > 0 {
+            m.push_str(&metric(&compact(assigned), "Cells assigned"));
+        }
+    }
+    format!("<div class=\"metrics\">{m}</div>")
+}
+
+/// The Cell-Ranger-familiar block: library metrics on the left, barcode-rank on the right.
+fn cells_section(r: &SampleReport) -> String {
+    let svg = knee_svg(&r.probes);
+    if svg.is_empty() {
+        return String::new();
+    }
+    let barcodes: u64 = r.probes.iter().map(|p| p.n_barcodes).sum();
+    let mut keys = String::new();
+    let _ = write!(
+        keys,
+        "<tr><td>Barcodes observed</td><td>{}</td></tr>",
+        int(barcodes)
+    );
+    let _ = write!(
+        keys,
+        "<tr><td>Total UMIs</td><td>{}</td></tr>",
+        int(r.total_umis)
+    );
+    if let Some(s) = r.overall_saturation {
+        let _ = write!(
+            keys,
+            "<tr><td>Sequencing saturation</td><td>{}</td></tr>",
+            pct(s)
+        );
+    }
+    if let Some(mp) = &r.mapping {
+        let _ = write!(
+            keys,
+            "<tr><td>Reads in library</td><td>{}</td></tr>",
+            int(mp.total_reads)
+        );
+        let _ = write!(
+            keys,
+            "<tr><td>Reads mapped</td><td>{}</td></tr>",
+            pct(mp.mapped_reads_frac)
+        );
+    }
+    let _ = write!(keys, "<tr><td>Probes</td><td>{}</td></tr>", r.probes.len());
+
+    format!(
+        "<section class=\"section\">{}\
+         <div class=\"split\"><table class=\"keys\"><tbody>{keys}</tbody></table>\
+         <figure>{svg}<figcaption>UMIs per barcode vs. rank (log&ndash;log), one line per probe. The knee separates cell-associated barcodes from background.</figcaption></figure></div></section>",
+        eyebrow("Cells & barcodes"),
+    )
+}
+
+fn mapping_section(r: &SampleReport) -> String {
     let Some(m) = &r.mapping else {
         return String::new();
     };
-    let mut bars = String::new();
-    bars.push_str(&hbar(
+    let mut bars = bar(
         "Mapped",
-        &format!("{} ({})", int(m.mapped_reads), pct(m.mapped_reads_frac)),
+        &format!("{} · {}", int(m.mapped_reads), pct(m.mapped_reads_frac)),
         m.mapped_reads_frac,
-        "var(--good)",
-    ));
-    // unmapped breakdown (fractions are of total unmapped reads)
+        "var(--accent)",
+    );
     let u = &m.unmapped;
     let breakdown = [
         ("Missing feature", u.missing_feature, u.missing_feature_frac),
@@ -298,29 +431,36 @@ fn mapping_card(r: &SampleReport) -> String {
         ("Missing probe", u.missing_probe, u.missing_probe_frac),
         ("UMI truncated", u.umi_truncated, u.umi_truncated_frac),
     ];
-    let mut rows = String::new();
+    let mut reasons = String::new();
     for (label, count, frac) in breakdown {
         if count == 0 {
             continue;
         }
-        rows.push_str(&hbar(
+        reasons.push_str(&bar(
             label,
-            &format!("{} ({} of unmapped)", int(count), pct(frac)),
+            &format!("{} · {} of unmapped", int(count), pct(frac)),
             frac,
-            "var(--bad)",
+            "var(--faint)",
         ));
     }
+    if !reasons.is_empty() {
+        let _ = write!(
+            bars,
+            "<div class=\"subhead\">Unmapped reads by reason</div>{reasons}"
+        );
+    }
     format!(
-        "<div class=\"card\"><h2>Read mapping</h2>\
-         <div class=\"hint\">{} total reads &middot; {} mapped &middot; {} unmapped</div>{bars}\
-         <div style=\"height:6px\"></div><div class=\"muted\" style=\"font-size:12px;margin-bottom:6px\">Unmapped reads by reason (share of unmapped):</div>{rows}</div>",
+        "<section class=\"section\">{}\
+         <div class=\"hint\">{} reads total &middot; {} mapped &middot; {} unmapped. Reason shares are of unmapped reads and can overlap.</div>\
+         <div class=\"bars\">{bars}</div></section>",
+        eyebrow("Read mapping"),
         int(m.total_reads),
         int(m.mapped_reads),
         int(m.unmapped_reads),
     )
 }
 
-fn probe_table(r: &SampleReport) -> String {
+fn probe_section(r: &SampleReport) -> String {
     if r.probes.is_empty() {
         return String::new();
     }
@@ -330,7 +470,7 @@ fn probe_table(r: &SampleReport) -> String {
          <th>Median reads/bc</th><th>Median UMIs/bc</th><th>UMI corr.</th>",
     );
     if is_crispr {
-        head.push_str("<th>Cells assigned</th><th>Dominant MOI</th>");
+        head.push_str("<th>Cells assigned</th><th>Dom. MOI</th>");
     }
     head.push_str("</tr>");
 
@@ -355,7 +495,7 @@ fn probe_table(r: &SampleReport) -> String {
             if let Some(a) = &p.assignment {
                 let _ = write!(
                     body,
-                    "<td>{} ({})</td><td>{}</td>",
+                    "<td>{} · {}</td><td>{}</td>",
                     int(a.n_assigned),
                     pct(a.assigned_frac),
                     a.dominant_moi,
@@ -367,28 +507,17 @@ fn probe_table(r: &SampleReport) -> String {
         body.push_str("</tr>");
     }
     format!(
-        "<div class=\"card\"><h2>Per-probe metrics</h2>\
+        "<section class=\"section\">{}\
          <div class=\"hint\">Saturation = 1 &minus; UMIs / reads (endpoint). Medians are per observed barcode.</div>\
-         <div class=\"overflow\"><table><thead>{head}</thead><tbody>{body}</tbody></table></div></div>"
+         <div class=\"overflow\"><table class=\"data\"><thead>{head}</thead><tbody>{body}</tbody></table></div></section>",
+        eyebrow("Per-probe metrics"),
     )
 }
 
-fn knee_card(r: &SampleReport) -> String {
-    let svg = knee_svg(&r.probes);
-    if svg.is_empty() {
-        return String::new();
-    }
-    format!(
-        "<div class=\"card\"><h2>Barcode-rank plot</h2>\
-         <div class=\"hint\">UMIs per barcode vs. rank (log&ndash;log). The knee separates cell-associated barcodes from background.</div>{svg}</div>"
-    )
-}
-
-fn moi_card(r: &SampleReport) -> String {
+fn moi_section(r: &SampleReport) -> String {
     if r.kind != SampleKind::Crispr {
         return String::new();
     }
-    // Aggregate MOI distribution across probes.
     let mut agg: std::collections::BTreeMap<i64, u64> = std::collections::BTreeMap::new();
     for p in &r.probes {
         if let Some(a) = &p.assignment {
@@ -405,21 +534,33 @@ fn moi_card(r: &SampleReport) -> String {
     let mut rows = String::new();
     for (moi, count) in agg.iter().take(15) {
         let frac_total = *count as f64 / total as f64;
-        rows.push_str(&hbar(
-            &format!("MOI = {moi}"),
-            &format!("{} ({})", int(*count), pct(frac_total)),
+        rows.push_str(&bar(
+            &format!("{moi} guide(s)"),
+            &format!("{} · {}", int(*count), pct(frac_total)),
             *count as f64 / max,
             "var(--accent)",
         ));
     }
     format!(
-        "<div class=\"card\"><h2>Guide multiplicity (MOI)</h2>\
-         <div class=\"hint\">Number of assigned cells by guides-per-cell, across all probes ({} cells).</div>{rows}</div>",
-        int(total)
+        "<section class=\"section\">{}\
+         <div class=\"hint\">Assigned cells by guides-per-cell, across all probes ({} cells).</div>\
+         <div class=\"bars\">{rows}</div></section>",
+        eyebrow("Guide multiplicity"),
+        int(total),
     )
 }
 
-fn timings_card(r: &SampleReport) -> String {
+fn fmt_dur(sec: f64) -> String {
+    if sec >= 3600.0 {
+        format!("{:.1} h", sec / 3600.0)
+    } else if sec >= 60.0 {
+        format!("{:.1} min", sec / 60.0)
+    } else {
+        format!("{sec:.1} s")
+    }
+}
+
+fn timing_section(r: &SampleReport) -> String {
     if r.timings.is_empty() {
         return String::new();
     }
@@ -428,7 +569,6 @@ fn timings_card(r: &SampleReport) -> String {
         *agg.entry(t.module.clone()).or_insert(0.0) += t.elapsed;
     }
     let max = agg.values().copied().fold(0.0_f64, f64::max).max(1e-9);
-    // Present in a stable, pipeline-ish order then any extras.
     let order = [
         "Mapping",
         "InitialSort",
@@ -443,32 +583,24 @@ fn timings_card(r: &SampleReport) -> String {
     let mut seen: Vec<String> = Vec::new();
     for name in order {
         if let Some(sec) = agg.get(name) {
-            rows.push_str(&hbar(name, &fmt_dur(*sec), *sec / max, "var(--accent)"));
+            rows.push_str(&bar(name, &fmt_dur(*sec), *sec / max, "var(--faint)"));
             seen.push(name.to_string());
         }
     }
     for (name, sec) in &agg {
         if !seen.contains(name) {
-            rows.push_str(&hbar(name, &fmt_dur(*sec), *sec / max, "var(--accent)"));
+            rows.push_str(&bar(name, &fmt_dur(*sec), *sec / max, "var(--faint)"));
         }
     }
     format!(
-        "<div class=\"card\"><h2>Pipeline timing</h2>\
-         <div class=\"hint\">Wall-clock summed per module (post-mapping steps run in parallel across probes).</div>{rows}</div>"
+        "<section class=\"section\">{}\
+         <div class=\"hint\">Wall-clock summed per module; post-mapping steps run in parallel across probes.</div>\
+         <div class=\"bars\">{rows}</div></section>",
+        eyebrow("Pipeline timing"),
     )
 }
 
-fn fmt_dur(sec: f64) -> String {
-    if sec >= 3600.0 {
-        format!("{:.1} h", sec / 3600.0)
-    } else if sec >= 60.0 {
-        format!("{:.1} min", sec / 60.0)
-    } else {
-        format!("{sec:.1} s")
-    }
-}
-
-fn libraries_card(r: &SampleReport) -> String {
+fn library_section(r: &SampleReport) -> String {
     if r.libraries.is_empty() {
         return String::new();
     }
@@ -486,79 +618,56 @@ fn libraries_card(r: &SampleReport) -> String {
         );
     }
     format!(
-        "<div class=\"card\"><h2>Reference libraries</h2>\
-         <div class=\"overflow\"><table><thead><tr><th>Library</th><th>Elements</th><th>Aggregated</th><th>Mate</th><th>Window</th><th>Match</th></tr></thead><tbody>{body}</tbody></table></div></div>"
+        "<section class=\"section\">{}\
+         <div class=\"overflow\"><table class=\"data\"><thead><tr><th>Library</th><th>Elements</th><th>Aggregated</th><th>Mate</th><th>Window</th><th>Match</th></tr></thead><tbody>{body}</tbody></table></div></section>",
+        eyebrow("Reference libraries"),
     )
 }
 
-fn notes_card(r: &SampleReport) -> String {
+fn alerts(r: &SampleReport) -> String {
     if r.notes.is_empty() {
         return String::new();
     }
     let mut items = String::new();
     for n in &r.notes {
-        let _ = write!(items, "<div class=\"note\">&#9888; {}</div>", esc(n));
+        let _ = write!(
+            items,
+            "<div class=\"alert\"><b>Note</b> &nbsp;{}</div>",
+            esc(n)
+        );
     }
-    format!("<div class=\"card\"><h2>Notes</h2>{items}</div>")
-}
-
-fn sample_kpis(r: &SampleReport) -> String {
-    let mut tiles = String::new();
-    let total_reads = r.mapping.as_ref().map_or(r.total_reads, |m| m.total_reads);
-    tiles.push_str(&kpi(&compact(total_reads), "Total reads"));
-    if let Some(m) = &r.mapping {
-        tiles.push_str(&kpi(&pct(m.mapped_reads_frac), "Reads mapped"));
-    }
-    if let Some(s) = r.overall_saturation {
-        tiles.push_str(&kpi(&pct(s), "Sequencing saturation"));
-    }
-    tiles.push_str(&kpi(&r.probes.len().to_string(), "Probes"));
-    tiles.push_str(&kpi(&compact(r.total_umis), "Total UMIs"));
-    let barcodes: u64 = r.probes.iter().map(|p| p.n_barcodes).sum();
-    tiles.push_str(&kpi(&compact(barcodes), "Barcodes observed"));
-    if r.kind == SampleKind::Crispr {
-        let assigned: u64 = r
-            .probes
-            .iter()
-            .filter_map(|p| p.assignment.as_ref().map(|a| a.n_assigned))
-            .sum();
-        if assigned > 0 {
-            tiles.push_str(&kpi(&compact(assigned), "Cells assigned"));
-        }
-    }
-    format!("<div class=\"kpis\">{tiles}</div>")
+    items
 }
 
 /// Render a full per-sample HTML report.
 pub fn render_sample(r: &SampleReport) -> String {
-    let kind_class = match r.kind {
-        SampleKind::Gex => "gex",
-        SampleKind::Crispr => "crispr",
-        SampleKind::Unknown => "unknown",
+    let meta = {
+        let mut m = esc(&r.path);
+        if let Some(s) = r.runtime_sec {
+            let _ = write!(m, "  ·  mapping {}", fmt_dur(s));
+        }
+        m
     };
-    let runtime = r
-        .runtime_sec
-        .map(|s| format!(" &middot; mapping {}", fmt_dur(s)))
-        .unwrap_or_default();
     let header = format!(
-        "<div class=\"top\"><h1>{}</h1><span class=\"badge {kind_class}\">{}</span></div>\
-         <div class=\"muted mono\" style=\"margin-top:-14px;margin-bottom:18px\">{}{runtime}</div>",
+        "<div class=\"masthead\"><div><h1 class=\"title\">{}<span class=\"kind\">{}</span></h1>\
+         <div class=\"sub\">{meta}</div></div>\
+         <div class=\"brand\"><b>cyto</b>QC report</div></div>",
         esc(&r.sample),
         esc(r.kind.label()),
-        esc(&r.path),
     );
     let body = format!(
-        "{header}{}{}{}{}{}{}{}{}",
-        sample_kpis(r),
-        mapping_card(r),
-        probe_table(r),
-        knee_card(r),
-        moi_card(r),
-        timings_card(r),
-        libraries_card(r),
-        notes_card(r),
+        "{header}{}{}{}{}{}{}{}{}{}",
+        alerts(r),
+        sample_metrics(r),
+        cells_section(r),
+        mapping_section(r),
+        probe_section(r),
+        moi_section(r),
+        timing_section(r),
+        library_section(r),
+        footer(&r.path),
     );
-    page(&format!("{} — cyto report", r.sample), &body)
+    page(&format!("{} — cyto QC report", r.sample), &body)
 }
 
 // ---------------------------------------------------------------------------
@@ -574,11 +683,11 @@ pub fn render_master(run_name: &str, reports: &[(&SampleReport, String)]) -> Str
         .sum();
     let total_umis: u64 = reports.iter().map(|(r, _)| r.total_umis).sum();
 
-    let mut tiles = String::new();
-    tiles.push_str(&kpi(&n.to_string(), "Samples"));
-    tiles.push_str(&kpi(&compact(total_reads), "Total reads"));
-    tiles.push_str(&kpi(&compact(total_umis), "Total UMIs"));
-    let kpis = format!("<div class=\"kpis\">{tiles}</div>");
+    let mut m = String::new();
+    m.push_str(&metric(&n.to_string(), "Samples"));
+    m.push_str(&metric(&compact(total_reads), "Reads"));
+    m.push_str(&metric(&compact(total_umis), "UMIs"));
+    let metrics = format!("<div class=\"metrics\">{m}</div>");
 
     let mut body_rows = String::new();
     for (r, href) in reports {
@@ -615,19 +724,21 @@ pub fn render_master(run_name: &str, reports: &[(&SampleReport, String)]) -> Str
         );
     }
     let table = format!(
-        "<div class=\"card\"><h2>Samples</h2><div class=\"overflow\"><table><thead>\
+        "<section class=\"section\">{}<div class=\"overflow\"><table class=\"data\"><thead>\
          <tr><th>Sample</th><th>Type</th><th>Reads</th><th>Mapped</th><th>Probes</th><th>UMIs</th><th>Saturation</th><th>Cells assigned</th></tr>\
-         </thead><tbody>{body_rows}</tbody></table></div></div>"
+         </thead><tbody>{body_rows}</tbody></table></div></section>",
+        eyebrow("Samples"),
     );
 
     let header = format!(
-        "<div class=\"top\"><h1>{}</h1><span class=\"badge\">run</span></div>\
-         <div class=\"muted\" style=\"margin-top:-14px;margin-bottom:18px\">{n} sample report{}</div>",
+        "<div class=\"masthead\"><div><h1 class=\"title\">{}<span class=\"kind\">run</span></h1>\
+         <div class=\"sub\">{n} sample{} · click a sample for its full report</div></div>\
+         <div class=\"brand\"><b>cyto</b>QC report</div></div>",
         esc(run_name),
         if n == 1 { "" } else { "s" },
     );
     page(
         &format!("{run_name} — cyto run report"),
-        &format!("{header}{kpis}{table}"),
+        &format!("{header}{metrics}{table}{}", footer(run_name)),
     )
 }
