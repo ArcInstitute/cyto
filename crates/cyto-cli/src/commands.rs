@@ -1,6 +1,6 @@
 use clap::Subcommand;
 
-use super::{ArgsDownload, DetectCommand, IbuCommand, MapCommand, WorkflowCommand};
+use super::{ArgsDownload, ArgsSummary, DetectCommand, IbuCommand, MapCommand, WorkflowCommand};
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -19,6 +19,9 @@ pub enum Commands {
     /// Perform operations on an IBU library
     #[clap(subcommand)]
     Ibu(IbuCommand),
+
+    /// Generate HTML QC reports from finished output directories
+    Summary(ArgsSummary),
 
     /// Download reference resources to ~/.cyto/
     Download(ArgsDownload),

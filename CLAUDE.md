@@ -79,7 +79,7 @@ Workspace uses pedantic clippy lints with specific exceptions defined in root Ca
 
 ## Architecture
 
-### Crate Organization (11 crates in `crates/`)
+### Crate Organization (12 crates in `crates/`)
 
 **Entry Points:**
 
@@ -91,6 +91,10 @@ Workspace uses pedantic clippy lints with specific exceptions defined in root Ca
 - `cyto-map` - Maps reads to features (barcode correction, optional probe demux, geometry handling)
 - `cyto-workflow` - Orchestrates multi-step pipelines (gex, crispr workflows)
 - `cyto-io` - File I/O utilities
+
+**Reporting:**
+
+- `cyto-summary` - Aggregates per-stage `stats/` files into self-contained HTML QC reports (per-sample + master index)
 
 **IBU (Index-Barcode-UMI) Format Processing:**
 
@@ -114,6 +118,7 @@ cyto
 ├── detect
 │   ├── gex        # Auto-detect GEX read geometry
 │   └── crispr     # Auto-detect CRISPR read geometry
+├── summary        # Aggregate finished output dir(s) into HTML QC reports
 └── ibu
     ├── view, sort, count, cat, umi, reads
 ```

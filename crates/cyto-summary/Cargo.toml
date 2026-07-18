@@ -1,0 +1,22 @@
+[package]
+name = "cyto-summary"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+authors = ["Noam Teyssier <noam.teyssier@arcinstitute.org>"]
+description = "HTML QC report generation for cyto output directories"
+repository = "https://github.com/arcinstitute/cyto"
+categories = ["command-line-utilities", "science::bioinformatics"]
+keywords = ["flex", "single-cell", "qc", "report", "sequencing"]
+
+[dependencies]
+anyhow = { workspace = true }
+csv = { workspace = true }
+cyto-cli = { workspace = true }
+cyto-io = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
