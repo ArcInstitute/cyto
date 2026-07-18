@@ -729,16 +729,13 @@ fn alerts(r: &SampleReport) -> String {
 
 /// Render a full per-sample HTML report.
 pub fn render_sample(r: &SampleReport) -> String {
-    let meta = {
-        let mut m = esc(&r.path);
-        if let Some(s) = r.runtime_sec {
-            let _ = write!(m, "  ·  mapping {}", fmt_dur(s));
-        }
-        m
-    };
+    // Keep the masthead clean; the full path lives in the footer.
+    let sub = r
+        .runtime_sec
+        .map(|s| format!("<div class=\"sub\">mapping {}</div>", fmt_dur(s)))
+        .unwrap_or_default();
     let header = format!(
-        "<div class=\"masthead\"><div><h1 class=\"title\">{}<span class=\"kind\">{}</span></h1>\
-         <div class=\"sub\">{meta}</div></div>\
+        "<div class=\"masthead\"><div><h1 class=\"title\">{}<span class=\"kind\">{}</span></h1>{sub}</div>\
          <div class=\"brand\"><b>cyto</b>QC report</div></div>",
         esc(&r.sample),
         esc(r.kind.label()),
