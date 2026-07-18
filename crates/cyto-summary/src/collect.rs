@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cyto_io::match_input_transparent;
-use log::{debug, info, warn};
+#[cfg(feature = "h5ad")]
+use log::info;
+use log::{debug, warn};
+#[cfg(feature = "h5ad")]
 use ndarray::s;
 use serde::de::DeserializeOwned;
 
@@ -209,6 +212,7 @@ fn read_reads(path: &Path, rank_points: usize) -> Result<ReadsAgg> {
 }
 
 /// Locate the count matrix for a probe, preferring the cell-filtered variant.
+#[cfg(feature = "h5ad")]
 fn h5ad_path(dir: &Path, name: &str) -> Option<PathBuf> {
     let filt = dir.join(format!("counts/{name}.filt.h5ad"));
     if filt.is_file() {
@@ -226,6 +230,7 @@ fn h5ad_path(dir: &Path, name: &str) -> Option<PathBuf> {
 ///
 /// Streams the sparse column indices in chunks so a multi-hundred-million-nnz
 /// matrix does not have to be held in memory at once.
+#[cfg(feature = "h5ad")]
 #[allow(clippy::cast_sign_loss)] // sparse column indices are non-negative
 fn read_h5ad_seen(path: &Path) -> Result<(usize, Vec<bool>)> {
     let file = hdf5::File::open(path)?;
@@ -261,6 +266,57 @@ fn read_h5ad_seen(path: &Path) -> Result<(usize, Vec<bool>)> {
         start = end;
     }
     Ok((n_features, seen))
+}
+
+/// Read one probe's count matrix, returning the distinct features detected and
+/// folding its "seen" mask into the sample-level union.
+///
+/// Compiled out (always `None`) unless the `h5ad` feature is enabled.
+#[cfg(feature = "h5ad")]
+#[allow(clippy::cast_possible_truncation)]
+fn probe_features(
+    dir: &Path,
+    name: &str,
+    union: &mut Option<Vec<bool>>,
+    total: &mut Option<u64>,
+    notes: &mut Vec<String>,
+) -> Option<u64> {
+    let h5 = h5ad_path(dir, name)?;
+    info!("Reading features from {}", h5.display());
+    match read_h5ad_seen(&h5) {
+        Ok((n_features, seen)) => {
+            let detected = seen.iter().filter(|&&b| b).count() as u64;
+            *total = Some(n_features as u64);
+            match union.as_mut() {
+                Some(acc) if acc.len() == seen.len() => {
+                    for (a, b) in acc.iter_mut().zip(&seen) {
+                        *a |= *b;
+                    }
+                }
+                _ => *union = Some(seen),
+            }
+            Some(detected)
+        }
+        Err(e) => {
+            warn!("Failed to read features from {}: {e}", h5.display());
+            notes.push(format!(
+                "Failed to read features from {}: {e}",
+                h5.display()
+            ));
+            None
+        }
+    }
+}
+
+#[cfg(not(feature = "h5ad"))]
+fn probe_features(
+    _dir: &Path,
+    _name: &str,
+    _union: &mut Option<Vec<bool>>,
+    _total: &mut Option<u64>,
+    _notes: &mut Vec<String>,
+) -> Option<u64> {
+    None
 }
 
 /// Enumerate probe basenames from `stats/reads/*.reads.tsv.zst`.
@@ -374,32 +430,19 @@ pub fn collect_sample(path: &Path, rank_points: usize, read_features: bool) -> S
         )
         .map(|raw| assignment_summary(&raw));
 
-        // Optional: distinct features detected, read from the count matrix.
-        let mut features_detected = None;
-        if read_features && let Some(h5) = h5ad_path(path, &name) {
-            info!("Reading features from {}", h5.display());
-            match read_h5ad_seen(&h5) {
-                Ok((n_features, seen)) => {
-                    features_detected = Some(seen.iter().filter(|&&b| b).count() as u64);
-                    features_total = Some(n_features as u64);
-                    match sample_seen.as_mut() {
-                        Some(acc) if acc.len() == seen.len() => {
-                            for (a, b) in acc.iter_mut().zip(seen.iter()) {
-                                *a |= *b;
-                            }
-                        }
-                        _ => sample_seen = Some(seen),
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to read features from {}: {e}", h5.display());
-                    notes.push(format!(
-                        "Failed to read features from {}: {e}",
-                        h5.display()
-                    ));
-                }
-            }
-        }
+        // Optional: distinct features detected, read from the count matrix
+        // (only when built with the `h5ad` feature and requested at runtime).
+        let features_detected = if read_features {
+            probe_features(
+                path,
+                &name,
+                &mut sample_seen,
+                &mut features_total,
+                &mut notes,
+            )
+        } else {
+            None
+        };
 
         probes.push(ProbeSummary {
             name,

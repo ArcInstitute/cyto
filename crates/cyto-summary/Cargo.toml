@@ -18,10 +18,15 @@ log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-# HDF5 reading for feature-detection metrics (links system libhdf5).
-hdf5 = { package = "hdf5-metno", version = "0.10.1" }
-hdf5-sys = { package = "hdf5-metno-sys", version = "0.10.1" }
-ndarray = "0.16"
+# HDF5 reading for genes/guides-detected metrics. Optional and off by default:
+# enabling it links system libhdf5, which the default build (and CI /
+# cross-compiled releases) must not require.
+hdf5 = { package = "hdf5-metno", version = "0.10.1", optional = true }
+ndarray = { version = "0.16", optional = true }
+
+[features]
+# Read count matrices (h5ad) to report distinct features detected.
+h5ad = ["dep:hdf5", "dep:ndarray"]
 
 [lints]
 workspace = true

@@ -30,5 +30,10 @@ env_logger = { workspace = true }
 
 strip-ansi-escapes = "0.2.1"
 
+[features]
+# Build `cyto summary` with genes/guides-detected metrics (links system libhdf5).
+# Off by default so the standard build and cross-compiled releases need no libhdf5.
+h5ad = ["cyto-summary/h5ad"]
+
 [lints]
 workspace = true

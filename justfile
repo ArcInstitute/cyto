@@ -25,6 +25,10 @@ install:
 install-portable:
     cargo install --path crates/cyto
 
+# Install with genes/guides-detected metrics (requires system libhdf5).
+install-h5ad:
+    export RUSTFLAGS="-C target-cpu=native"; cargo install --path crates/cyto --features h5ad
+
 run-wf-crispr:
     time cyto workflow crispr \
         -c {{ CRISPR_GUIDES }} \
@@ -58,6 +62,10 @@ run-wf-gex-unprobed:
         --geometry "{{ GEX_UNPROBED_GEOMETRY }}" \
         --force \
         {{ GEX_BINSEQ }}
+
+# Generate an HTML QC report from a finished gex workflow run
+run-summary: run-wf-gex
+    cyto summary ./cyto_out
 
 run-all: run-crispr-binseq run-crispr-fastq run-gex-binseq run-gex-fastq
 

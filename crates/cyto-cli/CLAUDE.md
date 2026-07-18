@@ -7,7 +7,7 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 ## Key Source Files
 
 - `src/commands.rs` — Top-level `Commands` enum (`Workflow`, `Map`, `Detect`, `Ibu`, `Summary`, `Download`)
-- `src/summary/mod.rs` — `ArgsSummary` (inputs, output dir, run name, `--no-json`/`--no-master`/`--no-features`, `--rank-points`) for the `summary` command
+- `src/summary/mod.rs` — `ArgsSummary` (inputs, output dir, run name, `--no-json`/`--no-master`/`--features`, `--rank-points`) for the `summary` command (`--features` is opt-in and needs a build with the `h5ad` feature)
 - `src/map/mod.rs` — `MapCommand` enum (Gex, Crispr) and geometry preset string constants (`GEOMETRY_GEX_FLEX_V1`, `GEOMETRY_GEX_FLEX_V2`, etc.)
 - `src/map/options.rs` — `MapOptions` (geometry DSL, preset selection, exact matching, remap window), `GeometryPreset` enum, `WhitelistOptions`, `ProbeOptions`
 - `src/map/input.rs` — `MultiPairedInput` handles both BINSEQ (`.bq`/`.vbq`/`.cbq`) and FASTX paired-end inputs

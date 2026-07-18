@@ -7,12 +7,24 @@ env:
 
 jobs:
   ci:
-    needs: [build, test, linting, integration]
+    needs: [build, test, linting, integration, build-h5ad]
     name: CI
     runs-on: "ubuntu-latest"
     steps:
       - name: Done
         run: exit 0
+
+  build-h5ad:
+    name: Build (h5ad feature)
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install libhdf5
+        run: sudo apt-get update && sudo apt-get install -y libhdf5-dev pkg-config
+      - name: Build and test with h5ad feature
+        run: |
+          cargo build -p cyto --features h5ad --verbose
+          cargo test -p cyto-summary --features h5ad --verbose
 
   linting:
     name: Linting

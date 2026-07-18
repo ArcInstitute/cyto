@@ -155,6 +155,28 @@ output_dir/
     └── output.counts.tsv    # Single count matrix
 ```
 
+### QC Reports
+
+`cyto summary` turns one or more finished output directories into self-contained
+HTML QC reports (with machine-readable JSON sidecars), aggregating the per-stage
+stat files each workflow already wrote — no reprocessing of reads.
+
+```bash
+# One sample directory, a parent of several, or an explicit list
+cyto summary ./cyto_out
+cyto summary run/*/cyto_out
+```
+
+Each sample gets a `<sample>.cyto-report.html` (headline metrics, read-mapping
+funnel, per-probe table, barcode-rank plot, CRISPR guide multiplicity, timing);
+when several samples are present a `<run>.cyto-report.html` master index links
+them, split by library type. Reports default to `<parent>/cyto_reports/`.
+
+Pass `--features` to also report genes/guides detected by reading the count
+matrices. This requires a build with HDF5 support (`just install-h5ad` or
+`cargo install --path crates/cyto --features h5ad`), which links system
+`libhdf5`; the default build omits it.
+
 ## Input Formats
 
 ### Feature Libraries

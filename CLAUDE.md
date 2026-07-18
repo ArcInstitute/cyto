@@ -27,9 +27,10 @@ just install
 
 ### Dependencies
 
-System `libhdf5` is required to build (the `cyto-summary` crate links it for
-genes/guides-detected metrics). Install e.g. `libhdf5-dev`; it is located via
-`pkg-config` at build time.
+The optional `h5ad` cargo feature (off by default) links system `libhdf5` for
+`cyto summary`'s genes/guides-detected metrics. The default build needs no
+libhdf5; build with `cargo install --path crates/cyto --features h5ad`
+(or `just install-h5ad`) to enable it (`libhdf5-dev`, located via `pkg-config`).
 
 Not strictly necessary but recommended: `bqtools`
 

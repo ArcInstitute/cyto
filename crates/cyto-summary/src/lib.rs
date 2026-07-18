@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use cyto_cli::ArgsSummary;
-use log::info;
+use log::{info, warn};
 
 pub use model::SampleReport;
 
@@ -56,6 +56,13 @@ pub fn run(args: &ArgsSummary) -> Result<()> {
     }
     info!("Found {} sample director(y/ies)", samples.len());
 
+    if args.features && !cfg!(feature = "h5ad") {
+        warn!(
+            "--features was requested but this build has no `h5ad` support; \
+             genes/guides-detected metrics will be omitted (rebuild with --features h5ad)"
+        );
+    }
+
     let parent = common_parent(&samples);
     let outdir = args.outdir.clone().unwrap_or_else(|| {
         parent
@@ -75,7 +82,7 @@ pub fn run(args: &ArgsSummary) -> Result<()> {
 
     let mut reports: Vec<(SampleReport, String)> = Vec::new();
     for sample_dir in &samples {
-        let report = collect::collect_sample(sample_dir, args.rank_points, !args.no_features);
+        let report = collect::collect_sample(sample_dir, args.rank_points, args.features);
         let stem = sanitize(&report.sample);
         let html_name = format!("{stem}.cyto-report.html");
         write_string(&outdir.join(&html_name), &render::render_sample(&report))?;
