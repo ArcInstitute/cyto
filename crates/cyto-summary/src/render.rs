@@ -85,6 +85,12 @@ table.data tbody tr:hover td{background:var(--hover)}
   font-size:12px;color:var(--muted);text-align:right}
 .subhead{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
 @media(max-width:780px){.bar{grid-template-columns:130px 1fr 120px;gap:10px}}
+.bars2{display:grid;grid-template-columns:1fr 1fr;gap:0 48px}
+.bars2 .bar{grid-template-columns:150px 1fr 122px;gap:12px}
+@media(max-width:780px){.bars2{grid-template-columns:1fr}}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:20px 44px;align-items:start}
+.cols2 .section{margin-top:0}
+@media(max-width:780px){.cols2{grid-template-columns:1fr}}
 
 figure{margin:0}
 figcaption{color:var(--muted);font-size:11.5px;margin-top:10px}
@@ -376,6 +382,20 @@ fn cells_section(r: &SampleReport) -> String {
         "<tr><td>Total UMIs</td><td>{}</td></tr>",
         int(r.total_umis)
     );
+    if barcodes > 0 {
+        let _ = write!(
+            keys,
+            "<tr><td>Mean UMIs / barcode</td><td>{}</td></tr>",
+            int(r.total_umis / barcodes)
+        );
+    }
+    if r.total_umis > 0 {
+        let _ = write!(
+            keys,
+            "<tr><td>Reads per UMI</td><td>{}</td></tr>",
+            f1(r.total_reads as f64 / r.total_umis as f64)
+        );
+    }
     if let Some(s) = r.overall_saturation {
         let _ = write!(
             keys,
@@ -384,11 +404,6 @@ fn cells_section(r: &SampleReport) -> String {
         );
     }
     if let Some(mp) = &r.mapping {
-        let _ = write!(
-            keys,
-            "<tr><td>Reads in library</td><td>{}</td></tr>",
-            int(mp.total_reads)
-        );
         let _ = write!(
             keys,
             "<tr><td>Reads mapped</td><td>{}</td></tr>",
@@ -438,7 +453,7 @@ fn mapping_section(r: &SampleReport) -> String {
         }
         reasons.push_str(&bar(
             label,
-            &format!("{} · {} of unmapped", int(count), pct(frac)),
+            &format!("{} · {}", compact(count), pct(frac)),
             frac,
             "var(--faint)",
         ));
@@ -446,7 +461,7 @@ fn mapping_section(r: &SampleReport) -> String {
     if !reasons.is_empty() {
         let _ = write!(
             bars,
-            "<div class=\"subhead\">Unmapped reads by reason</div>{reasons}"
+            "<div class=\"subhead\">Unmapped reads by reason</div><div class=\"bars2\">{reasons}</div>"
         );
     }
     format!(
@@ -532,19 +547,32 @@ fn moi_section(r: &SampleReport) -> String {
     let max = agg.values().copied().max().unwrap_or(1).max(1) as f64;
     let total: u64 = agg.values().copied().sum();
     let mut rows = String::new();
-    for (moi, count) in agg.iter().take(15) {
-        let frac_total = *count as f64 / total as f64;
+    let mut tail: u64 = 0;
+    for (moi, count) in &agg {
+        if *moi <= 8 {
+            let frac_total = *count as f64 / total as f64;
+            rows.push_str(&bar(
+                &format!("{moi} guide(s)"),
+                &format!("{} · {}", int(*count), pct(frac_total)),
+                *count as f64 / max,
+                "var(--accent)",
+            ));
+        } else {
+            tail += *count;
+        }
+    }
+    if tail > 0 {
         rows.push_str(&bar(
-            &format!("{moi} guide(s)"),
-            &format!("{} · {}", int(*count), pct(frac_total)),
-            *count as f64 / max,
+            "9+ guides",
+            &format!("{} · {}", int(tail), pct(tail as f64 / total as f64)),
+            tail as f64 / max,
             "var(--accent)",
         ));
     }
     format!(
         "<section class=\"section\">{}\
          <div class=\"hint\">Assigned cells by guides-per-cell, across all probes ({} cells).</div>\
-         <div class=\"bars\">{rows}</div></section>",
+         <div class=\"bars bars2\">{rows}</div></section>",
         eyebrow("Guide multiplicity"),
         int(total),
     )
@@ -595,17 +623,23 @@ fn timing_section(r: &SampleReport) -> String {
     format!(
         "<section class=\"section\">{}\
          <div class=\"hint\">Wall-clock summed per module; post-mapping steps run in parallel across probes.</div>\
-         <div class=\"bars\">{rows}</div></section>",
+         <div class=\"bars bars2\">{rows}</div></section>",
         eyebrow("Pipeline timing"),
     )
 }
 
 fn library_section(r: &SampleReport) -> String {
-    if r.libraries.is_empty() {
+    // The cell-barcode whitelist is not a feature library; hide it here.
+    let libs: Vec<_> = r
+        .libraries
+        .iter()
+        .filter(|l| l.name != "whitelist")
+        .collect();
+    if libs.is_empty() {
         return String::new();
     }
     let mut body = String::new();
-    for l in &r.libraries {
+    for l in libs {
         let _ = write!(
             body,
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
@@ -674,6 +708,54 @@ pub fn render_sample(r: &SampleReport) -> String {
 // master (cross-sample) report
 // ---------------------------------------------------------------------------
 
+/// Render one master column: a linked sample table for a single library type.
+fn master_column(title: &str, subset: &[&(&SampleReport, String)], is_crispr: bool) -> String {
+    let mut rows = String::new();
+    for (r, href) in subset {
+        let mapped = r
+            .mapping
+            .as_ref()
+            .map_or_else(|| "&mdash;".to_string(), |m| pct(m.mapped_reads_frac));
+        let sat = r
+            .overall_saturation
+            .map_or_else(|| "&mdash;".to_string(), pct);
+        let reads = r.mapping.as_ref().map_or(r.total_reads, |m| m.total_reads);
+        let _ = write!(
+            rows,
+            "<tr><td><a href=\"{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            esc(href),
+            esc(&r.sample),
+            compact(reads),
+            mapped,
+            compact(r.total_umis),
+            sat,
+        );
+        if is_crispr {
+            let assigned: u64 = r
+                .probes
+                .iter()
+                .filter_map(|p| p.assignment.as_ref().map(|a| a.n_assigned))
+                .sum();
+            let cells = if assigned > 0 {
+                compact(assigned)
+            } else {
+                "&mdash;".to_string()
+            };
+            let _ = write!(rows, "<td>{cells}</td>");
+        }
+        rows.push_str("</tr>");
+    }
+    let head = if is_crispr {
+        "<tr><th>Sample</th><th>Reads</th><th>Mapped</th><th>UMIs</th><th>Sat.</th><th>Cells</th></tr>"
+    } else {
+        "<tr><th>Sample</th><th>Reads</th><th>Mapped</th><th>UMIs</th><th>Sat.</th></tr>"
+    };
+    format!(
+        "<section class=\"section\">{}<div class=\"overflow\"><table class=\"data\"><thead>{head}</thead><tbody>{rows}</tbody></table></div></section>",
+        eyebrow(title),
+    )
+}
+
 /// Render an index over multiple samples, linking to each per-sample report.
 pub fn render_master(run_name: &str, reports: &[(&SampleReport, String)]) -> String {
     let n = reports.len();
@@ -689,46 +771,25 @@ pub fn render_master(run_name: &str, reports: &[(&SampleReport, String)]) -> Str
     m.push_str(&metric(&compact(total_umis), "UMIs"));
     let metrics = format!("<div class=\"metrics\">{m}</div>");
 
-    let mut body_rows = String::new();
-    for (r, href) in reports {
-        let mapped = r
-            .mapping
-            .as_ref()
-            .map_or_else(|| "&mdash;".to_string(), |m| pct(m.mapped_reads_frac));
-        let sat = r
-            .overall_saturation
-            .map_or_else(|| "&mdash;".to_string(), pct);
-        let reads = r.mapping.as_ref().map_or(r.total_reads, |m| m.total_reads);
-        let assigned: u64 = r
-            .probes
-            .iter()
-            .filter_map(|p| p.assignment.as_ref().map(|a| a.n_assigned))
-            .sum();
-        let cells = if r.kind == SampleKind::Crispr && assigned > 0 {
-            int(assigned)
-        } else {
-            "&mdash;".to_string()
-        };
-        let _ = write!(
-            body_rows,
-            "<tr><td><a href=\"{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            esc(href),
-            esc(&r.sample),
-            esc(r.kind.label()),
-            int(reads),
-            mapped,
-            r.probes.len(),
-            int(r.total_umis),
-            sat,
-            cells,
-        );
+    // Split samples into separate columns by library type.
+    let kinds = [
+        (SampleKind::Gex, "Gene expression", false),
+        (SampleKind::Crispr, "CRISPR", true),
+        (SampleKind::Unknown, "Other", false),
+    ];
+    let mut columns = String::new();
+    let mut n_cols = 0;
+    for (kind, title, is_crispr) in kinds {
+        let subset: Vec<&(&SampleReport, String)> =
+            reports.iter().filter(|(r, _)| r.kind == kind).collect();
+        if subset.is_empty() {
+            continue;
+        }
+        n_cols += 1;
+        columns.push_str(&master_column(title, &subset, is_crispr));
     }
-    let table = format!(
-        "<section class=\"section\">{}<div class=\"overflow\"><table class=\"data\"><thead>\
-         <tr><th>Sample</th><th>Type</th><th>Reads</th><th>Mapped</th><th>Probes</th><th>UMIs</th><th>Saturation</th><th>Cells assigned</th></tr>\
-         </thead><tbody>{body_rows}</tbody></table></div></section>",
-        eyebrow("Samples"),
-    );
+    let grid = if n_cols > 1 { "cols2" } else { "" };
+    let body_grid = format!("<div class=\"{grid}\">{columns}</div>");
 
     let header = format!(
         "<div class=\"masthead\"><div><h1 class=\"title\">{}<span class=\"kind\">run</span></h1>\
@@ -739,6 +800,6 @@ pub fn render_master(run_name: &str, reports: &[(&SampleReport, String)]) -> Str
     );
     page(
         &format!("{run_name} — cyto run report"),
-        &format!("{header}{metrics}{table}{}", footer(run_name)),
+        &format!("{header}{metrics}{body_grid}{}", footer(run_name)),
     )
 }
