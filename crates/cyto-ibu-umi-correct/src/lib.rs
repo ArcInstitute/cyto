@@ -101,7 +101,7 @@ fn collapse_index_set(index_set: &mut [Record], umi_len: usize) -> Result<usize>
     let mut n_edges = 0;
     for i in 0..n_unique {
         for j in i + 1..n_unique {
-            if bitnuc::twobit::hdist_scalar(unique_umis[i], unique_umis[j], umi_len)? <= 1 {
+            if bitnuc::hdist_scalar(unique_umis[i], unique_umis[j], umi_len)? <= 1 {
                 graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ());
                 n_edges += 1;
             }

@@ -37,7 +37,8 @@ impl<'a> Stats<&'a str> {
         n_reads: usize,
     ) -> Result<Self> {
         dbuf.clear();
-        bitnuc::twobit::decode(&[barcode], n_bases as usize, dbuf)?;
+        let bytes = bitnuc::from_2bit(barcode);
+        dbuf.extend_from_slice(&bytes[..n_bases as usize]);
         let barcode_str = std::str::from_utf8(dbuf)?;
         Ok(Stats {
             barcode: barcode_str,

@@ -48,10 +48,12 @@ fn decode_record<'a, 'b>(
     barcode_buffer: &'a mut Vec<u8>,
     umi_buffer: &'b mut Vec<u8>,
 ) -> Result<(&'a str, &'b str, u64)> {
-    bitnuc::from_2bit(record.barcode, header.bc_len as usize, barcode_buffer)?;
+    let bc_bytes = bitnuc::from_2bit(record.barcode);
+    barcode_buffer.extend_from_slice(&bc_bytes[..header.bc_len as usize]);
     let barcode_str = std::str::from_utf8(barcode_buffer)?;
 
-    bitnuc::from_2bit(record.umi, header.umi_len as usize, umi_buffer)?;
+    let umi_bytes = bitnuc::from_2bit(record.umi);
+    umi_buffer.extend_from_slice(&umi_bytes[..header.umi_len as usize]);
     let umi_str = std::str::from_utf8(umi_buffer)?;
 
     Ok((barcode_str, umi_str, record.index))

@@ -48,7 +48,7 @@ impl UmiMapper {
     #[inline]
     pub fn extract_2bit_umi(&self, seq: &[u8]) -> Option<Result<u64>> {
         self.extract_umi(seq)
-            .map(|umi| bitnuc::as_2bit_lossy(umi).map_err(anyhow::Error::new))
+            .map(|umi| bitnuc::as_2bit(umi).map_err(anyhow::Error::new))
     }
 
     /// Validates that all quality scores are above the required threshold

@@ -57,7 +57,8 @@ fn decode_record(
     header: Header,
     barcode_buffer: &mut Vec<u8>,
 ) -> Result<(&str, u64, u64)> {
-    bitnuc::from_2bit(record.barcode(), header.bc_len as usize, barcode_buffer)?;
+    barcode_buffer[..header.bc_len as usize]
+        .copy_from_slice(&bitnuc::from_2bit(record.barcode())[..header.bc_len as usize]);
     let barcode_str = std::str::from_utf8(barcode_buffer)?;
     Ok((barcode_str, record.count(), record.index()))
 }
@@ -87,11 +88,8 @@ fn dump_decoded_records_features<W: Write>(
 ) -> Result<()> {
     let mut barcode_buffer = Vec::new(); // Reusable buffer for barcode nucleotides
     for record in records {
-        bitnuc::from_2bit(
-            record.barcode(),
-            header.bc_len as usize,
-            &mut barcode_buffer,
-        )?;
+        let bytes = bitnuc::from_2bit(record.barcode());
+        barcode_buffer.extend_from_slice(&bytes[..header.bc_len as usize]);
 
         // handle suffix
         extend_suffix(&mut barcode_buffer, suffix);
@@ -270,7 +268,8 @@ fn write_counts_mtx<P: AsRef<Path>>(
         } else {
             // decode the barcode
             dbuf.clear();
-            bitnuc::from_2bit(record.barcode(), header.bc_len as usize, &mut dbuf)?;
+            let bytes = bitnuc::from_2bit(record.barcode());
+            dbuf.extend_from_slice(&bytes[..header.bc_len as usize]);
 
             // handle suffix
             extend_suffix(&mut dbuf, suffix);

@@ -21,7 +21,7 @@ hashbrown = { workspace = true }
 serde = { workspace = true }
 
 gzp = "2.0.2"
-thiserror = "2.0.18"
+thiserror = "2.0.20"
 
 [lints]
 workspace = true
