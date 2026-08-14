@@ -510,10 +510,9 @@ fn find_best_positions(
             .map(|((_, mate, pos), &count)| (*mate, *pos, count))
             .collect();
 
-        // Total order: count descending, then (mate, position) ascending as a
-        // deterministic tie-break. Without this, equal-count positions can order
-        // differently between two HashMap instances (pooled vs per-lane
-        // accumulators are seeded independently), producing spurious conflicts.
+        // Count descending, then (mate, position) ascending: a deterministic
+        // tie-break. Without it, independently-seeded HashMaps (pooled vs
+        // per-lane) order equal counts differently, producing spurious conflicts.
         positions.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)).then(a.1.cmp(&b.1)));
 
         let top_positions: Vec<_> = positions.iter().take(5).copied().collect();
@@ -632,9 +631,9 @@ fn resolve_overlaps(assignments: &mut [ComponentAssignment]) -> Result<()> {
 
 /// Ensure every required component has at least one observed position.
 ///
-/// A missing component means the reads do not match the expected layout (wrong
-/// whitelist or reference, or an index read). Bailing here keeps the failure a
-/// recoverable error instead of panicking later during UMI placement.
+/// A missing component means the reads don't match the expected layout (wrong
+/// whitelist/reference, or an index read); bail with a recoverable error rather
+/// than panicking later during UMI placement.
 fn ensure_components_present(
     assignments: &[ComponentAssignment],
     components: &[Component],
@@ -767,10 +766,9 @@ fn infer_geometry(
     // Build evidence (windowed fields use the just-computed `remap_window`).
     let evidence = build_evidence(&assignments, accumulator, total_reads, remap_window);
 
-    // Insert UMI: same mate as barcode, right after barcode. Both conditions are
-    // guaranteed by the missing-component guard above and by the seq_len map the
-    // callers build, but bail rather than panic to keep detection failures
-    // recoverable errors.
+    // Insert UMI right after the barcode on the same mate. The guards below
+    // can't fire in practice (missing-component check + caller seq_len map) but
+    // bail rather than panic to keep failures recoverable.
     let Some(barcode) = assignments
         .iter()
         .find(|a| a.component == Component::Barcode)
@@ -944,12 +942,10 @@ fn estimate_remap_window(
             continue;
         }
 
-        // Find the best (mate, position) for this component. Tie-break on the
-        // lowest (mate, position) so the choice is a total order -- `max_by_key`
-        // over a HashMap otherwise returns the last of any count-tie in
-        // randomized iteration order, which (via `component_tolerance`) could
-        // flip a cross-lane conflict verdict between runs. Matches the total
-        // tie-break in `find_best_positions`.
+        // Best (mate, position) by count, tie-broken to the lowest for a total
+        // order -- otherwise `max_by_key` picks an arbitrary count-tie winner in
+        // HashMap order, which could flip a cross-lane conflict verdict. Matches
+        // `find_best_positions`.
         let best_entry = accumulator
             .counts
             .iter()
@@ -1023,11 +1019,9 @@ fn estimate_remap_window(
 
 /// Per-component position tolerance for cross-lane consistency checks.
 ///
-/// Feature-mapping components (gex, anchor, protospacer) tolerate the remap
-/// window -- the maximum across the pool and every lane -- which reflects
-/// genuine biological spread. Fixed-position components (barcode, probe)
-/// tolerate a small constant that absorbs argmax/estimation jitter (e.g. a
-/// `[:12]` vs `[:13]` skip before the probe).
+/// Feature components (gex, anchor, protospacer) tolerate the remap window
+/// (genuine biological spread); fixed-position components (barcode, probe)
+/// tolerate a small constant absorbing argmax jitter (e.g. `[:12]` vs `[:13]`).
 fn component_tolerance(component: Component, remap_tolerance_window: usize) -> usize {
     match component {
         Component::Gex | Component::Anchor | Component::Protospacer => {
@@ -1037,12 +1031,11 @@ fn component_tolerance(component: Component, remap_tolerance_window: usize) -> u
     }
 }
 
-/// Collect cross-lane consistency conflicts: components a lane is *strong* on
-/// (match proportion at or above `min_proportion`) whose position disagrees with
-/// the pooled geometry on mate or by more than `component_tolerance`. Each entry
-/// names the lane, component, and both positions so the caller's error message
-/// identifies the offender even when two lanes render the same geometry string
-/// (a variable-length anchor suppresses the skip that would show the offset).
+/// Collect cross-lane conflicts: for each component a lane is *strong* on
+/// (proportion >= `min_proportion`), flag disagreement with the pooled geometry
+/// on mate or by more than `component_tolerance`. Each entry names the lane,
+/// component, and both positions -- two lanes can render the same geometry string
+/// yet differ (a variable-length anchor hides the offset).
 fn collect_lane_conflicts(
     lanes: &[(String, DetectionResult)],
     pooled_result: &DetectionResult,
@@ -1079,23 +1072,14 @@ fn collect_lane_conflicts(
     conflicts
 }
 
-/// Pool per-lane accumulators, then estimate, accept, and validate the geometry.
+/// Pool per-lane accumulators, then infer, accept, and validate the geometry.
 ///
-/// 1. **Pool** all lanes; the reported geometry is inferred from the pool, which
-///    sharpens position/mode estimates for shallow lanes.
-/// 2. **Infer each lane** with the accept threshold disabled, so weak lanes still
-///    produce a result. A lane is fatal only when it has zero reads, an
-///    unresolvable overlap, or a missing required component.
-/// 3. **Accept** iff at least one lane matches every component at or above
-///    `config.min_proportion` (a per-lane maximum, not the pooled proportion --
-///    pooling a low-signal lane must never sink an otherwise-readable lane).
-/// 4. **Remap window** is the maximum across the pool and all lanes (advisory;
-///    the mapper takes its window from `--remap-window`, not from this value).
-///    Computed before the consistency check so feature-component tolerance
-///    reflects the full observed spread, not the pooled window alone.
-/// 5. **Consistency**: every component a lane is *strong* on must agree with the
-///    pool on mate and position (within `component_tolerance`). Weak components
-///    do not vote, so a lane's noisy argmax cannot false-trip a conflict.
+/// The reported geometry comes from the pooled accumulator (sharpens shallow
+/// lanes). Detection accepts iff at least one lane is strong on every component
+/// (a per-lane maximum -- one low-signal lane can't sink a readable one), and
+/// requires every *strong* component to agree with the pool within
+/// `component_tolerance`. The advisory remap window is the max across pool and
+/// lanes. Steps are numbered in the body.
 fn finalize_detection(
     per_file_accs: Vec<(String, PositionAccumulator)>,
     mode: DetectionMode,
@@ -1151,12 +1135,10 @@ fn finalize_detection(
         bail!("{msg}");
     }
 
-    // 4. Infer the pooled geometry, then set the advisory remap window to the
-    //    maximum across the pool and every lane. Computed BEFORE the consistency
-    //    check so the per-component tolerance reflects the full observed spread:
-    //    the pooled `min_hits` scales with the summed read count, so the pooled
-    //    window alone can understate a spread that every lane individually
-    //    resolves (see `test_finalize_max_remap_window_across_lanes`).
+    // 4. Pooled geometry + advisory remap window (max across pool and lanes).
+    //    Computed before the consistency check: the pooled min_hits scales with
+    //    summed reads, so the pooled window alone can understate a spread every
+    //    lane resolves (see test_finalize_max_remap_window_across_lanes).
     let mut pooled_result = infer_geometry(&pooled, mode, has_probe, component_seq_lens, &lane_cfg)
         .map_err(|e| anyhow!("pooled geometry inference failed: {e}"))?;
     let max_window = lanes
@@ -1167,11 +1149,10 @@ fn finalize_detection(
         .unwrap_or(1);
     pooled_result.remap_window = max_window;
 
-    // The reported evidence's windowed counts were computed by the pooled
-    // inference at the pool's own window; re-walk them at `max_window` (the
-    // reported window) so `windowed_match_count` reflects what
-    // `cyto map --remap-window {max_window}` would score. Per-lane results keep
-    // their own per-lane window, set by each lane's inference.
+    // Re-walk the pooled windowed counts at max_window (the reported window) so
+    // windowed_match_count reflects what `cyto map --remap-window {max_window}`
+    // would score; the pooled inference used the pool's own window. Per-lane
+    // results keep their own window.
     let pooled_total = pooled_result.total_reads_sampled;
     for ev in &mut pooled_result.evidence {
         let windowed = pooled.windowed_count(ev.component, ev.mate, ev.position, max_window);
@@ -1183,11 +1164,8 @@ fn finalize_detection(
         };
     }
 
-    // 5. Consistency: every component a lane is *strong* on must agree with the
-    //    pool on mate and position (within `component_tolerance`). The collected
-    //    conflicts name the offending lane/component/positions -- two lanes can
-    //    render the same geometry string yet differ, because a variable-length
-    //    anchor suppresses the skip that would otherwise show a downstream offset.
+    // 5. Consistency: every *strong* component must agree with the pool within
+    //    component_tolerance (see collect_lane_conflicts).
     let conflicts = collect_lane_conflicts(&lanes, &pooled_result, config.min_proportion);
     if !conflicts.is_empty() {
         use std::fmt::Write;
@@ -1279,15 +1257,11 @@ fn log_top_alternatives(ev: &ComponentEvidence) {
 
 /// Detect GEX geometry by sampling reads and scanning for component positions.
 ///
-/// Samples each input file (lane) independently, pools all lanes to estimate the
-/// reported geometry, accepts when at least one lane matches every component
-/// above the threshold, and validates cross-lane consistency by per-component
-/// position tolerance against the pool. The remap window is the maximum across
-/// the pool and all lanes (advisory). See [`finalize_detection`].
+/// Samples each lane independently and reconciles them via [`finalize_detection`]
+/// (pool, per-lane-max accept, cross-lane consistency, advisory remap window).
 ///
-/// The mappers are moved into the detection processor and consumed.
-/// Callers should create fresh mappers for the actual mapping pipeline after
-/// detection returns.
+/// The mappers are moved into the detection processor and consumed; create fresh
+/// mappers for the mapping pipeline after detection returns.
 pub fn detect_gex_geometry(
     whitelist: WhitelistMapper<Unpositioned>,
     gex: GexMapper<Unpositioned>,
@@ -1328,11 +1302,8 @@ pub fn detect_gex_geometry(
 
 /// Detect CRISPR geometry by sampling reads and scanning for component positions.
 ///
-/// Samples each input file (lane) independently, pools all lanes to estimate the
-/// reported geometry, accepts when at least one lane matches every component
-/// above the threshold, and validates cross-lane consistency by per-component
-/// position tolerance against the pool. The remap window is the maximum across
-/// the pool and all lanes (advisory). See [`finalize_detection`].
+/// Samples each lane independently and reconciles them via [`finalize_detection`]
+/// (pool, per-lane-max accept, cross-lane consistency, advisory remap window).
 ///
 /// The mappers are moved into the detection processor and consumed.
 pub fn detect_crispr_geometry(
@@ -2137,10 +2108,9 @@ mod tests {
 
     #[test]
     fn test_finalize_pooled_passes_with_one_weak_lane() {
-        // Two strong lanes + one lane whose probe is barely present (2.16%),
+        // Two strong lanes + one lane with probe barely present (2.16%),
         // mirroring FLEXLIBPOOL002 run 1174. Detection must still succeed.
-        // Mutation: reverting lane_cfg.min_proportion to config makes the weak
-        // lane's infer_geometry bail -> finalize errors -> this test fails.
+        // Mutation: reverting lane_cfg.min_proportion to config bails the weak lane.
         let strong = |label: &str| {
             lane(
                 label,
@@ -2524,13 +2494,10 @@ mod tests {
     #[test]
     fn test_finalize_weak_component_far_from_pool_does_not_conflict() {
         // A weak component whose argmax is FAR from the pool must not trip the
-        // consistency check -- weak components do not vote. Two strong lanes put
-        // the probe at R2:68; a third weak lane has its 2% probe signal at R2:90.
-        // Detection must still succeed and report the pooled (R2:68) geometry.
-        // Mutation: removing the `match_proportion < min_proportion` guard at the
-        // top of the consistency loop makes the weak lane vote -> |90-68| = 22 >
-        // probe tol 2 -> "Geometry mismatch" -> this test fails. Without a lane
-        // whose *weak* component sits far from the pool, that guard is untested.
+        // consistency check -- weak components don't vote. Two strong lanes put
+        // the probe at R2:68; a weak lane's 2% probe signal sits at R2:90.
+        // Mutation: removing the `match_proportion < min_proportion` guard lets
+        // the weak lane vote -> |90-68| = 22 > probe tol 2 -> mismatch -> fails.
         let strong = |label: &str| {
             lane(
                 label,
@@ -2569,16 +2536,12 @@ mod tests {
     #[test]
     fn test_finalize_wide_pooled_window_tolerates_feature_jitter() {
         // Two strong GEX lanes whose gex argmax differ by 12 bp, bridged by a
-        // contiguous low tail. The tail clears each lane's min_hits (100 at
-        // 10_000 reads) but not the pooled min_hits (200 at 20_000), so the
-        // POOLED window is 1 while the max-across-lanes window is 12. The
-        // consistency tolerance must use the latter, or this legitimate
-        // single-chemistry jitter is falsely rejected.
-        // Mutation A: passing the pooled window (1 -> tol 2) instead of the max
-        //   (12) to component_tolerance -> |40-52| = 12 > 2 -> bail -> fails.
-        // Mutation B: replacing `pooled_remap_window.max(2)` with a constant 2 in
-        //   component_tolerance -> same bail -> fails. (No other test drives the
-        //   window-scaled branch of component_tolerance.)
+        // contiguous low tail. The tail clears each lane's min_hits but not the
+        // pooled min_hits, so the pooled window is 1 while the max-across-lanes
+        // window is 12; the consistency tolerance must use the latter or this
+        // legitimate single-chemistry jitter is falsely rejected.
+        // Mutation: using the pooled window (tol 2) instead of the max (12) in
+        // component_tolerance -> |40-52| = 12 > 2 -> bail -> fails.
         let mut lane1_entries = vec![
             (Component::Barcode, ReadMate::R1, 0, 8000),
             (Component::Gex, ReadMate::R2, 40, 3000),
@@ -2631,10 +2594,8 @@ mod tests {
     fn test_remap_window_argmax_tie_breaks_to_lowest_position() {
         // Determinism guard for estimate_remap_window: three gex positions tie at
         // the max count. The argmax must resolve to the LOWEST (mate, position)
-        // (R2:10), whose contiguous neighbors R2:11/12 give window 2. A HashMap-
-        // order-dependent argmax could instead start at R2:30 (isolated, window 1)
-        // or R2:11 (window 1), so this pins the total tie-break. Deterministic on
-        // the fixed code regardless of HashMap seed.
+        // (R2:10), whose neighbors R2:11/12 give window 2; a HashMap-order argmax
+        // could start at R2:30 or R2:11 (window 1). Pins the total tie-break.
         let acc = build_accumulator(
             &[
                 (Component::Gex, ReadMate::R2, 10, 5000),
@@ -2867,12 +2828,10 @@ mod tests {
         );
     }
 
-    /// Test 6: the reported evidence's windowed count is re-walked on the POOLED
-    /// accumulator at the MAX window (across lanes and pool), not at the pooled
-    /// window. lane2's gex tail (21,22 at 150) clears the per-lane `min_hits` (100)
-    /// but not the pooled `min_hits` (200), so pooled window = 1 while max window =
-    /// 2. Re-walking at 2 sums positions 21 and 22; a walk at the pooled window 1
-    /// would miss position 22. Also pins per-lane windowed values at each lane's
+    /// Test 6: the reported windowed count is re-walked on the POOLED accumulator
+    /// at the MAX window, not the pooled window. lane2's gex tail (21,22) clears
+    /// the per-lane `min_hits` but not the pooled `min_hits`, so pooled window = 1
+    /// while max window = 2. Also pins per-lane windowed values at each lane's
     /// own window.
     #[test]
     fn test_finalize_windowed_rewalk_at_max_window() {
