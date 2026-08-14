@@ -127,21 +127,27 @@ pub struct ArgsWorkflow {
 }
 impl ArgsWorkflow {
     pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
-        if self.format == CountFormat::H5ad || !self.no_filter {
-            debug!("Checking if `uvx` exists in $PATH");
-            match Command::new("uvx").args(["--version"]).output() {
-                Ok(_) => debug!("Found `uvx` in $PATH"),
-                Err(e) => {
-                    error!("Encountered an unexpected error checking for `uvx`: {e}");
-                    bail!("Encountered an unexpected error checking for `uvx`: {e}");
-                }
-            }
-            warm_uvx("pycyto", VERSION_PYCYTO)?;
+        // The external Python tools run only when converting to h5ad;
+        // `cyto-workflow`'s `ibu_steps` gates convert/filter/assign on
+        // `to_h5ad()`. Keep these guards in sync with those invocation sites so
+        // we never resolve a tool the run will not use (nothing in mtx/tsv mode).
+        if !self.to_h5ad() {
+            return Ok(());
         }
+
+        debug!("Checking if `uvx` exists in $PATH");
+        match Command::new("uvx").args(["--version"]).output() {
+            Ok(_) => debug!("Found `uvx` in $PATH"),
+            Err(e) => {
+                error!("Encountered an unexpected error checking for `uvx`: {e}");
+                bail!("Encountered an unexpected error checking for `uvx`: {e}");
+            }
+        }
+        warm_uvx("pycyto", VERSION_PYCYTO)?;
         if mode == WorkflowMode::Gex && !self.no_filter {
             warm_uvx("cell-filter", VERSION_CELL_FILTER)?;
         }
-        if mode == WorkflowMode::Crispr {
+        if mode == WorkflowMode::Crispr && !self.skip_assignment {
             warm_uvx("geomux", VERSION_GEOMUX)?;
         }
         Ok(())

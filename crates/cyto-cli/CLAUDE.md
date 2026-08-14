@@ -31,7 +31,7 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 
 - Geometry presets: V2 presets force `remap_window=5`, V1 uses default of 1
 - `MultiPairedInput.is_binseq()` auto-detects format by file extension
-- `ArgsWorkflow.validate_requirements()` runs Python tools (`pycyto`, `cell-filter`, `geomux`) via `uvx` at pinned versions in an ephemeral environment. It checks `uvx` is on `$PATH` and warms each tool's ephemeral environment once up front.
+- `ArgsWorkflow.validate_requirements()` checks `uvx` is on `$PATH` and pre-resolves each pinned tool's ephemeral `uvx` environment once, up front. It resolves only the tools the run will use — nothing in mtx/tsv modes — mirroring the convert/filter/assign guards in `cyto-workflow`. The tools themselves are invoked later from `cyto-workflow`.
 - External tool versions are pinned as constants: `VERSION_GEOMUX`, `VERSION_CELL_FILTER`, `VERSION_PYCYTO`
 
 ## Dependencies (within workspace)
