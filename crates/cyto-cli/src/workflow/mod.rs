@@ -191,9 +191,14 @@ pub fn uvx_command(name: &str, version: &str) -> Command {
 fn warm_uvx(name: &str, version: &str) -> Result<()> {
     debug!("Resolving `{name}=={version}` via uvx if necessary...");
     match uvx_command(name, version).arg("--help").output() {
-        Ok(_) => {
+        Ok(output) if output.status.success() => {
             debug!("Resolved `{name}`");
             Ok(())
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!("Failed to resolve `{name}` via uvx: {stderr}");
+            bail!("Failed to resolve `{name}` via uvx: {stderr}");
         }
         Err(e) => {
             error!("Encountered an unexpected error resolving `{name}` via uvx: {e}");
