@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> convert -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. Invokes external Python tools (`pycyto`, `cell-filter`, `geomux`) via `uvx` at pinned versions, using the `cyto_cli::workflow::uvx_command` helper (which builds a `std::process::Command`). This runs each tool in an ephemeral, isolated environment and never mutates the user's global `uv tool` set.
+Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> convert -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. Invokes external Python tools (`pycyto`, `cell-filter`, `geomux`) via `uvx` at pinned versions, using the `cyto_cli::workflow::uvx_command` helper (which builds a `std::process::Command`). This runs each tool in an ephemeral, isolated environment.
 
 ## Key Source Files
 
