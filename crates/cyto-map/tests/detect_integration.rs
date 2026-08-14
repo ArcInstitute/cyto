@@ -55,6 +55,42 @@ fn test_detect_gex_geometry_from_binseq() {
     assert!(components.contains(&cyto_map::Component::Barcode));
     assert!(components.contains(&cyto_map::Component::Gex));
     assert!(components.contains(&cyto_map::Component::Probe));
+
+    // Windowed match count/proportion must be >= the single-position values
+    // (windowed sum over a range that contains best_pos can only grow).
+    let gex_evidence = result
+        .evidence
+        .iter()
+        .find(|e| e.component == cyto_map::Component::Gex)
+        .unwrap();
+    assert!(
+        gex_evidence.windowed_match_count >= gex_evidence.match_count,
+        "gex windowed_match_count ({}) must be >= match_count ({})",
+        gex_evidence.windowed_match_count,
+        gex_evidence.match_count,
+    );
+    assert!(
+        gex_evidence.windowed_match_proportion >= gex_evidence.match_proportion,
+        "gex windowed_match_proportion ({}) must be >= match_proportion ({})",
+        gex_evidence.windowed_match_proportion,
+        gex_evidence.match_proportion,
+    );
+
+    // Probe assertion is the high-value check: the V1 fixture has known
+    // positional drift on [probe] (motivates this feature; see PR #246), so
+    // the windowed probe count must STRICTLY exceed the single-position count.
+    let probe_evidence = result
+        .evidence
+        .iter()
+        .find(|e| e.component == cyto_map::Component::Probe)
+        .unwrap();
+    assert!(
+        probe_evidence.windowed_match_count > probe_evidence.match_count,
+        "V1 fixture should show probe positional drift: \
+         windowed_match_count ({}) > match_count ({})",
+        probe_evidence.windowed_match_count,
+        probe_evidence.match_count,
+    );
 }
 
 #[test]
