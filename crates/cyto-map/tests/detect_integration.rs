@@ -254,3 +254,97 @@ fn test_detect_crispr_geometry_probed() {
     assert!(components.contains(&cyto_map::Component::Protospacer));
     assert!(components.contains(&cyto_map::Component::Probe));
 }
+
+#[test]
+fn test_detect_gex_geometry_multi_lane_binseq() {
+    // Two lanes from the same file: `sample_gex_reads` opens a fresh reader per
+    // `inputs` entry, so a repeated path is two independent lanes. Detection must
+    // yield the canonical geometry, one per-file result per lane, and a pooled
+    // read count equal to the sum of the (identical) per-lane counts. Running
+    // detection once and checking the per-lane invariant is both stronger and
+    // ~2x faster than comparing against a separate single-lane baseline.
+    let root = workspace_root();
+
+    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
+    let gex_path = root.join("data/libraries/gex_probes.tsv");
+    let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
+    let path = root
+        .join("data/sequencing/gex.cbq")
+        .to_string_lossy()
+        .to_string();
+
+    let config = DetectionConfig {
+        num_reads: 10000,
+        min_proportion: 0.10,
+        remap_min_proportion: 0.01,
+        num_threads: 1,
+    };
+
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let gex = GexMapper::from_file(&gex_path, 1).unwrap();
+    let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
+    let input = MultiPairedInput {
+        inputs: vec![path.clone(), path],
+    };
+    let result = detect_gex_geometry(whitelist, gex, Some(probe), &input, &config).unwrap();
+
+    assert_eq!(
+        result.geometry_string, "[barcode][umi:12] | [gex][:18][probe]",
+        "two identical lanes must detect the canonical GEX Flex V1 geometry"
+    );
+    assert_eq!(result.per_file_results.len(), 2);
+    // Identical lanes sample identical read counts...
+    assert_eq!(
+        result.per_file_results[0].total_reads_sampled,
+        result.per_file_results[1].total_reads_sampled,
+    );
+    assert!(result.per_file_results[0].total_reads_sampled > 0);
+    // ...and the pooled total is exactly their sum.
+    let lane_sum: usize = result
+        .per_file_results
+        .iter()
+        .map(|r| r.total_reads_sampled)
+        .sum();
+    assert_eq!(result.total_reads_sampled, lane_sum);
+}
+
+#[test]
+fn test_detect_gex_geometry_multi_lane_fastx() {
+    // FASTX input: each consecutive pair of files is one lane, so
+    // [R1, R2, R1, R2] is two lanes -- exercises the `chunks(2)` sampling path.
+    let root = workspace_root();
+
+    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
+    let gex_path = root.join("data/libraries/gex_probes.tsv");
+    let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
+    let r1 = root
+        .join("data/sequencing/gex_R1.fastq.gz")
+        .to_string_lossy()
+        .to_string();
+    let r2 = root
+        .join("data/sequencing/gex_R2.fastq.gz")
+        .to_string_lossy()
+        .to_string();
+
+    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let gex = GexMapper::from_file(&gex_path, 1).unwrap();
+    let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
+
+    let input = MultiPairedInput {
+        inputs: vec![r1.clone(), r2.clone(), r1, r2],
+    };
+    let config = DetectionConfig {
+        num_reads: 10000,
+        min_proportion: 0.10,
+        remap_min_proportion: 0.01,
+        num_threads: 1,
+    };
+
+    let result = detect_gex_geometry(whitelist, gex, Some(probe), &input, &config).unwrap();
+
+    assert_eq!(
+        result.geometry_string, "[barcode][umi:12] | [gex][:18][probe]",
+        "FASTX detection should match GEX Flex V1"
+    );
+    assert_eq!(result.per_file_results.len(), 2);
+}
