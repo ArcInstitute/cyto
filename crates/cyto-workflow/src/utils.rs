@@ -1,12 +1,14 @@
 use std::io::Write;
 use std::path::Path;
-use std::process::Command;
 use std::time::Instant;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::ibu::ArgsReads;
-use cyto_cli::workflow::{ArgsGeomux, CrisprMappingCommand, GexMappingCommand};
+use cyto_cli::workflow::{
+    ArgsGeomux, CrisprMappingCommand, GexMappingCommand, VERSION_CELL_FILTER, VERSION_GEOMUX,
+    VERSION_PYCYTO, uvx_command,
+};
 use cyto_cli::{
     ibu::{ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
@@ -49,7 +51,7 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         count_path.as_ref().display()
     );
 
-    let output = Command::new("pycyto")
+    let output = uvx_command("pycyto", VERSION_PYCYTO)
         .arg("convert")
         .arg(count_path.as_ref().display().to_string())
         .arg(format!("{}.h5ad", count_path.as_ref().display()))
@@ -91,7 +93,7 @@ fn filter_h5ad<P: AsRef<Path>>(
     let logfile = stats_outdir.as_ref().join(format!("{basename}.log"));
 
     info!("Filtering h5ad file: {}", in_h5ad.display());
-    let output = Command::new("cell-filter")
+    let output = uvx_command("cell-filter", VERSION_CELL_FILTER)
         .arg(&in_h5ad)
         .arg(&out_h5ad)
         .arg("--logfile")
@@ -182,7 +184,7 @@ pub fn assign_guides<P: AsRef<Path>>(
         geomux_args_vec.push("--lor-threshold".to_string());
         geomux_args_vec.push(format!("{lor_threshold}"));
     }
-    let output = Command::new("geomux")
+    let output = uvx_command("geomux", VERSION_GEOMUX)
         .args(&geomux_args_vec)
         .output()
         .context("Unable to run geomux")?;
