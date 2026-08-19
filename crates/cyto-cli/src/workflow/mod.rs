@@ -127,22 +127,28 @@ pub struct ArgsWorkflow {
 }
 impl ArgsWorkflow {
     pub fn validate_requirements(&self, mode: WorkflowMode) -> Result<()> {
-        if self.format == CountFormat::H5ad || !self.no_filter {
-            debug!("Checking if `uv` exists in $PATH");
-            match Command::new("uv").args(["--version"]).output() {
-                Ok(_) => debug!("Found `uv` in $PATH"),
-                Err(e) => {
-                    error!("Encountered an unexpected error checking for `uv`: {e}");
-                    bail!("Encountered an unexpected error checking for `uv`: {e}");
-                }
+        // The external Python tools run only when converting to h5ad;
+        // `cyto-workflow`'s `ibu_steps` gates convert/filter/assign on
+        // `to_h5ad()`. Keep these guards in sync with those invocation sites so
+        // we never resolve a tool the run will not use (nothing in mtx/tsv mode).
+        if !self.to_h5ad() {
+            return Ok(());
+        }
+
+        debug!("Checking if `uvx` exists in $PATH");
+        match Command::new("uvx").args(["--version"]).output() {
+            Ok(_) => debug!("Found `uvx` in $PATH"),
+            Err(e) => {
+                error!("Encountered an unexpected error checking for `uvx`: {e}");
+                bail!("Encountered an unexpected error checking for `uvx`: {e}");
             }
-            transparent_uv_install("pycyto", VERSION_PYCYTO)?;
         }
+        warm_uvx("pycyto", VERSION_PYCYTO)?;
         if mode == WorkflowMode::Gex && !self.no_filter {
-            transparent_uv_install("cell-filter", VERSION_CELL_FILTER)?;
+            warm_uvx("cell-filter", VERSION_CELL_FILTER)?;
         }
-        if mode == WorkflowMode::Crispr {
-            transparent_uv_install("geomux", VERSION_GEOMUX)?;
+        if mode == WorkflowMode::Crispr && !self.skip_assignment {
+            warm_uvx("geomux", VERSION_GEOMUX)?;
         }
         Ok(())
     }
@@ -174,35 +180,35 @@ pub enum CountFormat {
     Tsv,
 }
 
-fn transparent_uv_install(name: &str, version: &str) -> Result<()> {
-    debug!("Installing `{name}@{version}` if necessary...");
-    // if name == "geomux" || name == "pycyto" {
-    //     warn!("Not installing {name}- using PATH. Remove me before release!");
-    //     // skip for now in testing
-    //     return Ok(());
-    // }
-    match Command::new("uv")
-        .arg("tool")
-        .arg("install")
-        .arg(format!("{name}@{version}"))
-        .output()
-    {
-        Ok(_) => {
-            debug!("Precompiling `{name}`...");
-            match Command::new(name).arg("--help").output() {
-                Ok(_) => {
-                    debug!("Precompiled `{name}`");
-                    Ok(())
-                }
-                Err(e) => {
-                    error!("Encountered an unexpected error precompiling `{name}`: {e}");
-                    bail!("Encountered an unexpected error precompiling `{name}`: {e}");
-                }
-            }
+/// Build a `uvx --from '{name}=={version}' {name}` command that runs the pinned
+/// tool in an ephemeral, isolated environment. The caller appends the tool's own
+/// subcommand and arguments. Never mutates the user's global `uv tool` set.
+pub fn uvx_command(name: &str, version: &str) -> Command {
+    let mut cmd = Command::new("uvx");
+    cmd.arg("--from")
+        .arg(format!("{name}=={version}"))
+        .arg(name);
+    cmd
+}
+
+/// Pre-resolve and cache the pinned tool's ephemeral `uvx` environment so the
+/// first real invocation (inside the parallel per-probe section) does not pay a
+/// cold resolve, and so a resolution failure surfaces up front.
+fn warm_uvx(name: &str, version: &str) -> Result<()> {
+    debug!("Resolving `{name}=={version}` via uvx if necessary...");
+    match uvx_command(name, version).arg("--help").output() {
+        Ok(output) if output.status.success() => {
+            debug!("Resolved `{name}`");
+            Ok(())
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!("Failed to resolve `{name}` via uvx: {stderr}");
+            bail!("Failed to resolve `{name}` via uvx: {stderr}");
         }
         Err(e) => {
-            error!("Encountered an unexpected error installing `{name}`: {e}");
-            bail!("Encountered an unexpected error installing `{name}`: {e}");
+            error!("Encountered an unexpected error resolving `{name}` via uvx: {e}");
+            bail!("Encountered an unexpected error resolving `{name}` via uvx: {e}");
         }
     }
 }
