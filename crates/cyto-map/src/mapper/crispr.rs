@@ -318,7 +318,7 @@ mod tests {
             let sequences = gen_x_unique_sequences(&mut rng, *len, count);
             for seq in sequences {
                 let anchor = &anchors[idx % n_anchors];
-                let name = format!("record_{}", idx);
+                let name = format!("record_{idx}");
                 records.push(format!(
                     "{}\t{}\t{}",
                     name,
