@@ -5,7 +5,7 @@ use std::time::Instant;
 use anyhow::{Result, bail};
 use cyto_io::{FeatureWriter, match_input_transparent};
 use log::{info, trace};
-use seqhash::{MultiLenSeqHash, SeqHash, SeqHashBuilder};
+use seqhash::{MultiLenSeqHash, MultiLenSeqHashBuilder};
 
 use crate::geometry::ReadMate;
 use crate::mapper::{FeatureMatch, Library, Mapper, Ready, Unpositioned};
@@ -21,7 +21,7 @@ struct CrisprRecord {
 
 pub struct CrisprMapper<S = Ready> {
     anchor_hash: MultiLenSeqHash,
-    protospacer_hash: SeqHash,
+    protospacer_hash: MultiLenSeqHash,
     names: Vec<String>,
     anchor_pos: usize,
     mate: ReadMate,
@@ -58,9 +58,11 @@ impl CrisprMapper<Unpositioned> {
         trace!("[CRISPR seqhash] - Starting build");
         let anchor_hash = MultiLenSeqHash::new(&anchors)?;
         let protospacer_hash = if exact {
-            SeqHashBuilder::default().exact().build(&protospacers)
+            MultiLenSeqHashBuilder::default()
+                .exact()
+                .build(&protospacers)
         } else {
-            SeqHash::new(&protospacers)
+            MultiLenSeqHash::new(&protospacers)
         }?;
         let init_time = start.elapsed().as_secs_f64();
         info!(
@@ -81,9 +83,23 @@ impl CrisprMapper<Unpositioned> {
         })
     }
 
-    /// Returns the sequence length of protospacers.
+    /// Returns the median sequence length
     pub fn protospacer_len(&self) -> usize {
-        self.protospacer_hash.seq_len()
+        let lengths: Vec<usize> = self.protospacer_hash.lengths().collect();
+        let num_lengths: Vec<usize> = lengths
+            .iter()
+            .map(|&len| self.protospacer_hash.num_parents_for_len(len).unwrap())
+            .collect();
+        let total: usize = num_lengths.iter().sum();
+        let median_idx = total / 2;
+        let mut cumulative = 0;
+        for (len, &count) in lengths.iter().zip(num_lengths.iter()) {
+            cumulative += count;
+            if cumulative >= median_idx {
+                return *len;
+            }
+        }
+        unreachable!("Should have found a median length")
     }
 
     /// Anchor is variable length, returns None.
@@ -144,10 +160,10 @@ impl Mapper for CrisprMapper<Ready> {
             ((self.anchor_pos + mat.seq_len()) as isize + remap_offset) as usize;
 
         self.protospacer_hash
-            .query_at_with_remap(seq, protospacer_offset, self.window)
-            .map(|m| FeatureMatch {
+            .query_at_with_remap_offset(seq, protospacer_offset, self.window)
+            .map(|(m, remap_offset)| FeatureMatch {
                 feature_idx: m.parent_idx(),
-                end_pos: protospacer_offset + self.protospacer_hash.seq_len(),
+                end_pos: ((protospacer_offset + m.seq_len()) as isize + remap_offset) as usize,
             })
     }
 
@@ -158,11 +174,16 @@ impl Mapper for CrisprMapper<Ready> {
 
 impl Library for CrisprMapper<Ready> {
     fn statistics(&self) -> LibraryStatistics {
+        let total_hash = self
+            .protospacer_hash
+            .lengths()
+            .map(|x| self.protospacer_hash.num_parents_for_len(x).unwrap())
+            .sum();
         LibraryStatistics {
             name: "crispr",
             total_elem: self.protospacer_hash.num_parents(),
             total_aggr: self.protospacer_hash.num_parents(),
-            total_hash: self.protospacer_hash.num_entries(),
+            total_hash,
             position: self.anchor_pos,
             mate: self.mate,
             init_time: self.init_time,
@@ -226,7 +247,8 @@ mod tests {
         let guides_path = workspace_root().join("data/libraries/crispr_guides.tsv");
         let mapper = CrisprMapper::from_file(&guides_path, false, 1).unwrap();
 
-        assert_eq!(mapper.protospacer_len(), 20);
+        assert_eq!(mapper.protospacer_hash.num_lengths(), 1);
+        assert_eq!(mapper.protospacer_hash.lengths().next(), Some(20));
 
         // First protospacer from crispr_guides.tsv: "CACTCCACGTCGCCCGGAGC" (20bp)
         let proto_seq = b"CACTCCACGTCGCCCGGAGC";
