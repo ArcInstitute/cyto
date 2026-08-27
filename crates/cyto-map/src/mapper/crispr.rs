@@ -85,7 +85,8 @@ impl CrisprMapper<Unpositioned> {
 
     /// Returns the median sequence length
     pub fn protospacer_len(&self) -> usize {
-        let lengths: Vec<usize> = self.protospacer_hash.lengths().collect();
+        let mut lengths: Vec<usize> = self.protospacer_hash.lengths().collect();
+        lengths.sort_unstable();
         let num_lengths: Vec<usize> = lengths
             .iter()
             .map(|&len| self.protospacer_hash.num_parents_for_len(len).unwrap())
