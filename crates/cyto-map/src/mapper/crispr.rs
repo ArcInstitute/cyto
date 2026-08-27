@@ -100,7 +100,7 @@ impl CrisprMapper<Unpositioned> {
                 return *len;
             }
         }
-        unreachable!("Should have found a median length")
+        *lengths.last().unwrap_or(&0)
     }
 
     /// Anchor is variable length, returns None.
