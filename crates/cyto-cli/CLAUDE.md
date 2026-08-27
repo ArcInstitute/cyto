@@ -16,7 +16,7 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 - `src/output.rs` — `ArgsOutput` (output directory, force overwrite, `min_ibu_records` threshold)
 - `src/ibu/mod.rs` — `IbuCommand` enum with subcommands (View, Cat, Sort, Count, Umi, Reads) and their `Args*` structs in submodules
 - `src/detect/mod.rs` — `DetectCommand` enum (Gex, Crispr), `ArgsDetectGex`, `ArgsDetectCrispr`, `DetectionOptions` (fields: `num_threads`, `num_reads`, `min_proportion`, `remap_min_proportion`; `num_threads()` accessor resolves `0 → num_cpus::get()` mirroring `RuntimeOptions`). Flattens `WhitelistOptions`, `ProbeOptions`, `GexOptions`/`CrisprOptions` from `map/` -- no `MapOptions`, `ArgsOutput`, or `RuntimeOptions`.
-- `src/workflow/mod.rs` — `WorkflowCommand`, `ArgsWorkflow` (skip flags, format selection, sort options), `ArgsGeomux` (CRISPR guide assignment params), external tool version constants and `uv` installation logic
+- `src/workflow/mod.rs` — `WorkflowCommand`, `ArgsWorkflow` (skip flags, format selection, sort options), `ArgsGeomux` (CRISPR guide assignment params), external tool version constants, and `uvx` invocation logic (`uvx_command` helper)
 
 ## Key Types
 
@@ -24,14 +24,14 @@ Defines all CLI argument structures using Clap. This crate is a pure definition 
 - `MapCommand` / `DetectCommand` / `IbuCommand` / `WorkflowCommand` — Per-module subcommand enums
 - `GeometryPreset` — Enum mapping preset names to geometry DSL strings
 - `MultiPairedInput` — Handles BINSEQ vs FASTX input detection and reader creation
-- `ArgsWorkflow` — Workflow options including `CountFormat` (H5ad, Mtx, Tsv) and external tool validation via `uv`
+- `ArgsWorkflow` — Workflow options including `CountFormat` (H5ad, Mtx, Tsv) and external tool validation via `uvx`
 - `ArgsGeomux` — CRISPR guide assignment parameters (min UMI thresholds, FDR, log-odds, geomux vs mixture mode)
 
 ## Design Notes
 
 - Geometry presets: V2 presets force `remap_window=5`, V1 uses default of 1
 - `MultiPairedInput.is_binseq()` auto-detects format by file extension
-- `ArgsWorkflow.validate_requirements()` transparently installs Python tools (`pycyto`, `cell-filter`, `geomux`) via `uv tool install` at pinned versions
+- `ArgsWorkflow.validate_requirements()` checks `uvx` is on `$PATH` and pre-resolves each pinned tool's ephemeral `uvx` environment once, up front. It resolves only the tools the run will use — nothing in mtx/tsv modes — mirroring the convert/filter/assign guards in `cyto-workflow`. The tools themselves are invoked later from `cyto-workflow`.
 - External tool versions are pinned as constants: `VERSION_GEOMUX`, `VERSION_CELL_FILTER`, `VERSION_PYCYTO`
 
 ## Dependencies (within workspace)

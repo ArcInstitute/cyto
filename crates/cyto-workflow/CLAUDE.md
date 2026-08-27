@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> convert -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. Invokes external Python tools (`pycyto`, `cell-filter`, `geomux`) via `std::process::Command`.
+Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort -> umi-correct -> reads -> count -> convert -> filter/assign. Parallelizes post-mapping steps across probes using Rayon. Invokes external Python tools (`pycyto`, `cell-filter`, `geomux`) via `uvx` at pinned versions, using the `cyto_cli::workflow::uvx_command` helper (which builds a `std::process::Command`). This runs each tool in an ephemeral, isolated environment.
 
 ## Key Source Files
 
@@ -11,9 +11,9 @@ Orchestrates end-to-end analysis pipelines. Runs the full sequence: map -> sort 
 - `src/utils.rs` — Core workflow utilities:
   - `ibu_steps()` — Orchestrates per-IBU pipeline: sort -> umi-correct (optional) -> reads stats (optional) -> count -> h5ad conversion (optional) -> filter/assign. Cleans up intermediate files.
   - `identify_ibu_files()` — Globs `outdir/ibu/*.ibu`, excludes `.sort.ibu`
-  - `convert_to_h5ad()` — Calls `pycyto convert`, removes MTX directory on success
-  - `filter_h5ad()` — Calls `cell-filter` (EmptyDrops), handles missing filtered output gracefully
-  - `assign_guides()` — Calls `geomux` with full parameter passthrough, handles known warning conditions
+  - `convert_to_h5ad()` — Runs `pycyto convert` via `uvx_command`, removes MTX directory on success
+  - `filter_h5ad()` — Runs `cell-filter` (EmptyDrops) via `uvx_command`, handles missing filtered output gracefully
+  - `assign_guides()` — Runs `geomux` via `uvx_command` with full parameter passthrough, handles known warning conditions
   - `write_done_file()` / `write_timings_file()` — Writes workflow completion marker and timing TSV
 - `src/timing.rs` — `ModuleTiming` (ibu_name, module, elapsed_secs), `Module` enum (Mapping, InitialSort, UmiCorrection, ReadsDump, Counting, ConversionH5ad, DropletFiltering, GuideAssignment)
 

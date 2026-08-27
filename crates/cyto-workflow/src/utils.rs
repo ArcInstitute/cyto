@@ -6,7 +6,10 @@ use std::time::Instant;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use cyto_cli::ibu::ArgsReads;
-use cyto_cli::workflow::{ArgsGeomux, CrisprMappingCommand, GexMappingCommand};
+use cyto_cli::workflow::{
+    ArgsGeomux, CrisprMappingCommand, GexMappingCommand, VERSION_CELL_FILTER, VERSION_GEOMUX,
+    VERSION_PYCYTO, uvx_command,
+};
 use cyto_cli::{
     ibu::{ArgsCount, ArgsSort, ArgsUmi},
     workflow::{ArgsWorkflow, WorkflowMode},
@@ -49,7 +52,7 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
         count_path.as_ref().display()
     );
 
-    let output = Command::new("pycyto")
+    let output = uvx_command("pycyto", VERSION_PYCYTO)
         .arg("convert")
         .arg(count_path.as_ref().display().to_string())
         .arg(format!("{}.h5ad", count_path.as_ref().display()))
@@ -80,6 +83,23 @@ fn convert_to_h5ad<P: AsRef<Path>>(count_path: P) -> Result<()> {
     Ok(())
 }
 
+/// Build the `cell-filter` invocation, routed through `uvx_command` so it runs in
+/// an ephemeral, isolated environment at the pinned version.
+///
+/// `pycyto convert` (anndata >= 0.13) writes the barcode `obs` index as a nullable
+/// string; cell-filter's older anndata (0.12.x) refuses to write it back unless
+/// `ANNDATA_ALLOW_WRITE_NULLABLE_STRINGS=1`, else GEX filtering dies with a `RuntimeError`.
+fn cell_filter_command(in_h5ad: &Path, out_h5ad: &Path, logfile: &Path) -> Command {
+    let mut command = uvx_command("cell-filter", VERSION_CELL_FILTER);
+    command
+        .arg(in_h5ad)
+        .arg(out_h5ad)
+        .arg("--logfile")
+        .arg(logfile)
+        .env("ANNDATA_ALLOW_WRITE_NULLABLE_STRINGS", "1");
+    command
+}
+
 fn filter_h5ad<P: AsRef<Path>>(
     count_path: P,
     stats_outdir: P,
@@ -91,11 +111,7 @@ fn filter_h5ad<P: AsRef<Path>>(
     let logfile = stats_outdir.as_ref().join(format!("{basename}.log"));
 
     info!("Filtering h5ad file: {}", in_h5ad.display());
-    let output = Command::new("cell-filter")
-        .arg(&in_h5ad)
-        .arg(&out_h5ad)
-        .arg("--logfile")
-        .arg(logfile)
+    let output = cell_filter_command(&in_h5ad, &out_h5ad, &logfile)
         .output()
         .context("Unable to run cell-filter")?;
 
@@ -182,7 +198,7 @@ pub fn assign_guides<P: AsRef<Path>>(
         geomux_args_vec.push("--lor-threshold".to_string());
         geomux_args_vec.push(format!("{lor_threshold}"));
     }
-    let output = Command::new("geomux")
+    let output = uvx_command("geomux", VERSION_GEOMUX)
         .args(&geomux_args_vec)
         .output()
         .context("Unable to run geomux")?;
@@ -432,4 +448,33 @@ pub fn remove_ibu_dir<P: AsRef<Path>>(path: P) -> Result<()> {
 pub enum RefWorkflowCommand<'a> {
     GexMapping(&'a GexMappingCommand),
     CrisprMapping(&'a CrisprMappingCommand),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cell_filter_command;
+    use std::ffi::OsStr;
+    use std::path::Path;
+
+    /// Guard the nullable-string write opt-in; without it GEX filtering aborts.
+    #[test]
+    fn cell_filter_command_opts_into_nullable_string_writes() {
+        let command = cell_filter_command(
+            Path::new("in.h5ad"),
+            Path::new("out.filt.h5ad"),
+            Path::new("stats.log"),
+        );
+        let opt_in = command
+            .get_envs()
+            .find(|(key, _)| *key == OsStr::new("ANNDATA_ALLOW_WRITE_NULLABLE_STRINGS"));
+        assert_eq!(
+            opt_in,
+            Some((
+                OsStr::new("ANNDATA_ALLOW_WRITE_NULLABLE_STRINGS"),
+                Some(OsStr::new("1")),
+            )),
+            "cell-filter must export ANNDATA_ALLOW_WRITE_NULLABLE_STRINGS=1 so it can \
+             re-serialize the nullable-string barcode column written by pycyto convert",
+        );
+    }
 }
