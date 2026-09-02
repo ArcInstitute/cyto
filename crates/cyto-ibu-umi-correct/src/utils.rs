@@ -139,7 +139,7 @@ mod testing {
         assert_eq!(components.len(), 2);
 
         // Check that each component has the right size
-        let sizes: HashSet<usize> = components.iter().map(|c| c.len()).collect();
+        let sizes: HashSet<usize> = components.iter().map(std::vec::Vec::len).collect();
         assert_eq!(sizes, HashSet::from([2]));
     }
 
@@ -174,7 +174,7 @@ mod testing {
         let components = connected_components_vec(&graph);
         assert_eq!(components.len(), 2);
 
-        let sizes: Vec<usize> = components.iter().map(|c| c.len()).collect();
+        let sizes: Vec<usize> = components.iter().map(std::vec::Vec::len).collect();
         assert!(sizes.contains(&3));
         assert!(sizes.contains(&1));
     }
@@ -203,7 +203,7 @@ mod testing {
         let components = connected_components_vec(&graph);
         assert_eq!(components.len(), 3);
 
-        let mut sizes: Vec<usize> = components.iter().map(|c| c.len()).collect();
+        let mut sizes: Vec<usize> = components.iter().map(std::vec::Vec::len).collect();
         sizes.sort_unstable();
         assert_eq!(sizes, vec![1, 2, 4]);
     }
