@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use cyto_cli::map::MultiPairedInput;
 use cyto_map::{
@@ -15,16 +15,24 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// Exact-match whitelist: detection only needs enough sampled reads to match,
+/// and the hamming-1 expansion of the 737k whitelist is very expensive to build.
+///
+/// reduces runtime during the tests with minimal impact on predictions
+fn load_whitelist(root: &Path) -> WhitelistMapper<Unpositioned> {
+    let path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
+    WhitelistMapper::from_file(&path, true, 1, 1).unwrap()
+}
+
 #[test]
 fn test_detect_gex_geometry_from_binseq() {
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let gex_path = root.join("data/libraries/gex_probes.tsv");
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let input_path = root.join("data/sequencing/gex.cbq");
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
     let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
 
@@ -97,11 +105,10 @@ fn test_detect_gex_geometry_from_binseq() {
 fn test_detect_crispr_geometry_from_binseq() {
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let crispr_path = root.join("data/libraries/crispr_guides.tsv");
     let input_path = root.join("data/sequencing/crispr.cbq");
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let crispr = CrisprMapper::from_file(&crispr_path, false, 1).unwrap();
 
     let input = MultiPairedInput {
@@ -150,11 +157,10 @@ fn test_detect_crispr_geometry_from_binseq() {
 fn test_detect_gex_geometry_unprobed() {
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let gex_path = root.join("data/libraries/gex_probes.tsv");
     let input_path = root.join("data/sequencing/gex.cbq");
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
 
     let input = MultiPairedInput {
@@ -199,12 +205,11 @@ fn test_detect_gex_geometry_unprobed() {
 fn test_detect_crispr_geometry_probed() {
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let crispr_path = root.join("data/libraries/crispr_guides.tsv");
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let input_path = root.join("data/sequencing/crispr.cbq");
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let crispr = CrisprMapper::from_file(&crispr_path, false, 1).unwrap();
     let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
 
@@ -265,7 +270,6 @@ fn test_detect_gex_geometry_multi_lane_binseq() {
     // ~2x faster than comparing against a separate single-lane baseline.
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let gex_path = root.join("data/libraries/gex_probes.tsv");
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let path = root
@@ -280,7 +284,7 @@ fn test_detect_gex_geometry_multi_lane_binseq() {
         num_threads: 1,
     };
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
     let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
     let input = MultiPairedInput {
@@ -314,7 +318,6 @@ fn test_detect_gex_geometry_multi_lane_fastx() {
     // [R1, R2, R1, R2] is two lanes -- exercises the `chunks(2)` sampling path.
     let root = workspace_root();
 
-    let whitelist_path = root.join("data/metadata/737K-fixed-rna-profiling.txt.gz");
     let gex_path = root.join("data/libraries/gex_probes.tsv");
     let probe_path = root.join("data/metadata/probe-barcodes-fixed-rna-profiling.txt");
     let r1 = root
@@ -326,7 +329,7 @@ fn test_detect_gex_geometry_multi_lane_fastx() {
         .to_string_lossy()
         .to_string();
 
-    let whitelist = WhitelistMapper::from_file(&whitelist_path, false, 1, 1).unwrap();
+    let whitelist = load_whitelist(&root);
     let gex = GexMapper::from_file(&gex_path, 1).unwrap();
     let probe: ProbeMapper<Unpositioned> = ProbeMapper::from_file(&probe_path, false, 1).unwrap();
 
