@@ -185,9 +185,17 @@ pub enum CountFormat {
 /// subcommand and arguments. Never mutates the user's global `uv tool` set.
 pub fn uvx_command(name: &str, version: &str) -> Command {
     let mut cmd = Command::new("uvx");
-    cmd.arg("--from")
-        .arg(format!("{name}=={version}"))
-        .arg(name);
+    cmd.arg("--from").arg(format!("{name}=={version}"));
+    // geomux 0.5.5 declares `polars>=1.33.1` with no upper bound; polars 2.0.0
+    // (2026-10-06) changed operator precedence so geomux's
+    // `assignment_statistics` raises `& on Boolean and Int64 is not supported`
+    // and every CRISPR assignment fails after the assignments are computed.
+    // Pin polars below 2 until a geomux release carries the fix
+    // (noamteyssier/geomux#57), so a fresh resolve matches what ran before.
+    if name == "geomux" {
+        cmd.arg("--with").arg("polars<2");
+    }
+    cmd.arg(name);
     cmd
 }
 
