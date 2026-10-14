@@ -10,6 +10,11 @@ pub const VERSION_GEOMUX: &str = "0.5.5";
 pub const VERSION_CELL_FILTER: &str = "0.1.2";
 pub const VERSION_PYCYTO: &str = "0.1.14";
 
+/// uvx ignores every package released after this date, which also pins the
+/// tools' transitive dependencies. When you bump a `VERSION_*` pin, move this
+/// date to after that pin's release.
+pub const UVX_EXCLUDE_NEWER: &str = "2026-10-01T00:00:00Z";
+
 #[derive(Subcommand, Debug)]
 pub enum WorkflowCommand {
     /// Executes a gex mapping workflow (map => sort => umi-correct => count => filter)
@@ -180,12 +185,15 @@ pub enum CountFormat {
     Tsv,
 }
 
-/// Build a `uvx --from '{name}=={version}' {name}` command that runs the pinned
-/// tool in an ephemeral, isolated environment. The caller appends the tool's own
-/// subcommand and arguments. Never mutates the user's global `uv tool` set.
+/// Build a `uvx --exclude-newer {UVX_EXCLUDE_NEWER} --from '{name}=={version}' {name}`
+/// command that runs the pinned tool in an ephemeral, isolated environment. The
+/// caller appends the tool's own subcommand and arguments. Never mutates the
+/// user's global `uv tool` set.
 pub fn uvx_command(name: &str, version: &str) -> Command {
     let mut cmd = Command::new("uvx");
-    cmd.arg("--from")
+    cmd.arg("--exclude-newer")
+        .arg(UVX_EXCLUDE_NEWER)
+        .arg("--from")
         .arg(format!("{name}=={version}"))
         .arg(name);
     cmd
