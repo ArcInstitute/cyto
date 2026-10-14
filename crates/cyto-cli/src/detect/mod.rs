@@ -53,11 +53,15 @@ pub struct DetectionOptions {
     #[clap(short = 'T', long, default_value_t = 0)]
     pub num_threads: usize,
 
-    /// Number of reads to sample for geometry detection
+    /// Number of reads to sample for geometry detection, per input file
     #[clap(long, default_value_t = 100_000)]
     pub num_reads: usize,
 
     /// Minimum proportion of reads matching a component to accept it
+    ///
+    /// Detection succeeds when at least one input lane has every component above
+    /// this fraction; a single low-signal lane cannot by itself cause failure,
+    /// provided every component still matches at least one read in that lane.
     #[clap(long, default_value_t = 0.10)]
     pub min_proportion: f64,
 

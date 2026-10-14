@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use binseq::BinseqReader;
 use log::{info, warn};
 use parking_lot::Mutex;
@@ -19,6 +19,7 @@ const FLEX_UMI_LENGTH: usize = 12;
 // ---------------------------------------------------------------------------
 
 /// Configuration for geometry auto-detection.
+#[derive(Clone, Copy)]
 pub struct DetectionConfig {
     pub num_reads: usize,
     pub min_proportion: f64,
@@ -38,6 +39,22 @@ pub struct ComponentEvidence {
     pub seq_len: Option<usize>,
     pub match_count: usize,
     pub match_proportion: f64,
+    /// Sum of hits across `[position - remap_window, position + remap_window]`
+    /// on the same mate. For references that are largely unique within the
+    /// window (the typical case: ≥16bp whitelist barcodes, ≥50bp gex probes),
+    /// this closely tracks the number of reads `cyto map --remap-window N`
+    /// would score for this component. For SHORT references -- notably the
+    /// 8bp `[probe]` multiplex barcode in Flex chemistry -- a single read can
+    /// contribute hits at multiple positions within the window, so
+    /// `windowed_match_count` can EXCEED `total_reads_sampled` (and
+    /// `windowed_match_proportion` can exceed 1.0). In that regime the value
+    /// is an UPPER BOUND on what `cyto map` would score, not an exact count.
+    /// The window scope is the single global `DetectionResult::remap_window`
+    /// (or the per-file `remap_window` on `PerFileResult::evidence`).
+    pub windowed_match_count: usize,
+    /// `windowed_match_count` as a fraction of `total_reads_sampled`. May
+    /// exceed 1.0 for short references; see `windowed_match_count` docs.
+    pub windowed_match_proportion: f64,
     /// Top positions by match count (for logging alternative candidates).
     pub top_positions: Vec<(ReadMate, usize, usize)>,
 }
@@ -91,6 +108,30 @@ impl PositionAccumulator {
             *self.counts.entry(key).or_insert(0) += count;
         }
         self.total_reads += other.total_reads;
+    }
+
+    /// Sum hits across
+    /// `[best_pos.saturating_sub(window), best_pos.saturating_add(window)]`
+    /// on the given `(component, mate)`. Mirrors
+    /// `seqhash::query_at_with_remap` edge-case behavior: when
+    /// `best_pos < window`, the lower bound clips to 0. The upper bound
+    /// saturates symmetrically; in practice `best_pos + window` cannot
+    /// overflow `usize` (both are bounded by read length), so this is
+    /// purely defensive.
+    fn windowed_count(
+        &self,
+        component: Component,
+        mate: ReadMate,
+        best_pos: usize,
+        window: usize,
+    ) -> usize {
+        let lo = best_pos.saturating_sub(window);
+        let hi = best_pos.saturating_add(window);
+        self.counts
+            .iter()
+            .filter(|((c, m, p), _)| *c == component && *m == mate && *p >= lo && *p <= hi)
+            .map(|(_, &count)| count)
+            .sum()
     }
 }
 
@@ -469,7 +510,10 @@ fn find_best_positions(
             .map(|((_, mate, pos), &count)| (*mate, *pos, count))
             .collect();
 
-        positions.sort_by(|a, b| b.2.cmp(&a.2));
+        // Count descending, then (mate, position) ascending: a deterministic
+        // tie-break. Without it, independently-seeded HashMaps (pooled vs
+        // per-lane) order equal counts differently, producing spurious conflicts.
+        positions.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)).then(a.1.cmp(&b.1)));
 
         let top_positions: Vec<_> = positions.iter().take(5).copied().collect();
 
@@ -585,6 +629,63 @@ fn resolve_overlaps(assignments: &mut [ComponentAssignment]) -> Result<()> {
     bail!("could not resolve overlapping component positions after {max_iterations} iterations");
 }
 
+/// Ensure every required component has at least one observed position.
+///
+/// A missing component means the reads don't match the expected layout (wrong
+/// whitelist/reference, or an index read); bail with a recoverable error rather
+/// than panicking later during UMI placement.
+fn ensure_components_present(
+    assignments: &[ComponentAssignment],
+    components: &[Component],
+) -> Result<()> {
+    let missing: Vec<Component> = components
+        .iter()
+        .copied()
+        .filter(|c| !assignments.iter().any(|a| a.component == *c))
+        .collect();
+    if !missing.is_empty() {
+        let names = missing
+            .iter()
+            .map(|c| format!("[{c}]"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        bail!(
+            "geometry detection found no matching positions for component(s) {names}. \
+             The reads may not match the expected chemistry, or the reference/whitelist \
+             may be incorrect.\nProvide --geometry or --preset manually."
+        );
+    }
+    Ok(())
+}
+
+/// Build per-component evidence, filling `windowed_match_count`/`_proportion`
+/// from `accumulator` over `[position ± remap_window]` on each component's mate.
+fn build_evidence(
+    assignments: &[ComponentAssignment],
+    accumulator: &PositionAccumulator,
+    total_reads: usize,
+    remap_window: usize,
+) -> Vec<ComponentEvidence> {
+    assignments
+        .iter()
+        .map(|a| {
+            let windowed_count =
+                accumulator.windowed_count(a.component, a.mate, a.position, remap_window);
+            ComponentEvidence {
+                component: a.component,
+                mate: a.mate,
+                position: a.position,
+                seq_len: a.seq_len,
+                match_count: a.count,
+                match_proportion: a.count as f64 / total_reads as f64,
+                windowed_match_count: windowed_count,
+                windowed_match_proportion: windowed_count as f64 / total_reads as f64,
+                top_positions: a.top_positions.clone(),
+            }
+        })
+        .collect()
+}
+
 /// Infer geometry from accumulated position data.
 fn infer_geometry(
     accumulator: &PositionAccumulator,
@@ -626,6 +727,7 @@ fn infer_geometry(
     }
 
     let mut assignments = find_best_positions(accumulator, &components);
+    ensure_components_present(&assignments, &components)?;
 
     // Fill in seq_lens
     for assignment in &mut assignments {
@@ -654,26 +756,28 @@ fn infer_geometry(
         }
     }
 
-    // Build evidence
-    let evidence: Vec<ComponentEvidence> = assignments
-        .iter()
-        .map(|a| ComponentEvidence {
-            component: a.component,
-            mate: a.mate,
-            position: a.position,
-            seq_len: a.seq_len,
-            match_count: a.count,
-            match_proportion: a.count as f64 / total_reads as f64,
-            top_positions: a.top_positions.clone(),
-        })
-        .collect();
+    let remap_window = estimate_remap_window(
+        accumulator,
+        &components,
+        total_reads,
+        config.remap_min_proportion,
+    );
 
-    // Insert UMI: same mate as barcode, right after barcode
-    let barcode = assignments
+    // Build evidence (windowed fields use the just-computed `remap_window`).
+    let evidence = build_evidence(&assignments, accumulator, total_reads, remap_window);
+
+    // Insert UMI right after the barcode on the same mate. The guards below
+    // can't fire in practice (missing-component check + caller seq_len map) but
+    // bail rather than panic to keep failures recoverable.
+    let Some(barcode) = assignments
         .iter()
         .find(|a| a.component == Component::Barcode)
-        .expect("barcode assignment must exist");
-    let barcode_seq_len = barcode.seq_len.expect("barcode seq_len must be known");
+    else {
+        bail!("barcode assignment missing after position detection");
+    };
+    let Some(barcode_seq_len) = barcode.seq_len else {
+        bail!("barcode sequence length is unknown; cannot place the UMI");
+    };
     let umi_mate = barcode.mate;
     let umi_pos = barcode.position + barcode_seq_len;
     let umi_len: usize = FLEX_UMI_LENGTH;
@@ -690,13 +794,6 @@ fn infer_geometry(
     let r2 = build_read_regions(&placements, ReadMate::R2);
     let geometry = Geometry { r1, r2 };
     let geometry_string = format_geometry_string(&geometry);
-
-    let remap_window = estimate_remap_window(
-        accumulator,
-        &components,
-        total_reads,
-        config.remap_min_proportion,
-    );
 
     Ok(DetectionResult {
         geometry,
@@ -798,17 +895,27 @@ const DEFAULT_REMAP_MIN_PROPORTION: f64 = 0.01;
 
 /// Estimate the optimal remap window from position distributions.
 ///
-/// Only considers feature-mapping components (gex, anchor, protospacer) --
-/// barcode and probe positions are fixed by chemistry and their apparent
-/// spread comes from adapter artifacts or short-sequence noise, not
-/// biological variability.
+/// Excludes `[barcode]` only.  Barcodes sit at position 0 by chemistry in
+/// both Flex V1 and V2, so any apparent spread is artifactual (poly-N
+/// bleed-through, adapter contamination) and should not inflate the
+/// recommendation.
+///
+/// All other components -- including `[probe]` -- are included.  On some
+/// Flex V2 libraries the `[:18]` spacer between `[gex]` and `[probe]`
+/// drifts in length (template switching / RT artifacts), producing real
+/// positional spread on `[probe]` that the recommendation must capture.
+/// The contiguous-range walk + `min_hits = ceil(total_reads *
+/// remap_min_proportion)` threshold remain self-protecting against
+/// short-sequence false matches: isolated low-count positions are
+/// filtered, and the walk stops at the first sub-threshold position so
+/// disjoint false-match clusters cannot extend the window.
 ///
 /// Uses a contiguous-range walk from the best position: starting at the
 /// mode, walks outward in both directions, stopping when a position has
-/// fewer than `min_hits` matches.  This captures smooth
-/// exponential tails (e.g. Flex V2 anchor at positions 9-19) while
-/// excluding isolated outliers (e.g. a chimeric read matching a
-/// protospacer 15 bp away from the main cluster).
+/// fewer than `min_hits` matches.  This captures smooth exponential
+/// tails (e.g. Flex V2 anchor at positions 9-19, or V2 probe with
+/// spacer drift) while excluding isolated outliers (e.g. a chimeric
+/// read matching a protospacer 15 bp away from the main cluster).
 fn estimate_remap_window(
     accumulator: &PositionAccumulator,
     components: &[Component],
@@ -826,19 +933,26 @@ fn estimate_remap_window(
     let mut max_window = 0usize;
 
     for &comp in components {
-        // Barcode and probe positions are chemistry-fixed; their apparent
-        // spread is noise from adapter artifacts (barcode, 16 bp) or
-        // short-sequence false matches (probe, 8 bp).
-        if matches!(comp, Component::Barcode | Component::Probe) {
+        // Barcode positions are chemistry-fixed at 0; any apparent spread
+        // is artifactual (poly-N bleed-through, adapter contamination).
+        // Probe is intentionally NOT excluded: V2 libraries can have real
+        // [:18] spacer drift, and the min_hits threshold + contiguous walk
+        // already filter short-sequence false matches.
+        if matches!(comp, Component::Barcode) {
             continue;
         }
 
-        // Find the best (mate, position) for this component.
+        // Best (mate, position) by count, tie-broken to the lowest for a total
+        // order -- otherwise `max_by_key` picks an arbitrary count-tie winner in
+        // HashMap order, which could flip a cross-lane conflict verdict. Matches
+        // `find_best_positions`.
         let best_entry = accumulator
             .counts
             .iter()
             .filter(|((c, _, _), _)| *c == comp)
-            .max_by_key(|&(_, count)| count);
+            .max_by_key(|&((_, mate, pos), count)| {
+                (*count, std::cmp::Reverse(*mate), std::cmp::Reverse(*pos))
+            });
 
         let Some((&(_, best_mate, best_pos), &best_count)) = best_entry else {
             continue;
@@ -900,116 +1014,187 @@ fn estimate_remap_window(
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Lane reconciliation and public API
 // ---------------------------------------------------------------------------
 
-/// Validate that all per-file detection results agree on geometry and aggregate
-/// into a single `DetectionResult` with the maximum remap window.
-fn validate_and_aggregate(per_file: Vec<(String, DetectionResult)>) -> Result<DetectionResult> {
-    if per_file.is_empty() {
-        bail!("validate_and_aggregate called with no detection results");
+/// Per-component position tolerance for cross-lane consistency checks.
+///
+/// Feature components (gex, anchor, protospacer) tolerate the remap window
+/// (genuine biological spread); fixed-position components (barcode, probe)
+/// tolerate a small constant absorbing argmax jitter (e.g. `[:12]` vs `[:13]`).
+fn component_tolerance(component: Component, remap_tolerance_window: usize) -> usize {
+    match component {
+        Component::Gex | Component::Anchor | Component::Protospacer => {
+            remap_tolerance_window.max(2)
+        }
+        _ => 2,
+    }
+}
+
+/// Collect cross-lane conflicts: for each component a lane is *strong* on
+/// (proportion >= `min_proportion`), flag disagreement with the pooled geometry
+/// on mate or by more than `component_tolerance`. Each entry names the lane,
+/// component, and both positions -- two lanes can render the same geometry string
+/// yet differ (a variable-length anchor hides the offset).
+fn collect_lane_conflicts(
+    lanes: &[(String, DetectionResult)],
+    pooled_result: &DetectionResult,
+    min_proportion: f64,
+) -> Vec<String> {
+    let mut conflicts = Vec::new();
+    for (label, r) in lanes {
+        for ev in &r.evidence {
+            if ev.match_proportion < min_proportion {
+                continue; // weak component does not vote
+            }
+            let Some(pooled_ev) = pooled_result
+                .evidence
+                .iter()
+                .find(|p| p.component == ev.component)
+            else {
+                continue;
+            };
+            let tol = component_tolerance(ev.component, pooled_result.remap_window);
+            let offset = ev.position.abs_diff(pooled_ev.position);
+            if ev.mate != pooled_ev.mate || offset > tol {
+                let reason = if ev.mate == pooled_ev.mate {
+                    format!("offset {offset} > tol {tol}")
+                } else {
+                    format!("mate {:?} vs pooled {:?}", ev.mate, pooled_ev.mate)
+                };
+                conflicts.push(format!(
+                    "  {label}: [{}] at {:?}:{} vs pooled {:?}:{} ({reason})",
+                    ev.component, ev.mate, ev.position, pooled_ev.mate, pooled_ev.position,
+                ));
+            }
+        }
+    }
+    conflicts
+}
+
+/// Pool per-lane accumulators, then infer, accept, and validate the geometry.
+///
+/// The reported geometry comes from the pooled accumulator (sharpens shallow
+/// lanes). Detection accepts iff at least one lane is strong on every component
+/// (a per-lane maximum -- one low-signal lane can't sink a readable one), and
+/// requires every *strong* component to agree with the pool within
+/// `component_tolerance`. The advisory remap window is the max across pool and
+/// lanes. Steps are numbered in the body.
+fn finalize_detection(
+    per_file_accs: Vec<(String, PositionAccumulator)>,
+    mode: DetectionMode,
+    has_probe: bool,
+    component_seq_lens: &HashMap<Component, Option<usize>>,
+    config: &DetectionConfig,
+) -> Result<DetectionResult> {
+    if per_file_accs.is_empty() {
+        bail!("finalize_detection called with no input lanes");
     }
 
-    // Check geometry consistency.
-    let first_geometry = &per_file[0].1.geometry_string;
-    let mismatches: Vec<_> = per_file
-        .iter()
-        .filter(|(_, r)| r.geometry_string != *first_geometry)
-        .collect();
+    // 1. Pool all lanes into a single accumulator.
+    let mut pooled = PositionAccumulator::default();
+    for (_, acc) in &per_file_accs {
+        pooled.merge_from(acc);
+    }
 
-    if !mismatches.is_empty() {
+    // 2. Infer each lane's geometry with the accept threshold disabled. Any
+    //    error (zero reads, overlap, missing component) is fatal for that lane.
+    let lane_cfg = DetectionConfig {
+        min_proportion: 0.0,
+        ..*config
+    };
+    let mut lanes: Vec<(String, DetectionResult)> = Vec::with_capacity(per_file_accs.len());
+    for (label, acc) in per_file_accs {
+        let result = infer_geometry(&acc, mode, has_probe, component_seq_lens, &lane_cfg)
+            .map_err(|e| anyhow!("{label}: {e}"))?;
+        log_per_file_result(&label, &result);
+        lanes.push((label, result));
+    }
+
+    // 3. Accept gate: at least one lane must be strong on every component.
+    let is_strong = |r: &DetectionResult| {
+        r.evidence
+            .iter()
+            .all(|ev| ev.match_proportion >= config.min_proportion)
+    };
+    if !lanes.iter().any(|(_, r)| is_strong(r)) {
+        use std::fmt::Write;
+        let mut msg = format!(
+            "no input lane has every component above the detection threshold {:.2}.\n\
+             Per-lane component match proportions:\n",
+            config.min_proportion
+        );
+        for (label, r) in &lanes {
+            write!(msg, "  {label}:").unwrap();
+            for ev in &r.evidence {
+                write!(msg, " [{}] {:.4}", ev.component, ev.match_proportion).unwrap();
+            }
+            msg.push('\n');
+        }
+        write!(msg, "Provide --geometry or --preset manually.").unwrap();
+        bail!("{msg}");
+    }
+
+    // 4. Pooled geometry + advisory remap window (max across pool and lanes).
+    //    Computed before the consistency check: the pooled min_hits scales with
+    //    summed reads, so the pooled window alone can understate a spread every
+    //    lane resolves (see test_finalize_max_remap_window_across_lanes).
+    let mut pooled_result = infer_geometry(&pooled, mode, has_probe, component_seq_lens, &lane_cfg)
+        .map_err(|e| anyhow!("pooled geometry inference failed: {e}"))?;
+    let max_window = lanes
+        .iter()
+        .map(|(_, r)| r.remap_window)
+        .chain(std::iter::once(pooled_result.remap_window))
+        .max()
+        .unwrap_or(1);
+    pooled_result.remap_window = max_window;
+
+    // Re-walk the pooled windowed counts at max_window (the reported window) so
+    // windowed_match_count reflects what `cyto map --remap-window {max_window}`
+    // would score; the pooled inference used the pool's own window. Per-lane
+    // results keep their own window.
+    let pooled_total = pooled_result.total_reads_sampled;
+    for ev in &mut pooled_result.evidence {
+        let windowed = pooled.windowed_count(ev.component, ev.mate, ev.position, max_window);
+        ev.windowed_match_count = windowed;
+        ev.windowed_match_proportion = if pooled_total > 0 {
+            windowed as f64 / pooled_total as f64
+        } else {
+            0.0
+        };
+    }
+
+    // 5. Consistency: every *strong* component must agree with the pool within
+    //    component_tolerance (see collect_lane_conflicts).
+    let conflicts = collect_lane_conflicts(&lanes, &pooled_result, config.min_proportion);
+    if !conflicts.is_empty() {
         use std::fmt::Write;
         let mut msg = String::from("Geometry mismatch across input files:\n");
-        for (label, result) in &per_file {
-            writeln!(msg, "  {label}: {}", result.geometry_string).unwrap();
+        for line in &conflicts {
+            writeln!(msg, "{line}").unwrap();
         }
         write!(
             msg,
-            "All input files must produce the same detected geometry."
+            "Input lanes disagree on read geometry beyond tolerance; \
+             all inputs must share one chemistry."
         )
         .unwrap();
         bail!("{msg}");
     }
 
-    // Aggregate: max remap window, sum reads, collect per-file results.
-    let max_remap_window = per_file.iter().map(|(_, r)| r.remap_window).max().unwrap();
-    let total_reads: usize = per_file.iter().map(|(_, r)| r.total_reads_sampled).sum();
-
-    let per_file_results: Vec<PerFileResult> = per_file
-        .iter()
+    // 6. Attach the real per-lane results (weak lanes included).
+    pooled_result.per_file_results = lanes
+        .into_iter()
         .map(|(label, r)| PerFileResult {
-            label: label.clone(),
-            geometry_string: r.geometry_string.clone(),
+            label,
+            geometry_string: r.geometry_string,
             remap_window: r.remap_window,
-            evidence: r
-                .evidence
-                .iter()
-                .map(|ev| ComponentEvidence {
-                    component: ev.component,
-                    mate: ev.mate,
-                    position: ev.position,
-                    seq_len: ev.seq_len,
-                    match_count: ev.match_count,
-                    match_proportion: ev.match_proportion,
-                    top_positions: ev.top_positions.clone(),
-                })
-                .collect(),
+            evidence: r.evidence,
             total_reads_sampled: r.total_reads_sampled,
         })
         .collect();
 
-    // Aggregate evidence across all files: sum counts, recompute proportions.
-    let first_evidence = &per_file[0].1.evidence;
-    let aggregated_evidence: Vec<ComponentEvidence> = first_evidence
-        .iter()
-        .enumerate()
-        .map(|(i, first_ev)| {
-            let total_count: usize = per_file
-                .iter()
-                .map(|(_, r)| r.evidence[i].match_count)
-                .sum();
-            let proportion = if total_reads > 0 {
-                total_count as f64 / total_reads as f64
-            } else {
-                0.0
-            };
-
-            // Merge top_positions across files.
-            let mut pos_counts: HashMap<(ReadMate, usize), usize> = HashMap::new();
-            for (_, r) in &per_file {
-                for &(mate, pos, count) in &r.evidence[i].top_positions {
-                    *pos_counts.entry((mate, pos)).or_default() += count;
-                }
-            }
-            let mut top_positions: Vec<(ReadMate, usize, usize)> = pos_counts
-                .into_iter()
-                .map(|((mate, pos), count)| (mate, pos, count))
-                .collect();
-            top_positions.sort_by(|a, b| b.2.cmp(&a.2));
-
-            ComponentEvidence {
-                component: first_ev.component,
-                mate: first_ev.mate,
-                position: first_ev.position,
-                seq_len: first_ev.seq_len,
-                match_count: total_count,
-                match_proportion: proportion,
-                top_positions,
-            }
-        })
-        .collect();
-
-    // Take the first file's geometry by consuming the vec.
-    let (_, first) = per_file.into_iter().next().unwrap();
-
-    Ok(DetectionResult {
-        geometry: first.geometry,
-        geometry_string: first.geometry_string,
-        remap_window: max_remap_window,
-        evidence: aggregated_evidence,
-        total_reads_sampled: total_reads,
-        per_file_results,
-    })
+    Ok(pooled_result)
 }
 
 /// Log a per-file detection result.
@@ -1020,8 +1205,14 @@ fn log_per_file_result(label: &str, result: &DetectionResult) {
     );
     for ev in &result.evidence {
         info!(
-            "    [{}] {:?} pos={} count={} proportion={:.4}",
-            ev.component, ev.mate, ev.position, ev.match_count, ev.match_proportion
+            "    [{}] {:?} pos={} count={} proportion={:.4} windowed_count={} windowed_proportion={:.4}",
+            ev.component,
+            ev.mate,
+            ev.position,
+            ev.match_count,
+            ev.match_proportion,
+            ev.windowed_match_count,
+            ev.windowed_match_proportion,
         );
     }
 }
@@ -1029,16 +1220,14 @@ fn log_per_file_result(label: &str, result: &DetectionResult) {
 /// Log the aggregated detection result.
 pub fn log_detection_result(result: &DetectionResult) {
     let num_files = result.per_file_results.len();
+    info!("Detected geometry: `{}`", result.geometry_string);
+    info!("Recommended --remap-window: {}", result.remap_window);
     if num_files > 1 {
         info!(
-            "Detected geometry: `{}`  (remap_window={}, {} files sampled, {} reads total)",
-            result.geometry_string, result.remap_window, num_files, result.total_reads_sampled
+            "Detection sampled {} reads total ({} files)",
+            result.total_reads_sampled, num_files
         );
     } else {
-        info!(
-            "Detected geometry: `{}`  (remap_window={})",
-            result.geometry_string, result.remap_window
-        );
         info!(
             "Detection sampled {} reads total",
             result.total_reads_sampled
@@ -1046,8 +1235,14 @@ pub fn log_detection_result(result: &DetectionResult) {
     }
     for ev in &result.evidence {
         info!(
-            "  [{}] {:?} pos={} count={} proportion={:.4}",
-            ev.component, ev.mate, ev.position, ev.match_count, ev.match_proportion
+            "  [{}] {:?} pos={} count={} proportion={:.4} windowed_count={} windowed_proportion={:.4}",
+            ev.component,
+            ev.mate,
+            ev.position,
+            ev.match_count,
+            ev.match_proportion,
+            ev.windowed_match_count,
+            ev.windowed_match_proportion,
         );
         log_top_alternatives(ev);
     }
@@ -1062,12 +1257,11 @@ fn log_top_alternatives(ev: &ComponentEvidence) {
 
 /// Detect GEX geometry by sampling reads and scanning for component positions.
 ///
-/// Samples each input file independently, validates that all files produce the
-/// same geometry string, and returns the result with the maximum remap window.
+/// Samples each lane independently and reconciles them via [`finalize_detection`]
+/// (pool, per-lane-max accept, cross-lane consistency, advisory remap window).
 ///
-/// The mappers are moved into the detection processor and consumed.
-/// Callers should create fresh mappers for the actual mapping pipeline after
-/// detection returns.
+/// The mappers are moved into the detection processor and consumed; create fresh
+/// mappers for the mapping pipeline after detection returns.
 pub fn detect_gex_geometry(
     whitelist: WhitelistMapper<Unpositioned>,
     gex: GexMapper<Unpositioned>,
@@ -1097,26 +1291,19 @@ pub fn detect_gex_geometry(
     let has_probe = probe.is_some();
     let per_file_accumulators = sample_gex_reads(whitelist, gex, probe, input, config)?;
 
-    let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
-    for (label, accumulator) in per_file_accumulators {
-        let result = infer_geometry(
-            &accumulator,
-            DetectionMode::Gex,
-            has_probe,
-            &component_seq_lens,
-            config,
-        )?;
-        log_per_file_result(&label, &result);
-        per_file_results.push((label, result));
-    }
-
-    validate_and_aggregate(per_file_results)
+    finalize_detection(
+        per_file_accumulators,
+        DetectionMode::Gex,
+        has_probe,
+        &component_seq_lens,
+        config,
+    )
 }
 
 /// Detect CRISPR geometry by sampling reads and scanning for component positions.
 ///
-/// Samples each input file independently, validates that all files produce the
-/// same geometry string, and returns the result with the maximum remap window.
+/// Samples each lane independently and reconciles them via [`finalize_detection`]
+/// (pool, per-lane-max accept, cross-lane consistency, advisory remap window).
 ///
 /// The mappers are moved into the detection processor and consumed.
 pub fn detect_crispr_geometry(
@@ -1149,20 +1336,13 @@ pub fn detect_crispr_geometry(
     let has_probe = probe.is_some();
     let per_file_accumulators = sample_crispr_reads(whitelist, crispr, probe, input, config)?;
 
-    let mut per_file_results = Vec::with_capacity(per_file_accumulators.len());
-    for (label, accumulator) in per_file_accumulators {
-        let result = infer_geometry(
-            &accumulator,
-            DetectionMode::Crispr,
-            has_probe,
-            &component_seq_lens,
-            config,
-        )?;
-        log_per_file_result(&label, &result);
-        per_file_results.push((label, result));
-    }
-
-    validate_and_aggregate(per_file_results)
+    finalize_detection(
+        per_file_accumulators,
+        DetectionMode::Crispr,
+        has_probe,
+        &component_seq_lens,
+        config,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1497,13 +1677,24 @@ mod tests {
     }
 
     #[test]
-    fn test_remap_window_probe_excluded() {
-        // Probe spread is excluded (8bp probes have high false-match rate).
+    fn test_remap_window_probe_variable_positions() {
+        // V2 GEX with variable [:18] spacer drift: probe at 60..=72, mode 66.
+        // All counts >= 100 (min_hits = 1% of 10000). Window = max(66-60, 72-66) = 6.
         let acc = build_accumulator(
             &[
-                (Component::Probe, ReadMate::R2, 68, 9000),
-                (Component::Probe, ReadMate::R2, 69, 8000),
-                (Component::Probe, ReadMate::R2, 59, 2000),
+                (Component::Probe, ReadMate::R2, 60, 100),
+                (Component::Probe, ReadMate::R2, 61, 150),
+                (Component::Probe, ReadMate::R2, 62, 300),
+                (Component::Probe, ReadMate::R2, 63, 600),
+                (Component::Probe, ReadMate::R2, 64, 1200),
+                (Component::Probe, ReadMate::R2, 65, 1800),
+                (Component::Probe, ReadMate::R2, 66, 3000),
+                (Component::Probe, ReadMate::R2, 67, 1800),
+                (Component::Probe, ReadMate::R2, 68, 1200),
+                (Component::Probe, ReadMate::R2, 69, 600),
+                (Component::Probe, ReadMate::R2, 70, 300),
+                (Component::Probe, ReadMate::R2, 71, 150),
+                (Component::Probe, ReadMate::R2, 72, 100),
             ],
             10000,
         );
@@ -1513,7 +1704,96 @@ mod tests {
             10000,
             DEFAULT_REMAP_MIN_PROPORTION,
         );
-        assert_eq!(window, 1); // probe is skipped
+        assert_eq!(window, 6);
+    }
+
+    #[test]
+    fn test_remap_window_probe_noise_at_adjacent_position_ignored() {
+        // Mode at 68 (8000), adjacent 67 (7000), adjacent outlier 69 (2 < 100 min_hits).
+        // Walk down: 67 above, 66 absent -> stop. Walk up: 69 below threshold -> stop.
+        // farthest_below = 67, farthest_above = 68.
+        // window = max(best_pos - farthest_below, farthest_above - best_pos)
+        //        = max(68 - 67, 68 - 68) = max(1, 0) = 1.
+        // Exercises the threshold filter, not gap-stopping.
+        let acc = build_accumulator(
+            &[
+                (Component::Probe, ReadMate::R2, 67, 7000),
+                (Component::Probe, ReadMate::R2, 68, 8000),
+                (Component::Probe, ReadMate::R2, 69, 2),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 1);
+    }
+
+    #[test]
+    fn test_remap_window_probe_two_clusters_separated_by_gap() {
+        // True cluster at 66..=70 (mode 68); false-match cluster at 60..=63 (each 500);
+        // gap at 64..=65 halts the walk. False cluster is above min_hits but unreachable.
+        // Window = max(68 - 66, 70 - 68) = 2.
+        let acc = build_accumulator(
+            &[
+                (Component::Probe, ReadMate::R2, 60, 500),
+                (Component::Probe, ReadMate::R2, 61, 500),
+                (Component::Probe, ReadMate::R2, 62, 500),
+                (Component::Probe, ReadMate::R2, 63, 500),
+                (Component::Probe, ReadMate::R2, 66, 1500),
+                (Component::Probe, ReadMate::R2, 67, 2000),
+                (Component::Probe, ReadMate::R2, 68, 3000),
+                (Component::Probe, ReadMate::R2, 69, 2000),
+                (Component::Probe, ReadMate::R2, 70, 1500),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 2);
+    }
+
+    #[test]
+    fn test_remap_window_probe_wider_than_gex() {
+        // Joint-component call: gex tight (window=1), probe wide (window=6).
+        // estimate_remap_window must return the max across both -> 6.
+        let acc = build_accumulator(
+            &[
+                // gex: tight 3-position cluster.
+                (Component::Gex, ReadMate::R2, 78, 1000),
+                (Component::Gex, ReadMate::R2, 79, 5000),
+                (Component::Gex, ReadMate::R2, 80, 1000),
+                // probe: wide 13-position cluster (same as variable_positions test).
+                (Component::Probe, ReadMate::R2, 60, 100),
+                (Component::Probe, ReadMate::R2, 61, 150),
+                (Component::Probe, ReadMate::R2, 62, 300),
+                (Component::Probe, ReadMate::R2, 63, 600),
+                (Component::Probe, ReadMate::R2, 64, 1200),
+                (Component::Probe, ReadMate::R2, 65, 1800),
+                (Component::Probe, ReadMate::R2, 66, 3000),
+                (Component::Probe, ReadMate::R2, 67, 1800),
+                (Component::Probe, ReadMate::R2, 68, 1200),
+                (Component::Probe, ReadMate::R2, 69, 600),
+                (Component::Probe, ReadMate::R2, 70, 300),
+                (Component::Probe, ReadMate::R2, 71, 150),
+                (Component::Probe, ReadMate::R2, 72, 100),
+            ],
+            10000,
+        );
+        let window = estimate_remap_window(
+            &acc,
+            &[Component::Gex, Component::Probe],
+            10000,
+            DEFAULT_REMAP_MIN_PROPORTION,
+        );
+        assert_eq!(window, 6);
     }
 
     #[test]
@@ -1706,121 +1986,6 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // validate_and_aggregate tests
-    // -------------------------------------------------------------------
-
-    /// Helper: build a minimal `DetectionResult` with the given geometry string
-    /// and remap window.
-    fn build_detection_result(
-        geometry_string: &str,
-        remap_window: usize,
-        reads: usize,
-    ) -> DetectionResult {
-        DetectionResult {
-            geometry: Geometry {
-                r1: Read { regions: vec![] },
-                r2: Read { regions: vec![] },
-            },
-            geometry_string: geometry_string.to_string(),
-            remap_window,
-            evidence: vec![ComponentEvidence {
-                component: Component::Barcode,
-                mate: ReadMate::R1,
-                position: 0,
-                seq_len: Some(16),
-                match_count: reads / 2,
-                match_proportion: 0.5,
-                top_positions: vec![(ReadMate::R1, 0, reads / 2)],
-            }],
-            total_reads_sampled: reads,
-            per_file_results: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn test_validate_and_aggregate_single_file() {
-        let r = build_detection_result("[barcode][umi:12] | [gex]", 3, 10000);
-        let result = validate_and_aggregate(vec![("file1.cbq".to_string(), r)]).unwrap();
-
-        assert_eq!(result.geometry_string, "[barcode][umi:12] | [gex]");
-        assert_eq!(result.remap_window, 3);
-        assert_eq!(result.total_reads_sampled, 10000);
-        assert_eq!(result.per_file_results.len(), 1);
-        assert_eq!(result.per_file_results[0].label, "file1.cbq");
-    }
-
-    #[test]
-    fn test_validate_and_aggregate_matching_geometries_max_remap() {
-        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
-        let r2 = build_detection_result("[barcode][umi:12] | [gex]", 5, 8000);
-        let result = validate_and_aggregate(vec![
-            ("lane1.cbq".to_string(), r1),
-            ("lane2.cbq".to_string(), r2),
-        ])
-        .unwrap();
-
-        assert_eq!(result.geometry_string, "[barcode][umi:12] | [gex]");
-        assert_eq!(result.remap_window, 5); // max of 2 and 5
-        assert_eq!(result.total_reads_sampled, 18000); // 10000 + 8000
-        assert_eq!(result.per_file_results.len(), 2);
-        assert_eq!(result.per_file_results[0].remap_window, 2);
-        assert_eq!(result.per_file_results[1].remap_window, 5);
-    }
-
-    #[test]
-    fn test_validate_and_aggregate_mismatched_geometries() {
-        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
-        let r2 = build_detection_result("[barcode][umi:12] | [:5][gex]", 3, 10000);
-        let err = validate_and_aggregate(vec![
-            ("lane1.cbq".to_string(), r1),
-            ("lane2.cbq".to_string(), r2),
-        ])
-        .unwrap_err();
-
-        let msg = err.to_string();
-        assert!(
-            msg.contains("Geometry mismatch"),
-            "error should mention mismatch: {msg}"
-        );
-        assert!(
-            msg.contains("lane1.cbq"),
-            "error should name first file: {msg}"
-        );
-        assert!(
-            msg.contains("lane2.cbq"),
-            "error should name second file: {msg}"
-        );
-        assert!(
-            msg.contains("[barcode][umi:12] | [gex]"),
-            "error should show first geometry: {msg}"
-        );
-        assert!(
-            msg.contains("[barcode][umi:12] | [:5][gex]"),
-            "error should show second geometry: {msg}"
-        );
-    }
-
-    #[test]
-    fn test_validate_and_aggregate_three_files_one_mismatch() {
-        let r1 = build_detection_result("[barcode][umi:12] | [gex]", 2, 10000);
-        let r2 = build_detection_result("[barcode][umi:12] | [gex]", 3, 10000);
-        let r3 = build_detection_result("[barcode][umi:12] | [:5][gex]", 4, 10000);
-        let err = validate_and_aggregate(vec![
-            ("a.cbq".to_string(), r1),
-            ("b.cbq".to_string(), r2),
-            ("c.cbq".to_string(), r3),
-        ])
-        .unwrap_err();
-
-        let msg = err.to_string();
-        assert!(msg.contains("Geometry mismatch"), "{msg}");
-        assert!(
-            msg.contains("c.cbq"),
-            "error should list the mismatched file: {msg}"
-        );
-    }
-
-    // -------------------------------------------------------------------
     // find_best_positions top-5 cap
     // -------------------------------------------------------------------
 
@@ -1895,6 +2060,859 @@ mod tests {
         assert!(
             msg.contains("cannot find non-overlapping position"),
             "expected no-alternative bail, got: {msg}"
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // finalize_detection tests (pooled estimate, per-lane-max accept,
+    // tolerance consistency, advisory remap window)
+    // -------------------------------------------------------------------
+
+    fn gex_seq_lens(has_probe: bool) -> HashMap<Component, Option<usize>> {
+        let mut m = HashMap::new();
+        m.insert(Component::Barcode, Some(16));
+        m.insert(Component::Gex, Some(50));
+        if has_probe {
+            m.insert(Component::Probe, Some(8));
+        }
+        m
+    }
+
+    fn crispr_seq_lens(has_probe: bool) -> HashMap<Component, Option<usize>> {
+        let mut m = HashMap::new();
+        m.insert(Component::Barcode, Some(16));
+        m.insert(Component::Anchor, None); // variable-length
+        m.insert(Component::Protospacer, Some(20));
+        if has_probe {
+            m.insert(Component::Probe, Some(8));
+        }
+        m
+    }
+
+    fn detect_config() -> DetectionConfig {
+        DetectionConfig {
+            num_reads: 10000,
+            min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
+        }
+    }
+
+    fn lane(
+        label: &str,
+        entries: &[(Component, ReadMate, usize, usize)],
+        total_reads: usize,
+    ) -> (String, PositionAccumulator) {
+        (label.to_string(), build_accumulator(entries, total_reads))
+    }
+
+    #[test]
+    fn test_finalize_pooled_passes_with_one_weak_lane() {
+        // Two strong lanes + one lane with probe barely present (2.16%),
+        // mirroring FLEXLIBPOOL002 run 1174. Detection must still succeed.
+        // Mutation: reverting lane_cfg.min_proportion to config bails the weak lane.
+        let strong = |label: &str| {
+            lane(
+                label,
+                &[
+                    (Component::Barcode, ReadMate::R1, 0, 8000),
+                    (Component::Gex, ReadMate::R2, 0, 7000),
+                    (Component::Probe, ReadMate::R2, 68, 6000),
+                ],
+                10000,
+            )
+        };
+        let weak = lane(
+            "lane_weak",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 68, 216), // 2.16%
+            ],
+            10000,
+        );
+        let accs = vec![strong("lane1"), strong("lane2"), weak];
+        let result = finalize_detection(
+            accs,
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(
+            result.geometry_string,
+            "[barcode][umi:12] | [gex][:18][probe]"
+        );
+        assert_eq!(result.per_file_results.len(), 3);
+    }
+
+    #[test]
+    fn test_finalize_all_weak_fails() {
+        // Every lane is weak on probe -> no strong lane -> fail, naming lanes.
+        // Mutation: deleting the per-lane-max accept gate lets this return Ok.
+        let mk = |label: &str| {
+            lane(
+                label,
+                &[
+                    (Component::Barcode, ReadMate::R1, 0, 8000),
+                    (Component::Gex, ReadMate::R2, 0, 7000),
+                    (Component::Probe, ReadMate::R2, 68, 200), // 2%
+                ],
+                10000,
+            )
+        };
+        let accs = vec![mk("lane1"), mk("lane2"), mk("lane3")];
+        let err = finalize_detection(
+            accs,
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("threshold"), "should mention threshold: {msg}");
+        // Every lane appears in the per-lane breakdown, not just the first.
+        assert!(msg.contains("lane1"), "should name lane1: {msg}");
+        assert!(msg.contains("lane2"), "should name lane2: {msg}");
+        assert!(msg.contains("lane3"), "should name lane3: {msg}");
+    }
+
+    #[test]
+    fn test_finalize_pooled_evidence_is_pooled() {
+        // Reported evidence is the pool: counts summed, reads summed.
+        // Mutation: reporting per_file_accs[0] instead of the pool halves both.
+        let mk = |label: &str| {
+            lane(
+                label,
+                &[
+                    (Component::Barcode, ReadMate::R1, 0, 5000),
+                    (Component::Gex, ReadMate::R2, 0, 4000),
+                ],
+                10000,
+            )
+        };
+        let result = finalize_detection(
+            vec![mk("lane1"), mk("lane2")],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(result.total_reads_sampled, 20000);
+        let barcode = result
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Barcode)
+            .unwrap();
+        assert_eq!(barcode.match_count, 10000);
+    }
+
+    #[test]
+    fn test_finalize_max_remap_window_across_lanes() {
+        // lane2's gex spread (positions 20-22) clears the per-lane min_hits but
+        // not the higher pooled min_hits, so only folding lanes yields window 2.
+        // Mutation: folding the pool only yields window 1.
+        let lane1 = lane(
+            "lane1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 20, 5000),
+            ],
+            10000,
+        );
+        let lane2 = lane(
+            "lane2",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 20, 5000),
+                (Component::Gex, ReadMate::R2, 21, 150),
+                (Component::Gex, ReadMate::R2, 22, 150),
+            ],
+            10000,
+        );
+        let result = finalize_detection(
+            vec![lane1, lane2],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(result.remap_window, 2);
+    }
+
+    #[test]
+    fn test_finalize_per_file_results_include_weak_lane() {
+        // Every input lane (including a weak one) appears in per_file_results, in
+        // order, with its real total_reads_sampled.
+        // Mutation: zeroing/dropping the weak lane's entry fails these asserts.
+        let strong = lane(
+            "laneA",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 0, 4000),
+            ],
+            10000,
+        );
+        let weak = lane(
+            "laneB",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 0, 400), // 5% -> weak on gex
+            ],
+            8000,
+        );
+        let result = finalize_detection(
+            vec![strong, weak],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(result.per_file_results.len(), 2);
+        assert_eq!(result.per_file_results[0].label, "laneA");
+        assert_eq!(result.per_file_results[1].label, "laneB");
+        assert_eq!(result.per_file_results[0].total_reads_sampled, 10000);
+        assert_eq!(result.per_file_results[1].total_reads_sampled, 8000);
+    }
+
+    #[test]
+    fn test_finalize_zero_read_lane_is_fatal() {
+        // A zero-read lane is fatal (pins the empty-file-fatal decision).
+        // Mutation: downgrading zero-reads to a warning changes the error to the
+        // missing-component message, so asserting "0 reads" catches it.
+        let strong = lane(
+            "laneA",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 0, 4000),
+            ],
+            10000,
+        );
+        let empty = ("laneB".to_string(), PositionAccumulator::default());
+        let err = finalize_detection(
+            vec![strong, empty],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("0 reads"), "should report zero reads: {msg}");
+        assert!(msg.contains("laneB"), "should name the empty lane: {msg}");
+    }
+
+    #[test]
+    fn test_finalize_missing_component_lane_is_fatal() {
+        // A lane with no barcode positions (e.g. wrong whitelist / index read)
+        // must bail naming the component, NOT panic.
+        // Mutation: keeping the `.expect` on the barcode lookup panics here.
+        let no_barcode = lane("laneA", &[(Component::Gex, ReadMate::R2, 0, 4000)], 10000);
+        let err = finalize_detection(
+            vec![no_barcode],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("[barcode]"),
+            "should name the missing barcode: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_finalize_strong_conflict_mate_bails() {
+        // Two strong lanes place the probe on different mates (R2 vs R1) with
+        // unequal counts, so the pool has a clear winner and the R1 lane
+        // conflicts. Mutation: deleting the consistency bail returns Ok.
+        let lane1 = lane(
+            "lane1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 68, 6000),
+            ],
+            10000,
+        );
+        let lane2 = lane(
+            "lane2",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R1, 40, 5000), // probe on R1
+            ],
+            10000,
+        );
+        let err = finalize_detection(
+            vec![lane1, lane2],
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("mismatch"),
+            "should report a geometry mismatch: {msg}"
+        );
+        // The error names the offending lane, the component, and the mate reason.
+        assert!(
+            msg.contains("lane2"),
+            "should name the offending lane: {msg}"
+        );
+        assert!(msg.contains("[probe]"), "should name the component: {msg}");
+        assert!(
+            msg.contains("mate"),
+            "should state the mate disagreement: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_finalize_strong_conflict_offset_bails() {
+        // crispr-v1-like (probe at R2:0) vs properseq-like (probe at R2:18):
+        // same mate, delta 18 > probe tolerance of 2.
+        // Mutation: an offset-blind check (mate only) misses this and returns Ok.
+        let v1 = lane(
+            "lane_v1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Probe, ReadMate::R2, 0, 5000),
+                (Component::Anchor, ReadMate::R2, 40, 7000),
+                (Component::Protospacer, ReadMate::R2, 60, 6000),
+            ],
+            10000,
+        );
+        let properseq = lane(
+            "lane_properseq",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Probe, ReadMate::R2, 18, 4000),
+                (Component::Anchor, ReadMate::R2, 40, 7000),
+                (Component::Protospacer, ReadMate::R2, 60, 6000),
+            ],
+            10000,
+        );
+        let err = finalize_detection(
+            vec![v1, properseq],
+            DetectionMode::Crispr,
+            true,
+            &crispr_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("mismatch"),
+            "should report a geometry mismatch: {msg}"
+        );
+        // The error names the offending lane, the component, and the offset reason.
+        assert!(
+            msg.contains("lane_properseq"),
+            "should name the offending lane: {msg}"
+        );
+        assert!(msg.contains("[probe]"), "should name the component: {msg}");
+        assert!(
+            msg.contains("offset"),
+            "should state the offset detail: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_finalize_jitter_does_not_conflict() {
+        // [:12] vs [:13] before the probe: probe positions differ by 1, inside
+        // the tolerance of 2. Detection succeeds and reports the pooled geometry.
+        // Mutation: an exact-geometry-string consistency check bails here.
+        let lane1 = lane(
+            "lane1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 62, 6000),
+            ],
+            10000,
+        );
+        let lane2 = lane(
+            "lane2",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 63, 5000),
+            ],
+            10000,
+        );
+        let result = finalize_detection(
+            vec![lane1, lane2],
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(
+            result.geometry_string,
+            "[barcode][umi:12] | [gex][:12][probe]"
+        );
+    }
+
+    #[test]
+    fn test_finalize_single_lane_geometry() {
+        // A single lane produces the canonical geometry (deterministic via the
+        // total tie-break sort) and one per-file result.
+        let only = lane(
+            "lane1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 68, 6000),
+            ],
+            10000,
+        );
+        let result = finalize_detection(
+            vec![only],
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(
+            result.geometry_string,
+            "[barcode][umi:12] | [gex][:18][probe]"
+        );
+        assert_eq!(result.per_file_results.len(), 1);
+    }
+
+    #[test]
+    fn test_finalize_weak_component_far_from_pool_does_not_conflict() {
+        // A weak component whose argmax is FAR from the pool must not trip the
+        // consistency check -- weak components don't vote. Two strong lanes put
+        // the probe at R2:68; a weak lane's 2% probe signal sits at R2:90.
+        // Mutation: removing the `match_proportion < min_proportion` guard lets
+        // the weak lane vote -> |90-68| = 22 > probe tol 2 -> mismatch -> fails.
+        let strong = |label: &str| {
+            lane(
+                label,
+                &[
+                    (Component::Barcode, ReadMate::R1, 0, 8000),
+                    (Component::Gex, ReadMate::R2, 0, 7000),
+                    (Component::Probe, ReadMate::R2, 68, 6000),
+                ],
+                10000,
+            )
+        };
+        let weak = lane(
+            "lane_weak",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 0, 7000),
+                (Component::Probe, ReadMate::R2, 90, 200), // 2%, far from pooled R2:68
+            ],
+            10000,
+        );
+        let result = finalize_detection(
+            vec![strong("lane1"), strong("lane2"), weak],
+            DetectionMode::Gex,
+            true,
+            &gex_seq_lens(true),
+            &detect_config(),
+        )
+        .unwrap();
+        assert_eq!(
+            result.geometry_string,
+            "[barcode][umi:12] | [gex][:18][probe]"
+        );
+        assert_eq!(result.per_file_results.len(), 3);
+    }
+
+    #[test]
+    fn test_finalize_wide_pooled_window_tolerates_feature_jitter() {
+        // Two strong GEX lanes whose gex argmax differ by 12 bp, bridged by a
+        // contiguous low tail. The tail clears each lane's min_hits but not the
+        // pooled min_hits, so the pooled window is 1 while the max-across-lanes
+        // window is 12; the consistency tolerance must use the latter or this
+        // legitimate single-chemistry jitter is falsely rejected.
+        // Mutation: using the pooled window (tol 2) instead of the max (12) in
+        // component_tolerance -> |40-52| = 12 > 2 -> bail -> fails.
+        let mut lane1_entries = vec![
+            (Component::Barcode, ReadMate::R1, 0, 8000),
+            (Component::Gex, ReadMate::R2, 40, 3000),
+        ];
+        for pos in 41..=52 {
+            lane1_entries.push((Component::Gex, ReadMate::R2, pos, 150));
+        }
+        let lane1 = lane("lane1", &lane1_entries, 10000);
+        let lane2 = lane(
+            "lane2",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 8000),
+                (Component::Gex, ReadMate::R2, 52, 3000),
+            ],
+            10000,
+        );
+        let result = finalize_detection(
+            vec![lane1, lane2],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap();
+        // Reported window is the max across lanes/pool, and detection succeeded
+        // (no spurious "Geometry mismatch").
+        assert_eq!(result.remap_window, 12);
+        assert_eq!(result.per_file_results.len(), 2);
+    }
+
+    #[test]
+    fn test_finalize_empty_input_bails() {
+        // Callers always pass >=1 lane; the internal guard bails rather than
+        // producing a bogus empty result.
+        let err = finalize_detection(
+            vec![],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("no input lanes"),
+            "should report empty input: {err}"
+        );
+    }
+
+    #[test]
+    fn test_remap_window_argmax_tie_breaks_to_lowest_position() {
+        // Determinism guard for estimate_remap_window: three gex positions tie at
+        // the max count. The argmax must resolve to the LOWEST (mate, position)
+        // (R2:10), whose neighbors R2:11/12 give window 2; a HashMap-order argmax
+        // could start at R2:30 or R2:11 (window 1). Pins the total tie-break.
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R2, 10, 5000),
+                (Component::Gex, ReadMate::R2, 11, 5000),
+                (Component::Gex, ReadMate::R2, 12, 5000),
+                (Component::Gex, ReadMate::R2, 30, 5000),
+                (Component::Gex, ReadMate::R2, 31, 5000),
+            ],
+            10000,
+        );
+        let window =
+            estimate_remap_window(&acc, &[Component::Gex], 10000, DEFAULT_REMAP_MIN_PROPORTION);
+        assert_eq!(
+            window, 2,
+            "argmax must tie-break to R2:10, walking to R2:12"
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // Windowed match count/proportion tests
+    // -------------------------------------------------------------------
+
+    /// Test 1: tight distribution -- all gex hits at the same position.
+    /// Windowed count must equal single-position `match_count`.
+    #[test]
+    fn test_windowed_proportion_tight_distribution() {
+        let acc = build_accumulator(
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 0, 5000),
+            ],
+            10_000,
+        );
+        let mut seq_lens = HashMap::new();
+        seq_lens.insert(Component::Barcode, Some(16));
+        seq_lens.insert(Component::Gex, Some(50));
+
+        let config = DetectionConfig {
+            num_reads: 10_000,
+            min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
+        };
+
+        let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
+
+        let gex = result
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        assert_eq!(gex.match_count, 5000);
+        assert_eq!(
+            gex.windowed_match_count, gex.match_count,
+            "tight distribution: windowed_match_count must equal match_count",
+        );
+        assert!(
+            (gex.windowed_match_proportion - gex.match_proportion).abs() < 1e-12,
+            "tight distribution: windowed_match_proportion must equal match_proportion",
+        );
+    }
+
+    /// Test 2: spread within window -- gex at three positions clustered tightly
+    /// enough for W=1; assert windowed count sums all three positions.
+    #[test]
+    fn test_windowed_proportion_spread_within_window() {
+        // 20000 reads. min_hits = ceil(20000 * 0.01) = 200.
+        // Best gex position: R2:66 with 5000.
+        // Walk above 66: 67=3000>=200, 68=0<200 stop. farthest_above = 67.
+        // Walk below 66: 65=2000>=200, 64=0<200 stop. farthest_below = 65.
+        // W = max(67-66, 66-65) = 1.
+        let acc = build_accumulator(
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 65, 2000),
+                (Component::Gex, ReadMate::R2, 66, 5000),
+                (Component::Gex, ReadMate::R2, 67, 3000),
+            ],
+            20_000,
+        );
+        let mut seq_lens = HashMap::new();
+        seq_lens.insert(Component::Barcode, Some(16));
+        seq_lens.insert(Component::Gex, Some(50));
+
+        let config = DetectionConfig {
+            num_reads: 20_000,
+            min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
+        };
+
+        let result = infer_geometry(&acc, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
+        assert_eq!(result.remap_window, 1, "expected W=1 for this distribution");
+
+        let gex = result
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        assert_eq!(gex.match_count, 5000, "single-position match_count is 5000");
+        assert!(
+            (gex.match_proportion - 0.25).abs() < 1e-12,
+            "single-position proportion is 5000/20000 = 0.25",
+        );
+        // Windowed sum at W=1 centered on 66: [65,67] = 2000 + 5000 + 3000 = 10000.
+        assert_eq!(
+            gex.windowed_match_count, 10_000,
+            "windowed sum should aggregate all three positions in [65,67]",
+        );
+        assert!(
+            (gex.windowed_match_proportion - 0.5).abs() < 1e-12,
+            "windowed proportion is 10000/20000 = 0.5",
+        );
+    }
+
+    /// Test 3: clipped at window edge -- confirms boundary inclusion at pos+W
+    /// and exclusion at pos+W+1. Two scenarios:
+    ///   variant A: fillers carry W out to 4, so an alt at pos+4 IS included;
+    ///   variant B: no fillers, W clamps to 1, so the same alt is EXCLUDED.
+    #[test]
+    fn test_windowed_proportion_clipped_at_window_edge() {
+        let mut seq_lens = HashMap::new();
+        seq_lens.insert(Component::Barcode, Some(16));
+        seq_lens.insert(Component::Gex, Some(50));
+        let config = DetectionConfig {
+            num_reads: 20_000,
+            min_proportion: 0.10,
+            remap_min_proportion: DEFAULT_REMAP_MIN_PROPORTION,
+            num_threads: 1,
+        };
+
+        // Variant A: fillers at 67-69 carry W to 4 (range 67..=70 reaches min_hits=200).
+        // Walk above 66: 67=200, 68=200, 69=200, 70=4000, 71=0<200 stop. farthest_above=70.
+        // Walk below 66: 65=0<200 stop. window = max(4, 0) = 4.
+        let acc_a = build_accumulator(
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 66, 5000),
+                (Component::Gex, ReadMate::R2, 67, 200),
+                (Component::Gex, ReadMate::R2, 68, 200),
+                (Component::Gex, ReadMate::R2, 69, 200),
+                (Component::Gex, ReadMate::R2, 70, 4000),
+            ],
+            20_000,
+        );
+        let result_a =
+            infer_geometry(&acc_a, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
+        assert_eq!(result_a.remap_window, 4, "variant A: expected W=4");
+        let gex_a = result_a
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        // Windowed [62,70] = 0+0+0+0+5000+200+200+200+4000 = 9600.
+        // Confirms inclusive upper boundary: R2:70 at pos+W=70 IS counted.
+        assert_eq!(
+            gex_a.windowed_match_count, 9600,
+            "variant A: windowed sum at W=4 must include R2:70 (upper boundary)",
+        );
+
+        // Variant B: no fillers, W clamps to 1. R2:70 outside [65,67].
+        let acc_b = build_accumulator(
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 66, 5000),
+                (Component::Gex, ReadMate::R2, 70, 4000),
+            ],
+            20_000,
+        );
+        let result_b =
+            infer_geometry(&acc_b, DetectionMode::Gex, false, &seq_lens, &config).unwrap();
+        assert_eq!(result_b.remap_window, 1, "variant B: expected W=1");
+        let gex_b = result_b
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        // Windowed [65,67] = 0 + 5000 + 0 = 5000. R2:70 is OUT of [65,67].
+        assert_eq!(
+            gex_b.windowed_match_count, 5000,
+            "variant B: alt at pos+4 must be excluded when W=1",
+        );
+    }
+
+    /// Test 4: same-mate-only -- noise hits on the opposite mate at the same
+    /// position must be excluded from the windowed sum. Exercises the
+    /// `*m == mate` filter in `PositionAccumulator::windowed_count`.
+    #[test]
+    fn test_windowed_proportion_same_mate_only() {
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R1, 66, 1000), // wrong mate noise
+                (Component::Gex, ReadMate::R2, 66, 5000), // best on right mate
+            ],
+            10_000,
+        );
+
+        // Asking for R2 must NOT pick up the R1:66 contribution.
+        assert_eq!(
+            acc.windowed_count(Component::Gex, ReadMate::R2, 66, 1),
+            5000,
+            "R1:66 noise must not leak into the R2 windowed sum",
+        );
+        // Mirror check: asking for R1 must NOT pick up the R2:66 contribution.
+        assert_eq!(
+            acc.windowed_count(Component::Gex, ReadMate::R1, 66, 1),
+            1000,
+            "R2:66 must not leak into the R1 windowed sum",
+        );
+    }
+
+    /// Test 5: saturating lower bound -- when `best_pos < window`, the lower
+    /// bound clips to 0 instead of underflowing. Exercises `saturating_sub`.
+    #[test]
+    fn test_windowed_proportion_saturating_lo() {
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R2, 0, 1000),
+                (Component::Gex, ReadMate::R2, 1, 1000),
+                (Component::Gex, ReadMate::R2, 2, 5000),
+            ],
+            10_000,
+        );
+        // best_pos=2, window=5 -> lo = 2.saturating_sub(5) = 0, hi = 7.
+        // Walk [0, 7]: 1000 + 1000 + 5000 = 7000.
+        assert_eq!(
+            acc.windowed_count(Component::Gex, ReadMate::R2, 2, 5),
+            7000,
+            "saturating_sub must clip the lower bound to 0",
+        );
+    }
+
+    /// Test 6: the reported windowed count is re-walked on the POOLED accumulator
+    /// at the MAX window, not the pooled window. lane2's gex tail (21,22) clears
+    /// the per-lane `min_hits` but not the pooled `min_hits`, so pooled window = 1
+    /// while max window = 2. Also pins per-lane windowed values at each lane's
+    /// own window.
+    #[test]
+    fn test_finalize_windowed_rewalk_at_max_window() {
+        let lane1 = lane(
+            "lane1",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 20, 5000),
+            ],
+            10_000,
+        );
+        let lane2 = lane(
+            "lane2",
+            &[
+                (Component::Barcode, ReadMate::R1, 0, 5000),
+                (Component::Gex, ReadMate::R2, 20, 5000),
+                (Component::Gex, ReadMate::R2, 21, 150),
+                (Component::Gex, ReadMate::R2, 22, 150),
+            ],
+            10_000,
+        );
+        let result = finalize_detection(
+            vec![lane1, lane2],
+            DetectionMode::Gex,
+            false,
+            &gex_seq_lens(false),
+            &detect_config(),
+        )
+        .unwrap();
+
+        assert_eq!(result.remap_window, 2, "max window across lanes and pool");
+        assert_eq!(result.total_reads_sampled, 20_000);
+
+        // Pooled gex: 20->10000, 21->150, 22->150. Re-walk at max window 2
+        // ([18,22]) = 10000 + 150 + 150 = 10300. At the pooled window 1 ([19,21])
+        // it would be only 10150 -- so this pins the re-walk at max_window.
+        let gex = result
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        assert_eq!(gex.match_count, 10_000, "aggregated single-position count");
+        assert_eq!(
+            gex.windowed_match_count, 10_300,
+            "windowed count must be re-walked at max window 2, not pooled window 1",
+        );
+
+        // Per-lane windowed values keep each lane's own window: lane1 W=1 -> just
+        // R2:20 = 5000; lane2 W=2 -> [18,22] on lane2 = 5000+150+150 = 5300.
+        let l1_gex = result.per_file_results[0]
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        assert_eq!(l1_gex.windowed_match_count, 5000, "lane1 at its own W=1");
+        let l2_gex = result.per_file_results[1]
+            .evidence
+            .iter()
+            .find(|e| e.component == Component::Gex)
+            .unwrap();
+        assert_eq!(l2_gex.windowed_match_count, 5300, "lane2 at its own W=2");
+    }
+
+    /// Test 7: upper boundary inclusion -- directly exercises the `*p <= hi`
+    /// filter. With `best_pos=10`, `window=3`, `hi=13`: `pos=13` IS counted,
+    /// `pos=14` is NOT.
+    #[test]
+    fn test_windowed_count_helper_includes_upper_boundary() {
+        let acc = build_accumulator(
+            &[
+                (Component::Gex, ReadMate::R2, 10, 100), // best
+                (Component::Gex, ReadMate::R2, 13, 50),  // = hi, inclusive
+                (Component::Gex, ReadMate::R2, 14, 99),  // = hi+1, excluded
+            ],
+            10_000,
+        );
+        // best_pos=10, window=3 -> lo=7, hi=13. Walk [7,13]: 100 + 50 = 150.
+        assert_eq!(
+            acc.windowed_count(Component::Gex, ReadMate::R2, 10, 3),
+            150,
+            "upper boundary at hi must be inclusive; hi+1 must be excluded",
         );
     }
 }
