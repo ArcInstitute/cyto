@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::time::Instant;
@@ -23,6 +24,9 @@ pub struct CrisprMapper<S = Ready> {
     anchor_hash: MultiLenSeqHash,
     protospacer_hash: MultiLenSeqHash,
     names: Vec<String>,
+    /// Per protospacer parent index: `(anchor_idx, feature_idx)` of each guide carrying it.
+    /// More than one entry only when the protospacer is shared across anchors.
+    proto_guides: Vec<Vec<(u32, u32)>>,
     anchor_pos: usize,
     mate: ReadMate,
     init_time: f64,
@@ -41,18 +45,53 @@ impl CrisprMapper<Unpositioned> {
             .from_reader(ihandle);
 
         let mut names = Vec::default();
-        let mut anchors = Vec::default();
-        let mut protospacers = Vec::default();
+        let mut anchors: Vec<String> = Vec::default();
+        let mut proto_unique: Vec<String> = Vec::default();
+        let mut proto_index: HashMap<String, usize> = HashMap::default();
+        let mut proto_guides: Vec<Vec<(u32, u32)>> = Vec::default();
 
-        for result in reader.deserialize() {
-            let record: CrisprRecord = result?;
-            names.push(record.name);
+        for (row_idx, result) in reader.deserialize().enumerate() {
+            let CrisprRecord {
+                name,
+                anchor,
+                protospacer,
+            } = result?;
+            // seqhash uppercases parents, so deduplicate on the same normalized sequence.
+            let anchor = anchor.to_ascii_uppercase();
+            let protospacer = protospacer.to_ascii_uppercase();
 
-            if !anchors.contains(&record.anchor) {
-                anchors.push(record.anchor);
+            // First-occurrence order equals the global `parent_idx` of each `MultiLenSeqHash`.
+            let anchor_idx = if let Some(i) = anchors.iter().position(|a| a == &anchor) {
+                i
+            } else {
+                anchors.push(anchor);
+                anchors.len() - 1
+            };
+            let proto_idx = if let Some(&i) = proto_index.get(&protospacer) {
+                i
+            } else {
+                let i = proto_unique.len();
+                proto_index.insert(protospacer.clone(), i);
+                proto_unique.push(protospacer);
+                proto_guides.push(Vec::new());
+                i
+            };
+
+            if let Some(&(_, earlier_row)) = proto_guides[proto_idx]
+                .iter()
+                .find(|&&(a, _)| a as usize == anchor_idx)
+            {
+                bail!(
+                    "guide '{}' (row {}) shares both anchor and protospacer with guide '{}' (row {}); \
+                     cyto cannot distinguish guides identical in both anchor and protospacer",
+                    name,
+                    row_idx + 1,
+                    names[earlier_row as usize],
+                    earlier_row + 1
+                );
             }
-
-            protospacers.push(record.protospacer);
+            proto_guides[proto_idx].push((anchor_idx as u32, row_idx as u32));
+            names.push(name);
         }
 
         trace!("[CRISPR seqhash] - Starting build");
@@ -60,10 +99,18 @@ impl CrisprMapper<Unpositioned> {
         let protospacer_hash = if exact {
             MultiLenSeqHashBuilder::default()
                 .exact()
-                .build(&protospacers)
+                .build(&proto_unique)
         } else {
-            MultiLenSeqHash::new(&protospacers)
+            MultiLenSeqHash::new(&proto_unique)
         }?;
+
+        let shared = proto_guides.iter().filter(|g| g.len() > 1).count();
+        if shared > 0 {
+            info!(
+                "[CRISPR seqhash] - {shared} protospacer(s) shared across anchors; disambiguating by anchor"
+            );
+        }
+
         let init_time = start.elapsed().as_secs_f64();
         info!(
             "[CRISPR seqhash] - Build complete ({:.2} ms)",
@@ -74,6 +121,7 @@ impl CrisprMapper<Unpositioned> {
             anchor_hash,
             protospacer_hash,
             names,
+            proto_guides,
             anchor_pos: 0,
             mate: ReadMate::R1,
             _state: PhantomData,
@@ -115,6 +163,7 @@ impl CrisprMapper<Unpositioned> {
             anchor_hash: self.anchor_hash,
             protospacer_hash: self.protospacer_hash,
             names: self.names,
+            proto_guides: self.proto_guides,
             anchor_pos,
             mate,
             init_time: self.init_time,
@@ -156,16 +205,30 @@ impl Mapper for CrisprMapper<Ready> {
         let (mat, remap_offset) =
             self.anchor_hash
                 .query_at_with_remap_offset(seq, self.anchor_pos, self.window)?;
+        let anchor_idx = mat.parent_idx() as u32;
 
         let protospacer_offset =
             ((self.anchor_pos + mat.seq_len()) as isize + remap_offset) as usize;
 
-        self.protospacer_hash
-            .query_at_with_remap_offset(seq, protospacer_offset, self.window)
-            .map(|(m, remap_offset)| FeatureMatch {
-                feature_idx: m.parent_idx(),
-                end_pos: ((protospacer_offset + m.seq_len()) as isize + remap_offset) as usize,
-            })
+        let (m, remap_offset) = self.protospacer_hash.query_at_with_remap_offset(
+            seq,
+            protospacer_offset,
+            self.window,
+        )?;
+
+        // A unique protospacer ignores the anchor. A shared one is attributed to the guide
+        // on the matched anchor, and is unmapped if that anchor carries none of them.
+        let guides = &self.proto_guides[m.parent_idx()];
+        let feature_idx = if let [(_, row)] = guides.as_slice() {
+            *row
+        } else {
+            guides.iter().find(|&&(a, _)| a == anchor_idx)?.1
+        } as usize;
+
+        Some(FeatureMatch {
+            feature_idx,
+            end_pos: ((protospacer_offset + m.seq_len()) as isize + remap_offset) as usize,
+        })
     }
 
     fn mate(&self) -> ReadMate {
@@ -182,8 +245,8 @@ impl Library for CrisprMapper<Ready> {
             .sum();
         LibraryStatistics {
             name: "crispr",
-            total_elem: self.protospacer_hash.num_parents(),
-            total_aggr: self.protospacer_hash.num_parents(),
+            total_elem: self.names.len(),
+            total_aggr: self.names.len(),
             total_hash,
             position: self.anchor_pos,
             mate: self.mate,
@@ -353,6 +416,154 @@ mod tests {
         assert_eq!(
             num_lengths, 4,
             "Expected 4 unique lengths, got {num_lengths}"
+        );
+    }
+
+    // A and B are the real library anchors; C is a synthetic anchor with no shared guide.
+    const ANCHOR_A: &[u8] = b"CTTGCTATGCACTCTTGTGCTTAGCTCTGAAAC"; // 33bp
+    const ANCHOR_B: &[u8] = b"GCTATGCTGTTTCCAGCTTAGCTCTTAAAC"; // 30bp
+    const ANCHOR_C: &[u8] = b"AACCGGTTAACCGGTTAACCGGTTAACCGG"; // 30bp
+    const PROTO_SHARED: &[u8] = b"AAAACCCCGGGGTTTTACGT";
+    const PROTO_UNIQ_A: &[u8] = b"CACGTACGTACGTACGTACG";
+
+    fn dup_anchor_path() -> std::path::PathBuf {
+        workspace_root().join("data/libraries/crispr_dup_anchor.tsv")
+    }
+
+    /// Build a `Ready` mapper with the anchor at position 0 and a remap window of 1.
+    fn ready(path: &std::path::Path, exact: bool) -> CrisprMapper<Ready> {
+        CrisprMapper::from_file(path, exact, 1)
+            .unwrap()
+            .with_position(0, ReadMate::R1)
+    }
+
+    fn read_of(parts: &[&[u8]]) -> Vec<u8> {
+        parts.concat()
+    }
+
+    fn feature_of(mapper: &CrisprMapper<Ready>, parts: &[&[u8]]) -> Option<usize> {
+        mapper.query(&read_of(parts)).map(|m| m.feature_idx)
+    }
+
+    #[test]
+    fn test_collision_resolves_by_anchor() {
+        let mapper = ready(&dup_anchor_path(), false);
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_SHARED]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, PROTO_SHARED]), Some(1));
+    }
+
+    #[test]
+    fn test_unique_protospacer_ignores_anchor() {
+        let mapper = ready(&dup_anchor_path(), false);
+        // UNIQ_A (row 2) carries anchor A, but a unique protospacer maps under any anchor.
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, PROTO_UNIQ_A]), Some(2));
+    }
+
+    #[test]
+    fn test_collision_wrong_anchor_returns_none() {
+        let mapper = ready(&dup_anchor_path(), false);
+        assert_eq!(feature_of(&mapper, &[ANCHOR_C, PROTO_SHARED]), None);
+    }
+
+    #[test]
+    fn test_collision_with_mismatches() {
+        let mapper = ready(&dup_anchor_path(), false);
+        let proto_mm = b"CAAACCCCGGGGTTTTACGT"; // PROTO_SHARED, base 0 substituted
+        let anchor_b_mm = b"GCTATACTGTTTCCAGCTTAGCTCTTAAAC"; // ANCHOR_B, base 5 substituted
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, proto_mm]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, proto_mm]), Some(1));
+        assert_eq!(feature_of(&mapper, &[anchor_b_mm, PROTO_SHARED]), Some(1));
+    }
+
+    #[test]
+    fn test_unique_protospacer_mismatch() {
+        let mapper = ready(&dup_anchor_path(), false);
+        let proto_mm = b"CACGTACGTACGTACGTACT"; // PROTO_UNIQ_A, base 19 substituted
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, proto_mm]), Some(2));
+    }
+
+    #[test]
+    fn test_collision_with_shifts() {
+        let mapper = ready(&dup_anchor_path(), false);
+
+        // Anchor shifted by one base: the protospacer offset follows the anchor.
+        let m = mapper
+            .query(&read_of(&[b"A", ANCHOR_B, PROTO_SHARED]))
+            .unwrap();
+        assert_eq!(m.feature_idx, 1);
+        assert_eq!(m.end_pos, 1 + ANCHOR_B.len() + PROTO_SHARED.len());
+
+        // Protospacer shifted by one base: `end_pos` includes the protospacer remap offset.
+        let m = mapper
+            .query(&read_of(&[ANCHOR_A, b"T", PROTO_SHARED]))
+            .unwrap();
+        assert_eq!(m.feature_idx, 0);
+        assert_eq!(m.end_pos, ANCHOR_A.len() + 1 + PROTO_SHARED.len());
+    }
+
+    #[test]
+    fn test_mixed_case_library() {
+        let lower = |s: &[u8]| String::from_utf8(s.to_ascii_lowercase()).unwrap();
+        let upper = |s: &[u8]| String::from_utf8(s.to_vec()).unwrap();
+        let library = format!(
+            "SHARED_A\t{}\t{}\nSHARED_B\t{}\t{}\nUNIQ_A\t{}\t{}\n",
+            upper(ANCHOR_A),
+            upper(PROTO_SHARED),
+            lower(ANCHOR_B),
+            lower(PROTO_SHARED),
+            lower(ANCHOR_A),
+            upper(PROTO_UNIQ_A),
+        );
+        let ntf = NamedTempFile::new().unwrap();
+        std::fs::write(ntf.path(), library).unwrap();
+
+        let mapper = ready(ntf.path(), false);
+        assert_eq!(mapper.anchor_hash.num_parents(), 2);
+        assert_eq!(mapper.protospacer_hash.num_parents(), 2);
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_SHARED]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, PROTO_SHARED]), Some(1));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_UNIQ_A]), Some(2));
+    }
+
+    #[test]
+    fn test_duplicate_anchor_protospacer_pair_errors() {
+        let path = workspace_root().join("data/libraries/crispr_dup_pair.tsv");
+        // `CrisprMapper` is not `Debug`, so `unwrap_err` does not compile.
+        let err = CrisprMapper::from_file(&path, false, 1)
+            .err()
+            .expect("duplicate (anchor, protospacer) pair should be rejected");
+        let msg = err.to_string();
+        assert!(msg.contains("'DUPE_B' (row 2)"), "unexpected error: {msg}");
+        assert!(msg.contains("'DUPE_A' (row 1)"), "unexpected error: {msg}");
+    }
+
+    #[test]
+    fn test_statistics_and_record_stream_row_count() {
+        let mapper = ready(&dup_anchor_path(), false);
+        let stats = mapper.statistics();
+        // 4 guides share 3 unique protospacers.
+        assert_eq!(stats.total_elem, 4);
+        assert_eq!(stats.total_aggr, 4);
+        assert_eq!(mapper.protospacer_hash.num_parents(), 3);
+        let names: Vec<_> = mapper.record_stream().map(|(n, _)| n).collect();
+        assert_eq!(names, ["SHARED_A", "SHARED_B", "UNIQ_A", "UNIQ_C"]);
+    }
+
+    #[test]
+    fn test_exact_build_on_collision() {
+        let mapper = ready(&dup_anchor_path(), true);
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_SHARED]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, PROTO_SHARED]), Some(1));
+    }
+
+    #[test]
+    fn test_backward_compat_real_library() {
+        let path = workspace_root().join("data/libraries/crispr_guides.tsv");
+        let mapper = ready(&path, false);
+        // Row 1 of crispr_guides.tsv: anchor A with a unique protospacer.
+        assert_eq!(
+            feature_of(&mapper, &[ANCHOR_A, b"CACTCCACGTCGCCCGGAGC"]),
+            Some(0)
         );
     }
 }
