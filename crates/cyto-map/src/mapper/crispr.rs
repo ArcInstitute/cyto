@@ -56,6 +56,10 @@ impl CrisprMapper<Unpositioned> {
                 anchor,
                 protospacer,
             } = result?;
+            // seqhash uppercases parents, so deduplicate on the same normalized sequence.
+            let anchor = anchor.to_ascii_uppercase();
+            let protospacer = protospacer.to_ascii_uppercase();
+
             // First-occurrence order equals the global `parent_idx` of each `MultiLenSeqHash`.
             let anchor_idx = if let Some(i) = anchors.iter().position(|a| a == &anchor) {
                 i
@@ -81,9 +85,9 @@ impl CrisprMapper<Unpositioned> {
                     "guide '{}' (row {}) shares both anchor and protospacer with guide '{}' (row {}); \
                      cyto cannot distinguish guides identical in both anchor and protospacer",
                     name,
-                    row_idx,
+                    row_idx + 1,
                     names[earlier_row as usize],
-                    earlier_row
+                    earlier_row + 1
                 );
             }
             proto_guides[proto_idx].push((anchor_idx as u32, row_idx as u32));
@@ -462,6 +466,66 @@ mod tests {
     }
 
     #[test]
+    fn test_collision_with_mismatches() {
+        let mapper = ready(&dup_anchor_path(), false);
+        let proto_mm = b"CAAACCCCGGGGTTTTACGT"; // PROTO_SHARED, base 0 substituted
+        let anchor_b_mm = b"GCTATACTGTTTCCAGCTTAGCTCTTAAAC"; // ANCHOR_B, base 5 substituted
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, proto_mm]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, proto_mm]), Some(1));
+        assert_eq!(feature_of(&mapper, &[anchor_b_mm, PROTO_SHARED]), Some(1));
+    }
+
+    #[test]
+    fn test_unique_protospacer_mismatch() {
+        let mapper = ready(&dup_anchor_path(), false);
+        let proto_mm = b"CACGTACGTACGTACGTACT"; // PROTO_UNIQ_A, base 19 substituted
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, proto_mm]), Some(2));
+    }
+
+    #[test]
+    fn test_collision_with_shifts() {
+        let mapper = ready(&dup_anchor_path(), false);
+
+        // Anchor shifted by one base: the protospacer offset follows the anchor.
+        let m = mapper
+            .query(&read_of(&[b"A", ANCHOR_B, PROTO_SHARED]))
+            .unwrap();
+        assert_eq!(m.feature_idx, 1);
+        assert_eq!(m.end_pos, 1 + ANCHOR_B.len() + PROTO_SHARED.len());
+
+        // Protospacer shifted by one base: `end_pos` includes the protospacer remap offset.
+        let m = mapper
+            .query(&read_of(&[ANCHOR_A, b"T", PROTO_SHARED]))
+            .unwrap();
+        assert_eq!(m.feature_idx, 0);
+        assert_eq!(m.end_pos, ANCHOR_A.len() + 1 + PROTO_SHARED.len());
+    }
+
+    #[test]
+    fn test_mixed_case_library() {
+        let lower = |s: &[u8]| String::from_utf8(s.to_ascii_lowercase()).unwrap();
+        let upper = |s: &[u8]| String::from_utf8(s.to_vec()).unwrap();
+        let library = format!(
+            "SHARED_A\t{}\t{}\nSHARED_B\t{}\t{}\nUNIQ_A\t{}\t{}\n",
+            upper(ANCHOR_A),
+            upper(PROTO_SHARED),
+            lower(ANCHOR_B),
+            lower(PROTO_SHARED),
+            lower(ANCHOR_A),
+            upper(PROTO_UNIQ_A),
+        );
+        let ntf = NamedTempFile::new().unwrap();
+        std::fs::write(ntf.path(), library).unwrap();
+
+        let mapper = ready(ntf.path(), false);
+        assert_eq!(mapper.anchor_hash.num_parents(), 2);
+        assert_eq!(mapper.protospacer_hash.num_parents(), 2);
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_SHARED]), Some(0));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_B, PROTO_SHARED]), Some(1));
+        assert_eq!(feature_of(&mapper, &[ANCHOR_A, PROTO_UNIQ_A]), Some(2));
+    }
+
+    #[test]
     fn test_duplicate_anchor_protospacer_pair_errors() {
         let path = workspace_root().join("data/libraries/crispr_dup_pair.tsv");
         // `CrisprMapper` is not `Debug`, so `unwrap_err` does not compile.
@@ -469,8 +533,8 @@ mod tests {
             .err()
             .expect("duplicate (anchor, protospacer) pair should be rejected");
         let msg = err.to_string();
-        assert!(msg.contains("DUPE_A"), "error should name DUPE_A: {msg}");
-        assert!(msg.contains("DUPE_B"), "error should name DUPE_B: {msg}");
+        assert!(msg.contains("'DUPE_B' (row 2)"), "unexpected error: {msg}");
+        assert!(msg.contains("'DUPE_A' (row 1)"), "unexpected error: {msg}");
     }
 
     #[test]
